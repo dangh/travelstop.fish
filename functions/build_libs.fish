@@ -1,6 +1,5 @@
 function build_libs -a force -d "rebuild libs module"
-  set -l current_dir (pwd)
-  set -l project_dir (string replace -r '(ravelstop)/.*' '$1' "$current_dir")
+  set -l project_dir (git rev-parse --show-toplevel)
   set -l nodejs_dir "$project_dir/modules/libs/nodejs"
 
   # repackaging libs

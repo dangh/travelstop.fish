@@ -20,7 +20,7 @@ function __sls_deploy_module -a module_name -d "deploy single module"
   echo (set_color -b green)(set_color black)deploying module $module_name(set_color normal)
 
   set -l current_dir (pwd)
-  set -l project_dir (string replace -r '(ravelstop)/.*' '$1' "$current_dir")
+  set -l project_dir (git rev-parse --show-toplevel)
 
   function on_ctrl_c -j %self -V current_dir
     functions -e on_ctrl_c
@@ -57,7 +57,7 @@ end
 
 function __build_libs -d "rebuild libs module"
   set -l current_dir (pwd)
-  set -l project_dir (string replace -r '(ravelstop)/.*' '$1' "$current_dir")
+  set -l project_dir (git rev-parse --show-toplevel)
   set -l nodejs_dir "$project_dir/modules/libs/nodejs"
 
   # repackaging libs
