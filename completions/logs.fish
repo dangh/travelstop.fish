@@ -8,4 +8,4 @@ function __sls_complete_functions
 	end
 end
 
-complete -f -c sls_logs -a "(__sls_complete_functions)"
+complete --no-files --command sls_logs --arguments "(__sls_complete_functions)"

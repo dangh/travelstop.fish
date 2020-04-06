@@ -8,5 +8,5 @@ function __sls_complete_functions
 	end
 end
 
-complete -f -c sls_deploy -a "libs templates"
-complete -f -c sls_deploy -a "(__sls_complete_functions)"
+complete --no-files --command sls_deploy --arguments "libs templates"
+complete --no-files --command sls_deploy --arguments "(__sls_complete_functions)"
