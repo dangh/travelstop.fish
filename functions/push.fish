@@ -19,17 +19,16 @@ end
 function __sls_deploy_module --argument-names module_name --description "deploy single module"
   echo (set_color --background green)(set_color black)deploying module $module_name(set_color normal)
 
-  set --local current_dir (pwd)
   set --local project_dir (git rev-parse --show-toplevel)
 
-  function on_ctrl_c --on-job-exit %self --inherit-variable current_dir
+  function on_ctrl_c --on-job-exit %self
     functions --erase on_ctrl_c
-    cd "$current_dir"
+    popd
   end
 
-  cd "$project_dir/modules/$module_name"
+  pushd "$project_dir/modules/$module_name"
   __sls_deploy
-  cd "$current_dir"
+  popd
 
   functions --erase on_ctrl_c
 end
