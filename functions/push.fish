@@ -40,7 +40,7 @@ function __sls_deploy_function -a function_name -d "deploy single function in cu
 end
 
 function __sls_deploy -d "wrap around sls deploy command"
-  set -l command "sls deploy -s $AWS_ENV $argv --verbose"
+  set -l command "sls deploy -s $AWS_PROFILE $argv --verbose"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)

@@ -4,7 +4,7 @@ function fish_prompt --description 'wrap starship prompt to fix environment vari
     source (starship init fish --print-full-init | string replace fish_prompt starship_fish_prompt | psub)
   end
 
-  set -gx AWS_ENV $AWS_ENV
+  set -gx AWS_PROFILE $AWS_PROFILE
   starship_fish_prompt
-  set -e AWS_ENV
+  set -e AWS_PROFILE
 end
