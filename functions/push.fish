@@ -39,7 +39,7 @@ function __sls_deploy_function --argument-names function_name --description "dep
 end
 
 function __sls_deploy --description "wrap around sls deploy command"
-  set --local  command "sls deploy --stage $AWS_PROFILE $argv --verbose"
+  set --local  command "sls deploy --verbose --stage $AWS_PROFILE $argv"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)
