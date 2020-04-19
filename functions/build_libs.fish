@@ -10,7 +10,8 @@ function build_libs --description "rebuild libs module"
   rm -r "$nodejs_dir/package-lock.json" 2>/dev/null
 
   # invalidate libs
-  set --local libs (awk '/\"build-/ {print $1}' package.json | awk -F 'build-' '{print $2}' | awk -F '"' '{print $1}')
+  set --local libs (awk '/\"build-/ {print $1}' "$nodejs_dir/package.json" | awk -F 'build-' '{print $2}' | awk -F '"' '{print $1}')
+  echo $libs
   for lib in $libs
     echo (set_color red)invalidate $lib(set_color normal)
     rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
