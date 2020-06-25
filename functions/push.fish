@@ -39,7 +39,7 @@ function __sls_deploy_function --argument-names function_name --description "dep
 end
 
 function __sls_deploy --description "wrap around sls deploy command"
-  set --local stage (string replace --regex '.*@' '' -- $AWS_PROFILE)
+  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local command "sls deploy --verbose --stage $stage $argv"
 
   echo (set_color blue)(pwd)(set_color normal)
