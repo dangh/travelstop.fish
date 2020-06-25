@@ -1,4 +1,4 @@
-function sls_deploy --description "deploy CF stack/lambda function"
+function push --description "deploy CF stack/lambda function"
   if count $argv > /dev/null
     for name in $argv
       switch $name
@@ -39,7 +39,8 @@ function __sls_deploy_function --argument-names function_name --description "dep
 end
 
 function __sls_deploy --description "wrap around sls deploy command"
-  set --local  command "sls deploy --verbose --stage $AWS_PROFILE $argv"
+  set --local stage (string replace --regex '.*@' '' -- $AWS_PROFILE)
+  set --local command "sls deploy --verbose --stage $stage $argv"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)
@@ -58,5 +59,3 @@ function __notify --argument-names title message sound --description "send notif
   osascript -e "display notification \"$message\" with title \"$title\"" &
   afplay "/System/Library/Sounds/$sound.aiff" &
 end
-
-alias push=sls_deploy
