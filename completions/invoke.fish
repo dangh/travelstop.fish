@@ -8,4 +8,4 @@ function __sls_complete_functions
 	end
 end
 
-complete --no-files --command sls_invoke --arguments "(__sls_complete_functions)"
+complete --no-files --command invoke --arguments "(__sls_complete_functions)"
