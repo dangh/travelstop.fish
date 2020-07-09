@@ -7,7 +7,13 @@ function logs --argument-names function_name start_time --description "watch lam
   echo (set_color green)$command(set_color normal)
   # eval "$command | __logs_transform"
   set --local logs_and_transform $command '| awk \'{
+    #remove aws timestamp, log id, log level
     gsub(/^[0-9:. ()+-]{32}[[:space:]]+[a-z0-9-]{36}[[:space:]]+INFO[[:space:]]+/, "")
+
+    #blue stage
+    #cyan timestamp
+    #magenta source location
+    #blue method name
     if ($0 ~ /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-z.]+\]/) {
       match($0, /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-z.]+\]/)
       rest = substr($0, RLENGTH+1)
@@ -20,11 +26,18 @@ function logs --argument-names function_name start_time --description "watch lam
       method = tokens[8]
       $0 = "\x1b[90m[\x1b[34m"stage"\x1b[90m][\x1b[36m"time"\x1b[90m][\x1b[35m"filename"\x1b[90m:\x1b[35m"lineno"\x1b[90m][\x1b[34m"method"\x1b[90m]\x1b[0m"rest
     }
-    if ($0 ~ /^(START|END|REPORT) RequestId.*/) {
-      $0 = "\x1b[90m"$0"\x1b[0m"
-    } else if ($0 ~ /^XRAY TraceId.*/) {
-      $0 = "\x1b[90m"$0"\x1b[0m"
-    }
+
+    #bright black aws logs
+    gsub(/^(START|END|REPORT) RequestId.*/, "\x1b[90m"$0"\x1b[0m")
+    gsub(/^XRAY TraceId.*/, "\x1b[90m"$0"\x1b[0m")
+
+    #add blank lines before event
+    gsub(/START RequestId/, "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSTART RequestId")
+
+    #green info
+    #yellow warn
+    #red error
+    #bright black debug
     gsub(/\[INFO\]:/, "[INFO]:\x1b[32m")
     gsub(/\[WARN\]:/, "[WARN]:\x1b[33m")
     gsub(/\[ERROR\]:/, "[ERROR]:\x1b[31m")
