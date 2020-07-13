@@ -33,12 +33,11 @@ function logs --argument-names function_name start_time --description "watch lam
     #blank line after last log entry
     if ($0 ~ /^END RequestId/) printf "\n"
 
-    #bright black aws logs
-    gsub(/^(START|END|REPORT) RequestId.*/, "\x1b[90m"$0"\x1b[0m")
-    gsub(/^XRAY TraceId.*/, "\x1b[90m"$0"\x1b[0m")
+    #blank page before each event
+    if ($0 ~ /^START RequestId/) printf "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
 
-    #add blank lines before event
-    gsub(/START RequestId/, "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nSTART RequestId")
+    #bright black aws logs
+    gsub(/^(START|END|REPORT|XRAY) (RequestId|TraceId).*/, "\x1b[90m"$0"\x1b[0m")
 
     #green info
     #yellow warn
