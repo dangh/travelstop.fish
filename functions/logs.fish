@@ -6,7 +6,6 @@ function logs --argument-names function_name start_time --description "watch lam
   set --local command "sls logs --aws-profile $AWS_PROFILE --stage $stage --tail --startTime $start_time --function $function_name"
   echo (set_color green)$command(set_color normal)
   # eval "$command | __logs_transform"
-  set --local command "cat log"
   set --local logs_and_transform $command '| awk \'
     function resetAfter(s) { return sprintf("%s\x1b[0m", s) }
     function bold(s) { return sprintf("\x1b[1m%s", s) }
