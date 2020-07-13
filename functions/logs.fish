@@ -14,8 +14,8 @@ function logs --argument-names function_name start_time --description "watch lam
     #cyan timestamp
     #magenta source location
     #blue method name
-    if ($0 ~ /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-z.]+\]/) {
-      match($0, /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-z.]+\]/)
+    if ($0 ~ /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-zA-Z.]+\]/) {
+      match($0, /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-zA-Z.]+\]/)
       rest = substr($0, RLENGTH+1)
       split($0, tokens, /[\[\]]/)
       stage = tokens[2]
@@ -25,7 +25,13 @@ function logs --argument-names function_name start_time --description "watch lam
       lineno = location[2]
       method = tokens[8]
       $0 = "\x1b[90m[\x1b[34m"stage"\x1b[90m][\x1b[36m"time"\x1b[90m][\x1b[35m"filename"\x1b[90m:\x1b[35m"lineno"\x1b[90m][\x1b[34m"method"\x1b[90m]\x1b[0m"rest
+
+      #blank line before each log entry
+      printf "\n"
     }
+
+    #blank line after last log entry
+    if ($0 ~ /^END RequestId/) printf "\n"
 
     #bright black aws logs
     gsub(/^(START|END|REPORT) RequestId.*/, "\x1b[90m"$0"\x1b[0m")
