@@ -5,19 +5,29 @@ function logs --argument-names function_name start_time --description "watch lam
   end
   set --local command "sls logs --aws-profile $AWS_PROFILE --stage $stage --tail --startTime $start_time --function $function_name"
   echo (set_color green)$command(set_color normal)
-  # eval "$command | __logs_transform"
-  set --local logs_and_transform $command '| awk \'
-    function resetAfter(s) { return sprintf("%s\x1b[0m", s) }
-    function bold(s) { return sprintf("\x1b[1m%s", s) }
-    function black(s) { return sprintf("\x1b[30m%s", s) }
-    function red(s) { return sprintf("\x1b[31m%s", s) }
-    function green(s) { return sprintf("\x1b[32m%s", s) }
-    function yellow(s) { return sprintf("\x1b[33m%s", s) }
-    function blue(s) { return sprintf("\x1b[34m%s", s) }
-    function magenta(s) { return sprintf("\x1b[35m%s", s) }
-    function cyan(s) { return sprintf("\x1b[36m%s", s) }
-    function brightBlack(s) { return sprintf("\x1b[90m%s", s) }
+  set --local transform 'awk \'
+    function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[21m", s) } }
+    function dim(s) { if (s == "") { return "\x1b[2m" } else { return sprintf("\x1b[2m%s\x1b[22m", s) } }
+    function italic(s) { if (s == "") { return "\x1b[3m" } else { return sprintf("\x1b[3m%s\x1b[23m", s) } }
+    function underline(s) { if (s == "") { return "\x1b[4m" } else { return sprintf("\x1b[4m%s\x1b[24m", s) } }
+    function black(s) { if (s == "") { return "\x1b[0m" } else { return sprintf("\x1b[0m%s\x1b[39m", s) } }
+    function red(s) { if (s == "") { return "\x1b[31m" } else { return sprintf("\x1b[31m%s\x1b[39m", s) } }
+    function green(s) { if (s == "") { return "\x1b[32m" } else { return sprintf("\x1b[32m%s\x1b[39m", s) } }
+    function yellow(s) { if (s == "") { return "\x1b[33m" } else { return sprintf("\x1b[33m%s\x1b[39m", s) } }
+    function blue(s) { if (s == "") { return "\x1b[34m" } else { return sprintf("\x1b[34m%s\x1b[39m", s) } }
+    function magenta(s) { if (s == "") { return "\x1b[35m" } else { return sprintf("\x1b[35m%s\x1b[39m", s) } }
+    function cyan(s) { if (s == "") { return "\x1b[36m" } else { return sprintf("\x1b[36m%s\x1b[39m", s) } }
+    function noColor(s) { return sprintf("\x1b[39m%s", s) }
     {
+      #blank page before each event
+      if ($0 ~ /^START RequestId/) printf "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+
+      #blank line after last log entry
+      if ($0 ~ /^END RequestId/) printf "\n"
+
+      #dim aws logs
+      gsub(/^(START|END|REPORT|XRAY) (RequestId|TraceId).*/, dim($0))
+
       #remove aws timestamp, log id, log level
       gsub(/^[0-9:. ()+-]{32}[[:space:]]+[a-z0-9-]{36}[[:space:]]+INFO[[:space:]]+/, "")
 
@@ -25,8 +35,7 @@ function logs --argument-names function_name start_time --description "watch lam
       #cyan timestamp
       #magenta source location
       #blue method name
-      if ($0 ~ /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-zA-Z.]+\]/) {
-        match($0, /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-zA-Z.]+\]/)
+      if (match($0, /^\[([A-Z-]+)\]\[([0-9TZ:.-]{24})\]\[([a-z.-]+):([0-9]+)\]\[[a-zA-Z.]+\]\[[A-Z]+\]: /)) {
         rest = substr($0, RLENGTH+1)
         split($0, tokens, /[\[\]]/)
         stage = tokens[2]
@@ -35,34 +44,64 @@ function logs --argument-names function_name start_time --description "watch lam
         filename = location[1]
         lineno = location[2]
         method = tokens[8]
-        $0 = brightBlack("[") blue(stage) brightBlack("]") brightBlack("[") cyan(time) brightBlack("]") brightBlack("[") magenta(filename) brightBlack(":") magenta(lineno) brightBlack("]") brightBlack("[") blue(method) brightBlack("]") rest
+        level = tokens[10]
+        if (level == "ERROR") level = red(level)
+        if (level == "WARN") level = yellow(level)
+        if (level == "INFO") level = green(level)
+        $0 = dim("[") bold(blue(stage)) dim("][") cyan(time) dim("][") magenta(filename) dim(":") magenta(lineno) dim("][") blue(method) dim("][") bold(level) dim("]:") "\n" rest
 
         #blank line before each log entry
         printf "\n"
+        #reset all format
+        printf "\x1b[0m"
       }
 
-      #blank line after last log entry
-      if ($0 ~ /^END RequestId/) printf "\n"
+      #highlight json
+      #start of json object/array
+      if (match($0, /[{\[]$/)) $0 = substr($0, 1, RSTART-1) dim(substr($0, RSTART, RLENGTH))
+      #end of json object/array
+      if (match($0, /^[}\]]/)) $0 = noColor() dim(substr($0, RSTART, RLENGTH)) substr($0, RSTART+RLENGTH)
+      #inside json object/array
+      if (match($0, /^[[:space:]]+/)) {
+        indent = substr($0, RSTART, RLENGTH)
+        line = substr($0, RSTART+RLENGTH)
+        key = ""
+        value = ""
+        if (match(line, /^"[^"]+": /)) {
+          #line start with key
+          key = substr(line, RSTART+1, RLENGTH-4)
+          value = substr(line, RSTART+RLENGTH)
+        } else {
+          value = line
+        }
+        if (match(value, /^"/)) value = dim("\"") green() substr(value, 2)
+        else if (match(value, /^[0-9.]+/)) value = yellow() value
+        else if (match(value, /^null|undefined/)) value = green(dim(value))
+        else if (match(value, /^true|false/)) value = green() value
+        if (key) line = dim("\"") magenta(key) dim("\": ") value
+        else line = value
+        #eol
+        if (match(line, /",?$/)) line = substr(line, 1, RSTART-1) noColor() dim(substr(line, RSTART))
+        if (match(line, /\[?\],?$/)) line = substr(line, 1, RSTART-1) noColor() dim(substr(line, RSTART))
+        if (match(line, /{?},?$/)) line = substr(line, 1, RSTART-1) noColor() dim(substr(line, RSTART))
+        $0 = indent line
+      }
 
-      #blank page before each event
-      if ($0 ~ /^START RequestId/) printf "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+      #yellow uuid
+      while (match($0, /\[[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}\]/)) {
+        $0 = substr($0, 1, RSTART) yellow(substr($0, RSTART+1, RLENGTH-2)) substr($0, RSTART+RLENGTH-1)
+      }
 
-      #bright black aws logs
-      gsub(/^(START|END|REPORT|XRAY) (RequestId|TraceId).*/, brightBlack($0))
+      #dim \n
+      gsub(/\\\\\n/, dim("\\\\\n"))
 
-      #green info
-      #yellow warn
-      #red error
-      #bright black debug
-      gsub(/\[INFO\]: /, sprintf("%s%s%s%s", brightBlack("["), resetAfter(bold(green("INFO"))), resetAfter(brightBlack("]\n")), green()))
-      gsub(/\[WARN\]: /, sprintf("%s%s%s%s", brightBlack("["), resetAfter(bold(yellow("WARN"))), resetAfter(brightBlack("]\n")), yellow()))
-      gsub(/\[ERROR\]: /, sprintf("%s%s%s%s", brightBlack("["), resetAfter(bold(red("ERROR"))), resetAfter(brightBlack("]\n")), red()))
-      gsub(/\[DEBUG\]: /, sprintf("%s%s%s%s", brightBlack("["), resetAfter(bold(black("DEBUG"))), resetAfter(brightBlack("]\n")), black()))
+      #dim backslashes
+      gsub(/\\\\\/, dim("\\\\\"))
 
       print
     }\'
   '
-  eval $logs_and_transform
+  eval $command \| $transform
 end
 
 function __logs_transform
