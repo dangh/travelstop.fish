@@ -7,16 +7,15 @@ function build_libs --description "rebuild libs module"
   npm run --prefix "$nodejs_dir" --silent build
 
   # invalidate package-lock
+  echo (set_color red)invalidate package-lock.json(set_color normal)
   rm -r "$nodejs_dir/package-lock.json" 2>/dev/null
 
   # invalidate libs
-  set --local libs (awk '/\"build-/ {print $1}' "$nodejs_dir/package.json" | awk -F "build-" "{print $2}" | awk -F '"' "{print $1}")
-  echo $libs
+  set --local libs (awk '{ if (match($0, /"build-[a-z-]+"/)) print substr($0, RSTART+7, RLENGTH-8) }' "$nodejs_dir/package.json")
   for lib in $libs
     echo (set_color red)invalidate $lib(set_color normal)
     rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
   end
-  echo (set_color red)invalidate package-lock.json(set_color normal)
 
   # rebuild package-lock and reinstall libs
   echo (set_color --background green)(set_color black)reinstall packages(set_color normal)
