@@ -3,7 +3,13 @@ function logs --argument-names function_name start_time --description "watch lam
   if test -z "$start_time"
     set start_time (date -u "+%Y%m%dT%H%M%S")
   end
-  set --local command "sls logs --aws-profile $AWS_PROFILE --stage $stage --tail --startTime $start_time --function $function_name"
+  set --local region
+  if not contains -- --region $argv
+    if test "$AWS_DEFAULT_REGION" != ""
+      set region "--region $AWS_DEFAULT_REGION"
+    end
+  end
+  set --local command "sls logs --aws-profile $AWS_PROFILE --stage $stage $region --tail --startTime $start_time --function $function_name"
   echo (set_color green)$command(set_color normal)
   set --local transform 'awk \'
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }

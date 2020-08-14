@@ -40,7 +40,13 @@ end
 
 function __sls_deploy --description "wrap around sls deploy command"
   set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
-  set --local command "sls deploy --verbose --aws-profile $AWS_PROFILE --stage $stage $argv"
+  set --local region
+  if not contains -- --region $argv
+    if test "$AWS_DEFAULT_REGION" != ""
+      set region "--region $AWS_DEFAULT_REGION"
+    end
+  end
+  set --local command "sls deploy --verbose --aws-profile $AWS_PROFILE --stage $stage $region $argv"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)
