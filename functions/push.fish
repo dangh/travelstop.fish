@@ -1,18 +1,34 @@
 function push --description "deploy CF stack/lambda function"
-  if count $argv > /dev/null
-    for name in $argv
+  set --local names
+  getopts $argv | while read --local key value
+    switch $key
+    case _
+      set --append names $value
+    case \*
+      if test (string length $key) = 1
+        set args $args "-$key"
+      else
+        set args $args "--$key"
+      end
+      if test "$value" != "true"
+        set args $args=(string escape $value)
+      end
+    end
+  end
+  if count $names > /dev/null
+    for name in $names
       switch $name
-        case libs
-          build_libs
-          __sls_deploy_module $name
-        case templates
-          __sls_deploy_module $name
-        case \*
-          __sls_deploy_function $name
+      case libs
+        build_libs --force
+        __sls_deploy_module $name $args
+      case templates
+        __sls_deploy_module $name $args
+      case \*
+        __sls_deploy_function $name $args
       end
     end
   else
-    __sls_deploy
+    __sls_deploy $args
   end
 end
 
@@ -27,7 +43,7 @@ function __sls_deploy_module --argument-names module_name --description "deploy 
   end
 
   pushd "$project_dir/modules/$module_name"
-  __sls_deploy
+  __sls_deploy $argv[2..-1]
   popd
 
   functions --erase on_ctrl_c
@@ -35,18 +51,35 @@ end
 
 function __sls_deploy_function --argument-names function_name --description "deploy single function in current stack"
   echo (set_color --background green)(set_color black)deploying function $function_name(set_color normal)
-  __sls_deploy --function $function_name
+  __sls_deploy --function=$function_name $argv[2..-1]
 end
 
 function __sls_deploy --description "wrap around sls deploy command"
+  set --local profile $AWS_PROFILE
   set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
-  set --local region
-  if not contains -- --region $argv
-    if test "$AWS_DEFAULT_REGION" != ""
-      set region "--region $AWS_DEFAULT_REGION"
+  set --local region $AWS_DEFAULT_REGION
+  set --local args
+  getopts $argv | while read --local key value
+    switch $key
+    case aws-profile
+      set profile $value
+    case s stage
+      set stage $value
+    case r region
+      set region $value
+    case \*
+      if test (string length $key) = 1
+        set args $args "-$key"
+      else
+        set args $args "--$key"
+      end
+      if test "$value" != "true"
+        set args $args=(string escape $value)
+      end
     end
   end
-  set --local command "sls deploy --verbose --aws-profile $AWS_PROFILE --stage $stage $region $argv"
+
+  set --local command "sls deploy --verbose --aws-profile=$profile --stage=$stage --region=$region $argv"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)

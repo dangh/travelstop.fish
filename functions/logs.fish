@@ -1,17 +1,36 @@
-function logs --argument-names function_name start_time --description "watch lambda function logs"
+function logs --description "watch lambda function logs"
+  set --local function
+  set --local profile $AWS_PROFILE
   set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
-  if test -z "$start_time"
-    set start_time (date -u "+%Y%m%dT%H%M%S")
-  end
-  set --local region
-  if not contains -- --region $argv
-    if test "$AWS_DEFAULT_REGION" != ""
-      set region "--region $AWS_DEFAULT_REGION"
+  set --local region $AWS_DEFAULT_REGION
+  set --local start_time 2m
+  set --local args
+  getopts $argv | while read --local key value
+    switch $key
+    case f function _
+      set function $value
+    case aws-profile
+      set profile $value
+    case s stage
+      set stage $value
+    case r region
+      set region $value
+    case startTime
+      set start_time $value
+    case \*
+      if test (string length $key) = 1
+        set args $args "-$key"
+      else
+        set args $args "--$key"
+      end
+      if test "$value" != "true"
+        set args $args=(string escape $value)
+      end
     end
   end
-  set --local command "sls logs --aws-profile $AWS_PROFILE --stage $stage $region --tail --startTime $start_time --function $function_name"
+  set --local command "sls logs --aws-profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
   echo (set_color green)$command(set_color normal)
-  set --local transform 'awk \'
+  set --local transform awk '
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }
     function dim(s) { if (s == "") { return "\x1b[2m" } else { return sprintf("\x1b[2m%s\x1b[22m", s) } }
     function italic(s) { if (s == "") { return "\x1b[3m" } else { return sprintf("\x1b[3m%s\x1b[23m", s) } }
@@ -111,14 +130,14 @@ function logs --argument-names function_name start_time --description "watch lam
       #dim backslashes
       s0 = ""
       s = $0
-      while (match(s, /\\\\\/)) {
+      while (match(s, /\\\/)) {
         s0 = s0 substr(s, 1, RSTART-1) dim(substr(s, RSTART, RLENGTH+1))
         s = substr(s, RSTART+RLENGTH+1)
       }
       $0 = s0 s
 
       print
-    }\'
+    }
   '
   eval $command \| $transform
 end
