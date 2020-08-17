@@ -32,5 +32,5 @@ function invoke --description "invoke lambda function"
   set --local command "sls invoke --aws-profile=$profile --stage=$stage --region=$region --type=$type --function=$function $args"
   echo (set_color green)$command(set_color normal)
   eval $command
-  logs $function_name --startTime=$start_time
+  logs $function --startTime=$start_time
 end

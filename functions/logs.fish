@@ -30,7 +30,7 @@ function logs --description "watch lambda function logs"
   end
   set --local command "sls logs --aws-profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
   echo (set_color green)$command(set_color normal)
-  set --local transform awk '
+  set --local transform awk '\'
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }
     function dim(s) { if (s == "") { return "\x1b[2m" } else { return sprintf("\x1b[2m%s\x1b[22m", s) } }
     function italic(s) { if (s == "") { return "\x1b[3m" } else { return sprintf("\x1b[3m%s\x1b[23m", s) } }
@@ -92,9 +92,9 @@ function logs --description "watch lambda function logs"
 
       #highlight json
       #start of json object/array
-      if (match($0, /[{\[]$/)) $0 = substr($0, 1, RSTART-1) jsonDefault(substr($0, RSTART, RLENGTH))
+      if (match($0, /[\{\[]$/)) $0 = substr($0, 1, RSTART-1) jsonDefault(substr($0, RSTART, RLENGTH))
       #end of json object/array
-      if (match($0, /^[}\]]/)) $0 = jsonDefault(substr($0, RSTART, RLENGTH)) substr($0, RSTART+RLENGTH)
+      if (match($0, /^[\}\]]/)) $0 = jsonDefault(substr($0, RSTART, RLENGTH)) substr($0, RSTART+RLENGTH)
       #inside json object/array
       if (match($0, /^[[:space:]]+/)) {
         indent = substr($0, RSTART, RLENGTH)
@@ -130,7 +130,7 @@ function logs --description "watch lambda function logs"
       #dim backslashes
       s0 = ""
       s = $0
-      while (match(s, /\\\/)) {
+      while (match(s, /\\\\\/)) {
         s0 = s0 substr(s, 1, RSTART-1) dim(substr(s, RSTART, RLENGTH+1))
         s = substr(s, RSTART+RLENGTH+1)
       }
@@ -138,7 +138,7 @@ function logs --description "watch lambda function logs"
 
       print
     }
-  '
+  \''
   eval $command \| $transform
 end
 
