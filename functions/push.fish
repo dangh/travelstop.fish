@@ -79,7 +79,7 @@ function __sls_deploy --description "wrap around sls deploy command"
     end
   end
 
-  set --local command "sls deploy --verbose --aws-profile=$profile --stage=$stage --region=$region $argv"
+  set --local command "sls deploy --verbose --aws-profile=$profile --stage=$stage --region=$region $args"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)

@@ -30,7 +30,7 @@ function logs --description "watch lambda function logs"
   end
   set --local command "sls logs --aws-profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
   echo (set_color green)$command(set_color normal)
-  set --local transform awk '\'
+  set --local transform 'awk \'
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }
     function dim(s) { if (s == "") { return "\x1b[2m" } else { return sprintf("\x1b[2m%s\x1b[22m", s) } }
     function italic(s) { if (s == "") { return "\x1b[3m" } else { return sprintf("\x1b[3m%s\x1b[23m", s) } }
