@@ -61,7 +61,7 @@ function __sls_deploy --description "wrap around sls deploy command"
   set --local args
   getopts $argv | while read --local key value
     switch $key
-    case aws-profile
+    case profile
       set profile $value
     case s stage
       set stage $value
@@ -79,7 +79,7 @@ function __sls_deploy --description "wrap around sls deploy command"
     end
   end
 
-  set --local command "sls deploy --verbose --aws-profile=$profile --stage=$stage --region=$region $args"
+  set --local command "sls deploy --verbose --profile=$profile --stage=$stage --region=$region $args"
 
   echo (set_color blue)(pwd)(set_color normal)
   echo (set_color green)$command(set_color normal)

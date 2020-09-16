@@ -5,7 +5,7 @@ function pack --description "package a serverless service"
   set --local args
   getopts $argv | while read --local key value
     switch $key
-    case aws-profile
+    case profile
       set profile $value
     case s stage
       set stage $value
@@ -22,7 +22,7 @@ function pack --description "package a serverless service"
       end
     end
   end
-  set --local command "sls package --aws-profile=$profile --stage=$stage --region=$region $args"
+  set --local command "sls package --profile=$profile --stage=$stage --region=$region $args"
   echo (set_color green)$command(set_color normal)
   eval $command
 end

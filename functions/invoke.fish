@@ -10,7 +10,7 @@ function invoke --description "invoke lambda function"
     switch $key
     case f function _
       set function $value
-    case aws-profile
+    case profile
       set profile $value
     case s stage
       set stage $value
@@ -29,7 +29,7 @@ function invoke --description "invoke lambda function"
       end
     end
   end
-  set --local command "sls invoke --aws-profile=$profile --stage=$stage --region=$region --type=$type --function=$function $args"
+  set --local command "sls invoke --profile=$profile --stage=$stage --region=$region --type=$type --function=$function $args"
   echo (set_color green)$command(set_color normal)
   eval $command
   logs $function --startTime=$start_time

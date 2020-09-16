@@ -9,7 +9,7 @@ function logs --description "watch lambda function logs"
     switch $key
     case f function _
       set function $value
-    case aws-profile
+    case profile
       set profile $value
     case s stage
       set stage $value
@@ -28,7 +28,7 @@ function logs --description "watch lambda function logs"
       end
     end
   end
-  set --local command "sls logs --aws-profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
+  set --local command "sls logs --profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
   echo (set_color green)$command(set_color normal)
   set --local transform 'awk \'
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }
