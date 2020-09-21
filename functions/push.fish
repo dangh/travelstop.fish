@@ -1,5 +1,6 @@
 function push --description "deploy CF stack/lambda function"
   set --local names
+  set --local project_dir (git rev-parse --show-toplevel)
   getopts $argv | while read --local key value
     switch $key
     case _
@@ -15,34 +16,39 @@ function push --description "deploy CF stack/lambda function"
       end
     end
   end
-  if count $names > /dev/null
-    for name in $names
-      switch $name
-      case libs
+  if test (count $name) -eq 0
+    set --append names .
+  end
+  #deploy modules first
+  for name in $names
+    if test -e "$project_dir/modules/$name/serverless.yml"
+      if test "$name" = "libs"
         build_libs --force
-        __sls_deploy_module $name $args
-      case templates
-        __sls_deploy_module $name $args
-      case \*
-        __sls_deploy_function $name $args
       end
+      __sls_deploy_stack "$project_dir/modules/$name" $args
+      set --erase names[(contains --index $name $names)]
     end
-  else
-    __sls_deploy $args
+  end
+  #deploy services/functions
+  for name in $names
+    if test -e "$name/serverless.yml"
+      __sls_deploy_stack "$name" $args
+    else
+      __sls_deploy_function $name $args
+    end
   end
 end
 
-function __sls_deploy_module --argument-names module_name --description "deploy single module"
-  echo (set_color --background green)(set_color black)deploying module $module_name(set_color normal)
-
-  set --local project_dir (git rev-parse --show-toplevel)
+function __sls_deploy_stack --argument-names stack_dir --description "deploy single stack"
+  set --local service_name (sed -n 's/^service:[[:space:]]*\([[:alnum:]-]*\)[[:space:]]*$/\1/p' "$stack_dir/serverless.yml")
+  echo (set_color --background green)(set_color black)deploying stack $service_name(set_color normal)
 
   function on_ctrl_c --on-job-exit %self
     functions --erase on_ctrl_c
     popd
   end
 
-  pushd "$project_dir/modules/$module_name"
+  pushd "$stack_dir"
   __sls_deploy $argv[2..-1]
   popd
 
