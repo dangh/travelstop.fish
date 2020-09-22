@@ -16,7 +16,7 @@ function push --description "deploy CF stack/lambda function"
       end
     end
   end
-  if test (count $name) -eq 0
+  if test (count $names) -eq 0
     set --append names .
   end
   #deploy modules first
@@ -40,8 +40,8 @@ function push --description "deploy CF stack/lambda function"
 end
 
 function __sls_deploy_stack --argument-names stack_dir --description "deploy single stack"
-  set --local service_name (sed -n 's/^service:[[:space:]]*\([[:alnum:]-]*\)[[:space:]]*$/\1/p' "$stack_dir/serverless.yml")
-  echo (set_color --background green)(set_color black)deploying stack $service_name(set_color normal)
+  set --local stack_name (__sls_stack_name $stack_dir)
+  echo (set_color --background green)(set_color black)deploying stack $stack_name(set_color normal)
 
   function on_ctrl_c --on-job-exit %self
     functions --erase on_ctrl_c
@@ -65,6 +65,8 @@ function __sls_deploy --description "wrap around sls deploy command"
   set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
   set --local args
+  set --local stack_name (__sls_stack_name .)
+  set --local function_name
   getopts $argv | while read --local key value
     switch $key
     case profile
@@ -73,6 +75,9 @@ function __sls_deploy --description "wrap around sls deploy command"
       set stage $value
     case r region
       set region $value
+    case function
+      set function_name $value
+      set args $args "--function="(string escape $value)
     case \*
       if test (string length $key) = 1
         set args $args "-$key"
@@ -91,16 +96,25 @@ function __sls_deploy --description "wrap around sls deploy command"
   echo (set_color green)$command(set_color normal)
 
   set --local --export SLS_DEBUG \*
-  eval $command
+  echo $command | source
+
+  set --local message "𝚎𝚗𝚟: "(string upper $stage)"\n𝚜𝚝𝚊𝚌𝚔: $stack_name"
+  if test -n "$function_name"
+    set message $message\n"𝚏𝚞𝚗𝚌: $function_name"
+  end
 
   if test $status -eq 0
-    __notify "🎉 𝚜𝚞𝚌𝚌𝚎𝚜𝚜" "$command" tink
+    __notify "🎉 deployed" "$message" tink
   else
-    __notify "🤡 𝚏𝚊𝚒𝚕𝚎𝚍" "$command" basso
+    __notify "🤡 failed to deploy" "$message" basso
   end
 end
 
 function __notify --argument-names title message sound --description "send notification to system"
   osascript -e "display notification \"$message\" with title \"$title\"" &
   afplay "/System/Library/Sounds/$sound.aiff" &
+end
+
+function __sls_stack_name --argument-names stack_dir
+  sed -n 's/^service:[[:space:]]*\([[:alnum:]-]*\)[[:space:]]*$/\1/p' "$stack_dir/serverless.yml"
 end
