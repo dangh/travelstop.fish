@@ -25,43 +25,18 @@ function push --description "deploy CF stack/lambda function"
       if test "$name" = "libs"
         build_libs --force
       end
-      __sls_deploy_stack "$project_dir/modules/$name" $args
+      __sls_deploy --stack-dir="$project_dir/modules/$name" $args
       set --erase names[(contains --index $name $names)]
     end
   end
   #deploy services/functions
   for name in $names
     if test -e "$name/serverless.yml"
-      __sls_deploy_stack "$name" $args
+      __sls_deploy --stack-dir="$name" $args
     else
-      __sls_deploy_function $name $args
+      __sls_deploy --function=$name $args
     end
   end
-end
-
-function __sls_deploy_stack --argument-names stack_dir --description "deploy single stack"
-  function on_ctrl_c --on-job-exit %self
-    functions --erase on_ctrl_c
-    popd
-  end
-
-  set --local pushed_dir
-  if test (realpath $stack_dir) != (realpath (pwd))
-    pushd "$stack_dir"
-    set pushed_dir $stack_dir
-  end
-
-  __sls_deploy $argv[2..-1]
-
-  if test -n "$pushed_dir"
-    popd
-  end
-
-  functions --erase on_ctrl_c
-end
-
-function __sls_deploy_function --argument-names function_name --description "deploy single function in current stack"
-  __sls_deploy --function=$function_name $argv[2..-1]
 end
 
 function __sls_deploy --description "wrap around sls deploy command"
@@ -72,6 +47,7 @@ function __sls_deploy --description "wrap around sls deploy command"
   set --local stack_name
   set --local function_name
   set --local config
+  set --local stack_dir .
 
   getopts $argv | while read --local key value
     #getopts prepend single flag value with equal sign
@@ -79,6 +55,8 @@ function __sls_deploy --description "wrap around sls deploy command"
     set value (string replace --regex '^=*' '' $value)
 
     switch $key
+    case stack-dir
+      set stack_dir $value
     case profile
       set profile $value
     case s stage
@@ -126,7 +104,7 @@ function __sls_deploy --description "wrap around sls deploy command"
   __sls_print_log execute command: (set_color green)$command(set_color normal)
 
   set --local --export SLS_DEBUG \*
-  echo $command | source
+  withd $stack_dir $command
 
   set --local message "𝚎𝚗𝚟: "(string upper $stage)"\n𝚜𝚝𝚊𝚌𝚔: $stack_name"
   if test -n "$function_name"

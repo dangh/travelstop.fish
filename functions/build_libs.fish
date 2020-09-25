@@ -42,7 +42,7 @@ function build_libs --description "rebuild libs module"
       set command $command \\\n"  "(string escape "$tgz")
     end
     echo (set_color yellow)$command(set_color normal)
-    eval $command >/dev/null
+    withd $nodejs_dir $command >/dev/null
   end
 end
 
