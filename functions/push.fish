@@ -1,11 +1,17 @@
 function push --description "deploy CF stack/lambda function"
   set --local names
   set --local project_dir (git rev-parse --show-toplevel)
+  set --local config
   getopts $argv | while read --local key value
     switch $key
     case _
       set --append names $value
+    case c config
+      set config $value
+      set args $args "--config=$config"
     case \*
+      echo key= $key
+      echo value= $value
       if test (string length $key) = 1
         set args $args "-$key"
       else
@@ -16,7 +22,7 @@ function push --description "deploy CF stack/lambda function"
       end
     end
   end
-  if test (count $names) -eq 0
+  if test (count $names) -eq 0 -a -z "$config"
     set --append names .
   end
   #deploy modules first
@@ -30,11 +36,15 @@ function push --description "deploy CF stack/lambda function"
     end
   end
   #deploy services/functions
-  for name in $names
-    if test -e "$name/serverless.yml"
-      __sls_deploy --stack-dir="$name" $args
-    else
-      __sls_deploy --function=$name $args
+  if test -n "$config"
+    __sls_deploy $args
+  else
+    for name in $names
+      if test -e "$name/serverless.yml"
+        __sls_deploy --stack-dir="$name" $args
+      else
+        __sls_deploy --function=$name $args
+      end
     end
   end
 end
@@ -48,6 +58,8 @@ function __sls_deploy --description "wrap around sls deploy command"
   set --local function_name
   set --local config
   set --local stack_dir .
+
+  getopts $argv
 
   getopts $argv | while read --local key value
     #getopts prepend single flag value with equal sign
