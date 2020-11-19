@@ -69,6 +69,7 @@ function __sls_deploy --description "wrap around sls deploy command"
     switch $key
     case stack-dir
       set stack_dir $value
+      set config $value/serverless.yml
     case profile
       set profile $value
     case s stage
@@ -104,7 +105,7 @@ function __sls_deploy --description "wrap around sls deploy command"
   end
   set stack_name (__sls_stack_name $config)
 
-  set --local command "sls deploy --verbose --profile=$profile --stage=$stage --region=$region $args"
+  set --local command "if test -e package.json; npm install; end; sls deploy --verbose --profile=$profile --stage=$stage --region=$region $args"
 
   if test -n "$function_name"
     __sls_print_log deploying function: (set_color magenta)$function_name(set_color normal)
