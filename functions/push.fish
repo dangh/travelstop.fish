@@ -119,12 +119,20 @@ function __sls_deploy --description "wrap around sls deploy command"
   set --local --export SLS_DEBUG \*
   withd $stack_dir $command
 
-  set --local message "𝚎𝚗𝚟: "(string upper $stage)"\n𝚜𝚝𝚊𝚌𝚔: $stack_name"
-  if test -n "$function_name"
-    set message $message\n"𝚏𝚞𝚗𝚌: $function_name"
+  set --local deploy_status $status
+  set stage (string upper $stage)
+  if functions --query fontface
+    set stage (fontface math_monospace $stage)
+    set stack_name (fontface math_monospace $stack_name)
+    set function_name (fontface math_monospace $function_name)
   end
 
-  if test $status -eq 0
+  set --local message "env: $stage\nstack: $stack_name"
+  if test -n "$function_name"
+    set message $message\n"func: $function_name"
+  end
+
+  if test $deploy_status -eq 0
     __notify "🎉 deployed" "$message" tink
   else
     __notify "🤡 failed to deploy" "$message" basso
