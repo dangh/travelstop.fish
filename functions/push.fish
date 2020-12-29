@@ -113,7 +113,9 @@ function __sls_deploy --description "wrap around sls deploy command"
     __sls_print_log deploying stack: (set_color magenta)$stack_name(set_color normal)
   end
 
-  __sls_print_log working directory: (set_color blue)(pwd)(set_color normal)
+  set stack_dir (realpath $stack_dir)
+
+  __sls_print_log working directory: (set_color blue)$stack_dir(set_color normal)
   __sls_print_log execute command: (set_color green)$command(set_color normal)
 
   set --local --export SLS_DEBUG \*
