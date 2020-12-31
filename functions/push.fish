@@ -1,143 +1,116 @@
 function push --description "deploy CF stack/lambda function"
-  set --local names
-  set --local project_dir (git rev-parse --show-toplevel)
-  set --local config
-  getopts $argv | while read --local key value
-    switch $key
-    case _
-      set --append names $value
-    case c config
-      set config $value
-      set args $args "--config=$config"
-    case \*
-      echo key= $key
-      echo value= $value
-      if test (string length $key) = 1
-        set args $args "-$key"
-      else
-        set args $args "--$key"
-      end
-      if test "$value" != "true"
-        set args $args=(string escape $value)
-      end
-    end
-  end
-  if test (count $names) -eq 0 -a -z "$config"
-    set --append names .
-  end
-  #deploy modules first
-  for name in $names
-    if test -e "$project_dir/modules/$name/serverless.yml"
-      if test "$name" = "libs"
-        build_libs --force
-      end
-      __sls_deploy --stack-dir="$project_dir/modules/$name" $args
-      set --erase names[(contains --index $name $names)]
-    end
-  end
-  #deploy services/functions
-  if test -n "$config"
-    __sls_deploy $args
-  else
-    for name in $names
-      if test -e "$name/serverless.yml"
-        __sls_deploy --stack-dir="$name" $args
-      else
-        __sls_deploy --function=$name $args
-      end
-    end
-  end
-end
-
-function __sls_deploy --description "wrap around sls deploy command"
   set --local profile $AWS_PROFILE
   set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
-  set --local args
-  set --local stack_name
-  set --local function_name
-  set --local config
-  set --local stack_dir .
-
-  getopts $argv
-
+  set --local project_dir (git rev-parse --show-toplevel)
+  set --local targets
+  set --local config #config when pushing functions
+  set --local modules
+  set --local services
+  set --local functions
   getopts $argv | while read --local key value
-    #getopts prepend single flag value with equal sign
-    #need to get rid of it
-    set value (string replace --regex '^=*' '' $value)
-
     switch $key
-    case stack-dir
-      set stack_dir $value
-      set config $value/serverless.yml
+    case _
+      set --append targets $value
+    case c config
+      set config $value
     case profile
       set profile $value
     case s stage
       set stage $value
     case r region
       set region $value
-    case f function
-      set function_name $value
-      set args $args "--function="(string escape $value)
-    case c config
-      set config $value
-      set args $args "--config="(string escape $value)
     case \*
-      set --local arg
-      if test (string length $key) = 1
-        set arg "-$key"
-      else
-        set arg "--$key"
-      end
-      if test "$value" != "true"
-        set arg "$arg="(string escape $value)
-      end
-      set args $args $arg
+      test (string length $key) -eq 1 \
+        && set key "-$key" \
+        || set key "--$key"
+      test "$value" = true \
+        && set --erase value
+      set --append args $key (string escape --style=script $value)
     end
   end
 
-  if test -z "$config"
-    set config ./serverless.yml
-  end
-  if ! test -e "$config"
-    __sls_print_log (set_color red)error: (realpath $config) does not exist!(set_color normal)
-    return 1
-  end
-  set stack_name (__sls_stack_name $config)
+  #push without arguments
+  test -z "$argv" && set --append targets .
 
-  set --local command "if test -e package.json; npm install; end; sls deploy --verbose --profile=$profile --stage=$stage --region=$region $args"
-
-  if test -n "$function_name"
-    __sls_print_log deploying function: (set_color magenta)$function_name(set_color normal)
-  else
-    __sls_print_log deploying stack: (set_color magenta)$stack_name(set_color normal)
+  for target in $targets
+    __sls_resolve_config $project_dir $target $config | read --delimiter=: --local type name ver yml
+    set --append {$type}s "$type:$name:$ver:$yml:pending"
   end
 
-  set stack_dir (realpath $stack_dir)
+  #re-order targets
+  set targets $modules $services $functions
 
-  __sls_print_log working directory: (set_color blue)$stack_dir(set_color normal)
-  __sls_print_log execute command: (set_color green)$command(set_color normal)
+  set --local success_count 0
+  set --local failure_count 0
 
-  set --local --export SLS_DEBUG \*
-  withd $stack_dir $command
+  #deploy
+  for i in (seq (count $targets))
+    echo $targets[$i] | read --delimiter=: --local type name ver yml state
+    test "$type" != function && test -n "$ver" \
+      && set --local name_ver $name-$ver \
+      || set --local name_ver $name
 
-  set --local deploy_status $status
-  set stage (string upper $stage)
-  if functions --query fontface
-    set stage (fontface math_monospace $stage)
-    set stack_name (fontface math_monospace $stack_name)
-    set function_name (fontface math_monospace $function_name)
+    #update progress
+    set targets[$i] "$type:$name:$ver:$yml:running"
+    test (count $targets) -gt 1 && __sls_progress $targets
+
+    set --local working_dir (dirname $yml)
+    set --local command "-v --profile $profile -s $stage -r $region"
+    if test "$type" = function
+      set --append command "-f $name -u"
+      set --prepend command "sls deploy function"
+    else
+      set --prepend command "sls deploy"
+      test (basename $yml) != serverless.yml \
+        && set --append command "-c "(basename $yml)
+    end
+    set --append command $args
+    test "$type" = function \
+      && __sls_log deploying function: (set_color magenta)$name_ver(set_color normal) \
+      || __sls_log deploying stack: (set_color magenta)$name_ver(set_color normal)
+    __sls_log working directory: (set_color blue)$working_dir(set_color normal)
+    __sls_log execute command: (set_color green)$command(set_color normal)
+
+    test "$type" = module && string match --quiet --regex libs $name && build_libs --force
+    withd "$working_dir" "test -e package.json && npm i; $command"
+
+    set --local result $status
+
+    #update counters
+    test $result -eq 0 \
+      && set success_count (math $success_count + 1) \
+      || set failure_count (math $failure_count + 1)
+
+    #update progress
+    test $result -eq 0 \
+      && set targets[$i] "$type:$name:$ver:$yml:success" \
+      || set targets[$i] "$type:$name:$ver:$yml:failure"
+
+    #show notification
+    set --local notif_message
+    set --local notif_stage (string upper $stage)
+    set --local notif_name $name_ver
+    functions --query fontface \
+      && set notif_stage (fontface math_monospace $notif_stage) \
+      && set notif_name (fontface math_monospace $notif_name)
+    test "$type" = function \
+      && set notif_message "env: $notif_stage\nfunc: $notif_name" \
+      || set notif_message "env: $notif_stage\nstack: $notif_name"
+    test $result -eq 0 \
+      && __notify "🎉 deployed" "$notif_message" tink \
+      || __notify "🤡 failed to deploy" "$notif_message" basso
   end
 
-  set --local message "env: $stage\nstack: $stack_name"
-  if test -n "$function_name"
-    set message $message\n"func: $function_name"
-  end
-
-  if test $deploy_status -eq 0
-    __notify "🎉 deployed" "$message" tink
-  else
-    __notify "🤡 failed to deploy" "$message" basso
+  #summary
+  if test (count $targets) -gt 1
+    __sls_progress $targets
+    functions --query fontface \
+      && set success_count (fontface math_monospace $success_count) \
+      && set failure_count (fontface math_monospace $failure_count)
+    set --local notif_title (count $targets) stacks/functions deployed
+    set --local notif_message success: $success_count\nfailure: $failure_count
+    __notify "$notif_title" "$notif_message"
   end
 end
 
@@ -147,13 +120,56 @@ function __notify --argument-names title message sound --description "send notif
   test -f "$sound" && afplay $sound &
 end
 
-function __sls_stack_name --argument-names stack_dir
-  if ! string match --quiet --regex '.yml$' $stack_dir
-    set stack_dir $stack_dir/serverless.yml
-  end
-  sed -n 's/^service:[[:space:]]*\([[:alnum:]-]*\)[[:space:]]*$/\1/p' "$stack_dir"
+function __sls_log
+  echo '('(set_color yellow)sls(set_color normal)')' $argv
 end
 
-function __sls_print_log
-  echo '('(set_color yellow)sls(set_color normal)')' $argv
+function __sls_progress
+  set --local count (count $argv)
+  set --local color_pending (set_color normal)
+  set --local color_running (set_color magenta)
+  set --local color_success (set_color green)
+  set --local color_failure (set_color red)
+  set --local caret_pending ' '
+  set --local caret_running (set_color magenta)'▶︎'(set_color normal)
+  set --local caret_success ' '
+  set --local caret_failure ' '
+  set --local indent (test $count -gt 9 && echo 2 || echo 1)
+  echo $argv[-1] | read --delimiter=: --local _ _ _ _ state
+  if test "$state" = success -o "$state" = failure
+    __sls_log (set_color yellow)$count(set_color normal) stacks/functions deployed
+  else
+    __sls_log deploying (set_color yellow)$count(set_color normal) stacks/functions
+  end
+  for i in (seq $count)
+    echo $argv[$i] | read --delimiter=: --local _ name ver _ state
+    set --local index (string sub --start=-$indent " $i")
+    set --local caret caret_$state
+    set --local color color_$state
+    test -n "$ver" && set ver (set_color --dim)-(set_color normal)(set_color yellow)$ver(set_color normal)
+    echo $$caret (set_color --dim)$index.(set_color normal) {$$color}$name(set_color normal)$ver
+  end
+end
+
+function __sls_resolve_config --argument-names project_dir target config --description "type:name:version:yml"
+  set --local type
+  set --local name
+  set --local ver
+  set --local yml (realpath $target/serverless.yml 2>/dev/null)
+  test -n "$yml" || set yml (realpath $project_dir/modules/$target/serverless.yml 2>/dev/null)
+  set --local json (realpath (dirname $yml)/package.json 2>/dev/null)
+  test -f "$json" || set json (realpath (dirname $yml)/nodejs/package.json 2>/dev/null)
+  if test -f "$yml"
+    string match --quiet --regex '/modules/' "$yml" && set type module
+    string match --quiet --regex '/services/' "$yml" && set type service
+    set name (string match --regex '^service:\s*([^\s]*)' < $yml)[2]
+    test -f "$json" && set ver (string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
+  else
+    test -z "$config" \
+      && set yml (realpath ./serverless.yml 2>/dev/null) \
+      || set yml (realpath $config 2>/dev/null)
+    set type function
+    set name $target
+  end
+  echo "$type:$name:$ver:$yml"
 end
