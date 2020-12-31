@@ -143,7 +143,8 @@ end
 
 function __notify --argument-names title message sound --description "send notification to system"
   osascript -e "display notification \"$message\" with title \"$title\"" &
-  afplay "/System/Library/Sounds/$sound.aiff" &
+  set sound "/System/Library/Sounds/$sound.aiff"
+  test -f "$sound" && afplay $sound &
 end
 
 function __sls_stack_name --argument-names stack_dir
