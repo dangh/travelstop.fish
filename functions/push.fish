@@ -120,10 +120,6 @@ function __notify --argument-names title message sound --description "send notif
   test -f "$sound" && afplay $sound &
 end
 
-function __sls_log
-  echo '('(set_color yellow)sls(set_color normal)')' $argv
-end
-
 function __sls_progress
   set --local count (count $argv)
   set --local color_pending (set_color normal)
