@@ -1,6 +1,6 @@
 function pack --description "package a serverless service"
   set --local profile $AWS_PROFILE
-  set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
+  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
   set --local yml ./serverless.yml
   set --local args
@@ -23,12 +23,12 @@ function pack --description "package a serverless service"
       set --append $key $value
     end
   end
-  test -d "$yml" && set yml "$yml/serverless.yml"
-  set yml (realpath $yml 2>/dev/null)
+  string match --quiet --regex '\.yml$' "$yml" || set yml $yml/serverless.yml
   if ! test -f "$yml"
-    __sls_log (set_color red)invalid serverless config: $yml(set_color normal)
+    __sls_log invalid serverless config: (__sls_validate_path $yml)
     return 1
   end
+  set yml (realpath $yml 2>/dev/null)
   set --local working_dir (dirname $yml)
   set --local name_ver (string match --regex '^service:\s*([^\s]*)' < $yml)[2]
   set --local json (realpath $working_dir/package.json 2>/dev/null)
@@ -39,7 +39,7 @@ function pack --description "package a serverless service"
     && set --append command "-c" (basename $yml)
   set --append command $args
   __sls_log packaging stack: (set_color magenta)$name_ver(set_color normal)
-  __sls_log working directory: (set_color blue)$working_dir(set_color normal)
+  __sls_log config: (set_color blue)$yml(set_color normal)
   __sls_log execute command: (set_color green)$command(set_color normal)
   withd "$working_dir" "$command"
 end
