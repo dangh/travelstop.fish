@@ -50,12 +50,13 @@ function logs --description "watch lambda function logs"
     function metaDefault(s) { return dim(blue(s)) }
     function jsonKey(s) { return magenta(s) }
     function jsonString(s) { return noColor(s) }
-    function jsonBoolean(s) { return yellow(s) }
-    function jsonNumber(s) { return yellow(s) }
+    function jsonBoolean(s) { return green(s) }
+    function jsonNumber(s) { return green(s) }
     function jsonNull(s) { return bold(s) }
     function jsonUndefined(s) { return dim(s) }
     function jsonDate(s) { return magenta(s) }
     function jsonDefault(s) { return dim(noColor(s)) }
+    function jsonColon(s) { return dim(bold(s)) }
     {
       #blank page before each event
       if ($0 ~ /^START RequestId/) printf "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
@@ -88,41 +89,121 @@ function logs --description "watch lambda function logs"
         printf "\x1b[0m"
       }
 
+      #yellow uuid
+      s0 = ""
+      s = $0
+      while (match(s, /[^a-z0-9-][a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}[^a-z0-9-]/)) {
+        uuid = substr(s, RSTART+1, RLENGTH-1-1)
+        s0 = s0 substr(s, 1, RSTART) yellow(uuid)
+        s = substr(s, RSTART+RLENGTH-1)
+      }
+      $0 = s0 s
+
+      #format embedded json
+      s0 = ""
+      s = $0
+      spaces = ""
+      indent = 0
+      tabSize = 2
+      if (match(s, /"[{[]/)) {
+        if (match(s, "^[[:space:]]*")) {
+          spaces = substr(s, 1, RLENGTH)
+        }
+        while (match(s, /\\\\\"/) && match(s, /[[{}\],]/)) {
+          m = substr(s, RSTART, RLENGTH)
+          if (m == "{" || m == "[") {
+            d = substr(s, RSTART+RLENGTH, 1)
+            if (d == "]" || d == "}") {
+              s0 = s0 jsonDefault(m) jsonDefault(d)
+              s = substr(s, RSTART+RLENGTH+1)
+            } else {
+              indent += tabSize
+              s0 = s0 substr(s, 1, RSTART-1) jsonDefault(m) "\n" spaces sprintf("%*s", indent, ((indent > 0)?" ":""))
+              s = substr(s, RSTART+RLENGTH)
+            }
+          } else if (m == "}" || m == "]") {
+            indent -= tabSize
+            s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, ((indent > 0)?" ":"")) jsonDefault(m)
+            s = substr(s, RSTART+RLENGTH)
+          } else if (m == ",") {
+            s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonDefault(m) "\n" spaces sprintf("%*s", indent, ((indent > 0)?" ":""))
+            s = substr(s, RSTART+RLENGTH)
+          }
+          if (match(s, /^\\\\\"[^"]+":/)) {
+            key = substr(s, RSTART+2, RLENGTH-2-2-1)
+            s0 = s0 substr(s, 1, RSTART+1) jsonKey(key) substr(s, RSTART+RLENGTH-2-1, 2) jsonColon(":") " "
+            s = substr(s, RSTART+RLENGTH)
+          }
+          if (match(s, /^\\\\\"/)) {
+            m = substr(s, RSTART, RLENGTH)
+            s0 = s0 substr(s, 1, RSTART-1) jsonDefault(m)
+            s = substr(s, RSTART+RLENGTH)
+            if (match(s, /\\\\\"[,"}\]]/)) {
+              m = substr(s, RSTART, RLENGTH-1)
+              value = substr(s, 1, RSTART-1)
+              s0 = s0 jsonString(value) jsonDefault(m)
+              s = substr(s, RSTART+RLENGTH-1)
+            }
+          } else if (match(s, /^[0-9.]+/)) {
+            value = substr(s, RSTART, RLENGTH)
+            s0 = s0 substr(s, 1, RSTART-1) jsonNumber(value)
+            s = substr(s, RSTART+RLENGTH)
+          } else if (match(s, /^null/)) {
+            value = substr(s, RSTART, RLENGTH)
+            s0 = s0 substr(s, 1, RSTART-1) jsonNull(value)
+            s = substr(s, RSTART+RLENGTH)
+          } else if (match(s, /^undefined/)) {
+            value = substr(s, RSTART, RLENGTH)
+            s0 = s0 substr(s, 1, RSTART-1) jsonUndefined(value)
+            s = substr(s, RSTART+RLENGTH)
+          } else if (match(s, /^(true|false)/)) {
+            value = substr(s, RSTART, RLENGTH)
+            s0 = s0 substr(s, 1, RSTART-1) jsonBoolean(value)
+            s = substr(s, RSTART+RLENGTH)
+          }
+        }
+        while ((indent > 0) && match(s, /[}\]]/)) {
+          m = substr(s, RSTART, RLENGTH)
+          indent -= tabSize
+          s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, ((indent > 0)?" ":"")) jsonDefault(m)
+          s = substr(s, RSTART+RLENGTH)
+        }
+      }
+      $0 = s0 s
+
       #highlight json
       #start of json object/array
-      if (match($0, /[\{\[]$/)) $0 = substr($0, 1, RSTART-1) jsonDefault(substr($0, RSTART, RLENGTH))
+      if (match($0, /[{[]$/)) $0 = substr($0, 1, RSTART-1) jsonDefault(substr($0, RSTART, RLENGTH))
       #end of json object/array
-      if (match($0, /^[\}\]]/)) $0 = jsonDefault(substr($0, RSTART, RLENGTH)) substr($0, RSTART+RLENGTH)
+      if (match($0, /^[}\]]/)) $0 = jsonDefault(substr($0, RSTART, RLENGTH)) substr($0, RSTART+RLENGTH)
       #inside json object/array
       if (match($0, /^[[:space:]]+/)) {
-        indent = substr($0, RSTART, RLENGTH)
-        line = substr($0, RSTART+RLENGTH)
+        s = $0
+        indent = substr(s, RSTART, RLENGTH)
+        s = substr(s, RSTART+RLENGTH)
         key = ""
         value = ""
-        if (match(line, /^"[^"]+": /)) {
+        comma = ""
+        if (match(s, /^"[^"]+": /)) {
           #line start with key
-          key = substr(line, RSTART+1, RLENGTH-4)
-          value = substr(line, RSTART+RLENGTH)
-        } else {
-          value = line
+          key = substr(s, RSTART+1, RLENGTH-1-3)
+          key = jsonDefault("\"") jsonKey(key) jsonDefault("\"") jsonColon(":") " "
+          s = substr(s, RSTART+RLENGTH)
         }
-        if (match(value, /^"/)) value = jsonDefault("\"") jsonString() substr(value, 2)
-        else if (match(value, /^[0-9.]+/)) value = jsonNumber(value) noColor()
-        else if (match(value, /^null/)) value = jsonNull(value) noColor()
-        else if (match(value, /^undefined/)) value = jsonUndefined(value) noColor()
-        else if (match(value, /^true|false/)) value = jsonBoolean(value) noColor()
-        if (key) line = jsonDefault("\"") jsonKey(key) jsonDefault("\": ") value
-        else line = value
+        value = s
+        if (match(value, /,$/)) {
+          comma = substr(value, RSTART, RLENGTH)
+          comma = jsonDefault(comma)
+          value = substr(value, 1, RSTART-1)
+        }
+        if (match(value, /^".*"$/)) value = jsonDefault("\"") jsonString(substr(value, 2, RSTART+RLENGTH-3)) jsonDefault("\"")
+        else if (match(value, /^[0-9.]+$/)) value = jsonNumber(value)
+        else if (match(value, /^null$/)) value = jsonNull(value)
+        else if (match(value, /^undefined$/)) value = jsonUndefined(value)
+        else if (match(value, /^(true|false)$/)) value = jsonBoolean(value)
+        else value = jsonDefault(value)
         #eol
-        if (match(line, /",?$/)) line = substr(line, 1, RSTART-1) jsonDefault(substr(line, RSTART))
-        if (match(line, /\[?\],?$/)) line = substr(line, 1, RSTART-1) jsonDefault(substr(line, RSTART))
-        if (match(line, /{?},?$/)) line = substr(line, 1, RSTART-1) jsonDefault(substr(line, RSTART))
-        $0 = indent line
-      }
-
-      #yellow uuid
-      while (match($0, /\[[a-z0-9]{8}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{4}-[a-z0-9]{12}\]/)) {
-        $0 = substr($0, 1, RSTART) yellow(substr($0, RSTART+1, RLENGTH-2)) substr($0, RSTART+RLENGTH-1)
+        $0 = indent key value comma
       }
 
       #dim backslashes
