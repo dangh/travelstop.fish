@@ -37,12 +37,12 @@ function build_libs --description "rebuild libs module"
   end
 
   if test -n "$tgzs"
-    set --local command "npm install --loglevel=error --prefix="(string escape "$nodejs_dir")
+    set --local command "npm install --no-proxy --loglevel=error --prefix="(string escape "$nodejs_dir")
     for tgz in $tgzs
       set command $command \\\n"  "(string escape "$tgz")
     end
     echo (set_color yellow)$command(set_color normal)
-    withd $nodejs_dir $command >/dev/null
+    withd "$nodejs_dir" "$command >/dev/null"
   end
 end
 

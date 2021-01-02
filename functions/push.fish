@@ -73,7 +73,7 @@ function push --description "deploy CF stack/lambda function"
     __sls_log execute command: (set_color green)$command(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i; $command"
+    withd "$working_dir" "test -e package.json && npm i --no-proxy; $command"
 
     set --local result $status
 
