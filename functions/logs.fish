@@ -1,7 +1,7 @@
 function logs --description "watch lambda function logs"
   set --local function
   set --local profile $AWS_PROFILE
-  set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
+  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
   set --local start_time 2m
   set --local args
@@ -18,17 +18,15 @@ function logs --description "watch lambda function logs"
     case startTime
       set start_time $value
     case \*
-      if test (string length $key) = 1
-        set args $args "-$key"
-      else
-        set args $args "--$key"
-      end
-      if test "$value" != "true"
-        set args $args=(string escape $value)
-      end
+      test (string length $key) -eq 1 \
+        && set key "-$key" \
+        || set key "--$key"
+      test "$value" = true \
+        && set --erase value
+      set --append args $key (string escape --style=script $value)
     end
   end
-  set --local command "sls logs --profile=$profile --stage=$stage --region=$region --tail --startTime=$start_time --function=$function $args"
+  set --local command "sls logs --profile $profile -s $stage -r $region -t --startTime $start_time -f $function $args"
   echo (set_color green)$command(set_color normal)
   set --local transform 'awk \'
     function bold(s) { if (s == "") { return "\x1b[1m" } else { return sprintf("\x1b[1m%s\x1b[22m", s) } }
