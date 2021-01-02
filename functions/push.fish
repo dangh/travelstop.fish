@@ -1,6 +1,6 @@
 function push --description "deploy CF stack/lambda function"
   set --local profile $AWS_PROFILE
-  set --local stage (string lower -- (string replace --regex ".*@" "" -- $AWS_PROFILE))
+  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
   set --local project_dir (git rev-parse --show-toplevel)
   set --local targets
@@ -97,9 +97,11 @@ function push --description "deploy CF stack/lambda function"
     test "$type" = function \
       && set notif_message "env: $notif_stage\nfunc: $notif_name" \
       || set notif_message "env: $notif_stage\nstack: $notif_name"
+    set --query sls_success_icon || set --local sls_success_icon 🎉
+    set --query sls_failure_icon || set --local sls_failure_icon 🤡
     test $result -eq 0 \
-      && __notify "🎉 deployed" "$notif_message" tink \
-      || __notify "🤡 failed to deploy" "$notif_message" basso
+      && __notify "$sls_success_icon deployed" "$notif_message" tink \
+      || __notify "$sls_failure_icon failed to deploy" "$notif_message" basso
   end
 
   #summary
