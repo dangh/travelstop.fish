@@ -35,8 +35,9 @@ function jsonColon(s) { return dim(bold(s)) }
     gsub(/:/, bold(":") dim())
 
     if ($0 ~ /^START RequestId/) {
-      #blank page before each event
-      $0 = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n" $0
+      #mark start of request
+      if (!REQUEST_MARK) REQUEST_MARK = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+      $0 = REQUEST_MARK $0
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
       $0 = "\n" $0
