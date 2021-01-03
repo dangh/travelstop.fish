@@ -158,8 +158,9 @@ function __sls_resolve_config --argument-names project_dir target config --descr
   set --local json (realpath (dirname $yml)/package.json 2>/dev/null)
   test -f "$json" || set json (realpath (dirname $yml)/nodejs/package.json 2>/dev/null)
   if test -f "$yml"
-    string match --quiet --regex '/modules/' "$yml" && set type module
-    string match --quiet --regex '/services/' "$yml" && set type service
+    string match --quiet --regex '/modules/' "$yml" \
+      && set type module \
+      || set type service
     set name (string match --regex '^service:\s*([^\s]*)' < $yml)[2]
     test -f "$json" && set ver (string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
   else
