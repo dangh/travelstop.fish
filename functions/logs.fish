@@ -112,9 +112,9 @@ function logs --description "watch lambda function logs"
         while (match(s, /\\\\\"/) && match(s, /[[{}\],]/)) {
           m = substr(s, RSTART, RLENGTH)
           if (m == "{" || m == "[") {
-            d = substr(s, RSTART+RLENGTH, 1)
-            if (d == "]" || d == "}") {
-              s0 = s0 jsonDefault(m) jsonDefault(d)
+            n = substr(s, RSTART+RLENGTH, 1)
+            if (n == "]" || n == "}") {
+              s0 = s0 jsonDefault(m) jsonDefault(n)
               s = substr(s, RSTART+RLENGTH+1)
             } else {
               indent += tabSize
