@@ -29,6 +29,6 @@ function logs --description "watch lambda function logs"
   set --local command "sls logs --profile $profile -s $stage -r $region -t --startTime $start_time -f $function $args"
   echo (set_color green)$command(set_color normal)
   test "$TERM_PROGRAM" = iTerm.app && functions --query iterm2_prompt_mark && set --local sls_request_mark (iterm2_prompt_mark)
-  set --local transform "awk -v REQUEST_MARK='$sls_request_mark' -f ~/.config/fish/functions/logs_transform.awk"
+  set --local transform "awk -v REQUEST_MARK='$sls_request_mark' -f ~/.config/fish/functions/logs.awk"
   eval $command \| $transform
 end
