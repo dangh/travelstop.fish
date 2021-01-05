@@ -58,7 +58,7 @@ function push --description "deploy CF stack/lambda function"
     set --local working_dir (dirname $yml)
     set --local command "-v --profile $profile -s $stage -r $region"
     if test "$type" = function
-      set --append command "-f $name -u"
+      set --append command "-f $name"
       set --prepend command "sls deploy function"
     else
       set --prepend command "sls deploy"
