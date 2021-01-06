@@ -1,7 +1,6 @@
 function build_libs --description "rebuild libs module"
-  set --local project_dir (git rev-parse --show-toplevel)
-  set --local nodejs_dir "$project_dir/modules/libs/nodejs"
-  set --local packages_dir "$project_dir/packages"
+  set --local nodejs_dir "$__sls_project_dir/modules/libs/nodejs"
+  set --local packages_dir "$__sls_project_dir/packages"
   set --local force_install FALSE
   set --local tgzs
 
@@ -12,7 +11,7 @@ function build_libs --description "rebuild libs module"
     end
   end
 
-  _libs | while read --local lib_dir
+  __sls_libs | while read --local lib_dir
     set --local lib (string match --regex '[^/]+$' $lib_dir)
     set --local lib_changed TRUE
     set --local last_commit_id (command git rev-list --max-count=1 HEAD "$packages_dir/$lib")
@@ -30,7 +29,7 @@ function build_libs --description "rebuild libs module"
     else if test "$force_install" = "TRUE"
       echo (set_color --bold magenta)$lib(set_color normal)(set_color magenta): FORCE REINSTALL(set_color normal)
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
-      set --append tgzs "$packages_dir/$lib/"(_get_tgz $lib)
+      set --append tgzs "$packages_dir/$lib/"(__sls_lib_tgz $lib)
     else
       echo (set_color --bold --dim)$lib(set_color normal)(set_color --dim): no changes .. SKIP(set_color normal)
     end
@@ -46,14 +45,13 @@ function build_libs --description "rebuild libs module"
   end
 end
 
-function _libs --argument-names --description "get all libs"
-  set --local project_dir (git rev-parse --show-toplevel)
-  set --local package_json "$project_dir/modules/libs/nodejs/package.json"
-  command awk '{ if(match($0, /npm pack [^ ]+/)) print(substr($0, RSTART+9, RLENGTH-9)) }' $package_json
+function __sls_libs --argument-names --description "get all libs"
+  for line in (string match --regex --all 'npm pack \S+' (read --null < $__sls_project_dir/modules/libs/nodejs/package.json))
+    string match --regex '\S+$' $line
+  end
 end
 
-function _get_tgz --argument-names lib --description "get tgz"
-  set --local project_dir (git rev-parse --show-toplevel)
-  set --local package_json "$project_dir/modules/libs/nodejs/package.json"
-  command awk '{ if (match($0, /'$lib'-[0-9]+.[0-9]+.[0-9]+.tgz/)) print substr($0, RSTART, RLENGTH) }' $package_json
+function __sls_lib_tgz --argument-names lib --description "get tgz"
+  test -n "$lib" || return 1
+  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $__sls_project_dir/modules/libs/nodejs/package.json)
 end

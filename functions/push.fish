@@ -2,7 +2,6 @@ function push --description "deploy CF stack/lambda function"
   set --local profile $AWS_PROFILE
   set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
-  set --local project_dir (git rev-parse --show-toplevel)
   set --local targets
   set --local config #config when pushing functions
   set --local modules
@@ -34,7 +33,7 @@ function push --description "deploy CF stack/lambda function"
   test -z "$argv" && set --append targets .
 
   for target in $targets
-    __sls_resolve_config $project_dir $target $config | read --delimiter=: --local type name ver yml
+    __sls_resolve_config $target $config | read --delimiter=: --local type name ver yml
     set --append {$type}s "$type:$name:$ver:$yml:pending"
   end
 
@@ -149,12 +148,12 @@ function __sls_progress
   end
 end
 
-function __sls_resolve_config --argument-names project_dir target config --description "type:name:version:yml"
+function __sls_resolve_config --argument-names target config --description "type:name:version:yml"
   set --local type
   set --local name
   set --local ver
   set --local yml (realpath $target/serverless.yml 2>/dev/null)
-  test -n "$yml" || set yml (realpath $project_dir/modules/$target/serverless.yml 2>/dev/null)
+  test -n "$yml" || set yml (realpath $__sls_project_dir/modules/$target/serverless.yml 2>/dev/null)
   set --local json (realpath (dirname $yml)/package.json 2>/dev/null)
   test -f "$json" || set json (realpath (dirname $yml)/nodejs/package.json 2>/dev/null)
   if test -f "$yml"

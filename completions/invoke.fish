@@ -1,2 +1,2 @@
-complete --no-files --command invoke --arguments "(__sls_complete_uniq (__sls_complete_functions))" --description "function"
+complete --no-files --command invoke --condition "not __fish_seen_subcommand_from (__sls_functions)" --arguments "(__sls_uniq_completions (__sls_functions))" --description "function"
 complete --no-files --command invoke
