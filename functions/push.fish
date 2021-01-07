@@ -33,7 +33,7 @@ function push --description "deploy CF stack/lambda function"
   test -z "$argv" && set --append targets .
 
   for target in $targets
-    __sls_resolve_config $target $config | read --delimiter=: --local type name ver yml
+    __sls_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
     set --append {$type}s "$type:$name:$ver:$yml:pending"
   end
 
@@ -152,22 +152,38 @@ function __sls_resolve_config --argument-names target config --description "type
   set --local type
   set --local name
   set --local ver
-  set --local yml (realpath $target/serverless.yml 2>/dev/null)
-  test -n "$yml" || set yml (realpath $__sls_project_dir/modules/$target/serverless.yml 2>/dev/null)
-  set --local json (realpath (dirname $yml)/package.json 2>/dev/null)
-  test -f "$json" || set json (realpath (dirname $yml)/nodejs/package.json 2>/dev/null)
-  if test -f "$yml"
+  set --local yml
+  set --local json
+
+  if test -f "$target/serverless.yml"
+    set yml (realpath "$target/serverless.yml")
+  else if test -f "$__sls_project_dir/modules/$target/serverless.yml"
+    set yml (realpath "$__sls_project_dir/modules/$target/serverless.yml")
+  else if test -n "$config"
+    set yml (realpath "$config")
+  else if test -f "$PWD/serverless.yml"
+    set yml "$PWD/serverless.yml"
+  end
+
+  test -n "$yml" || return 1
+
+  if test -f (dirname "$yml")/package.json
+    set json (dirname "$yml")/package.json
+  else if test -f "$__sls_project_dir/modules/$target/nodejs/package.json"
+    set json (realpath "$__sls_project_dir/modules/$target/nodejs/package.json")
+  end
+
+  if contains $target (__sls_functions "$yml")
+    set type function
+    set name $target
+  else
     string match --quiet --regex '/modules/' "$yml" \
       && set type module \
       || set type service
     set name (string match --regex '^service:\s*([^\s]*)' < $yml)[2]
-    test -f "$json" && set ver (string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
-  else
-    test -z "$config" \
-      && set yml (realpath ./serverless.yml 2>/dev/null) \
-      || set yml (realpath $config 2>/dev/null)
-    set type function
-    set name $target
+    test -n "$json" \
+      && set ver (string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
   end
+
   echo "$type:$name:$ver:$yml"
 end
