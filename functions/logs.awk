@@ -125,7 +125,7 @@ function jsonColon(s) { return dim(bold(s)) }
           }
         } else {
           value = ""
-          if (match(s, /^-?[0-9][0-9,.]+/)) value = jsonNumber(substr(s, RSTART, RLENGTH))
+          if (match(s, /^-?[[:digit:]]+(.?[[:digit:]]+)?/)) value = jsonNumber(substr(s, RSTART, RLENGTH))
           else if (match(s, /^null/)) value = jsonNull(substr(s, RSTART, RLENGTH))
           else if (match(s, /^undefined/)) value = jsonUndefined(substr(s, RSTART, RLENGTH))
           else if (match(s, /^(true|false)/)) value = jsonBoolean(substr(s, RSTART, RLENGTH))
@@ -170,7 +170,7 @@ function jsonColon(s) { return dim(bold(s)) }
         value = substr(value, 1, RSTART-1)
       }
       if (match(value, /^".*"$/)) value = jsonDefault("\"") jsonString(substr(value, 2, RSTART+RLENGTH-3)) jsonDefault("\"")
-      else if (match(value, /^-?[[:digit:]][[:digit:],.]+$/)) value = jsonNumber(value)
+      else if (match(value, /^-?[[:digit:]]+(.?[[:digit:]]+)?$/)) value = jsonNumber(value)
       else if (match(value, /^null$/)) value = jsonNull(value)
       else if (match(value, /^undefined$/)) value = jsonUndefined(value)
       else if (match(value, /^(true|false)$/)) value = jsonBoolean(value)
