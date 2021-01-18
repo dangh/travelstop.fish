@@ -157,8 +157,8 @@ function __sls_resolve_config --argument-names target config --description "type
 
   if test -f "$target/serverless.yml"
     set yml (realpath "$target/serverless.yml")
-  else if test -f "$__sls_project_dir/modules/$target/serverless.yml"
-    set yml (realpath "$__sls_project_dir/modules/$target/serverless.yml")
+  else if test -f "$$_sls_project_dir/modules/$target/serverless.yml"
+    set yml (realpath "$$_sls_project_dir/modules/$target/serverless.yml")
   else if test -n "$config"
     set yml (realpath "$config")
   else if test -f "$PWD/serverless.yml"
@@ -169,8 +169,8 @@ function __sls_resolve_config --argument-names target config --description "type
 
   if test -f (dirname "$yml")/package.json
     set json (dirname "$yml")/package.json
-  else if test -f "$__sls_project_dir/modules/$target/nodejs/package.json"
-    set json (realpath "$__sls_project_dir/modules/$target/nodejs/package.json")
+  else if test -f "$$_sls_project_dir/modules/$target/nodejs/package.json"
+    set json (realpath "$$_sls_project_dir/modules/$target/nodejs/package.json")
   end
 
   if contains $target (__sls_functions "$yml")

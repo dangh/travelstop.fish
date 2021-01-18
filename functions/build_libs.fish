@@ -1,6 +1,6 @@
 function build_libs --description "rebuild libs module"
-  set --local nodejs_dir "$__sls_project_dir/modules/libs/nodejs"
-  set --local packages_dir "$__sls_project_dir/packages"
+  set --local nodejs_dir "$$_sls_project_dir/modules/libs/nodejs"
+  set --local packages_dir "$$_sls_project_dir/packages"
   set --local force_install FALSE
   set --local tgzs
 
@@ -46,12 +46,12 @@ function build_libs --description "rebuild libs module"
 end
 
 function __sls_libs --argument-names --description "get all libs"
-  for line in (string match --regex --all 'npm pack \S+' (read --null < $__sls_project_dir/modules/libs/nodejs/package.json))
+  for line in (string match --regex --all 'npm pack \S+' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json))
     string match --regex '\S+$' $line
   end
 end
 
 function __sls_lib_tgz --argument-names lib --description "get tgz"
   test -n "$lib" || return 1
-  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $__sls_project_dir/modules/libs/nodejs/package.json)
+  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json)
 end

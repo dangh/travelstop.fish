@@ -1,14 +1,18 @@
 status is-interactive || exit
 
-function __sls_update_global_vars --on-event fish_prompt
-  function __sls_update_global_vars --on-variable PWD
-    set --global __sls_project_dir (git rev-parse --show-toplevel 2>/dev/null)
-  end
-  __sls_update_global_vars
+set --global _sls_project_dir _sls_project_dir_$fish_pid
+
+function $_sls_project_dir --on-event fish_prompt
+  function $_sls_project_dir --on-variable PWD
+    fish --private --command "
+      set --universal $_sls_project_dir (git rev-parse --show-toplevel 2>/dev/null)
+    " &
+    disown
+  end && $_sls_project_dir
 end
 
 function __sls_modules
-  test $status -eq 0 && ls "$__sls_project_dir/modules"
+  test $status -eq 0 && ls "$$_sls_project_dir/modules"
 end
 
 function __sls_substacks
