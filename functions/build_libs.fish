@@ -1,6 +1,6 @@
 function build_libs --description "rebuild libs module"
-  set --local nodejs_dir "$$_sls_project_dir/modules/libs/nodejs"
-  set --local packages_dir "$$_sls_project_dir/packages"
+  set --local nodejs_dir "$$_ts_project_dir/modules/libs/nodejs"
+  set --local packages_dir "$$_ts_project_dir/packages"
   set --local force_install FALSE
   set --local tgzs
 
@@ -11,7 +11,7 @@ function build_libs --description "rebuild libs module"
     end
   end
 
-  _sls_libs | while read --local lib_dir
+  _ts_libs | while read --local lib_dir
     set --local lib (string match --regex '[^/]+$' $lib_dir)
     set --local lib_changed TRUE
     set --local last_commit_id (command git rev-list --max-count=1 HEAD "$packages_dir/$lib")
@@ -29,7 +29,7 @@ function build_libs --description "rebuild libs module"
     else if test "$force_install" = "TRUE"
       echo (set_color --bold magenta)$lib(set_color normal)(set_color magenta): FORCE REINSTALL(set_color normal)
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
-      set --append tgzs "$packages_dir/$lib/"(_sls_lib_tgz $lib)
+      set --append tgzs "$packages_dir/$lib/"(_ts_lib_tgz $lib)
     else
       echo (set_color --bold --dim)$lib(set_color normal)(set_color --dim): no changes .. SKIP(set_color normal)
     end
@@ -45,13 +45,13 @@ function build_libs --description "rebuild libs module"
   end
 end
 
-function _sls_libs --argument-names --description "get all libs"
-  for line in (string match --regex --all 'npm pack \S+' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json))
+function _ts_libs --argument-names --description "get all libs"
+  for line in (string match --regex --all 'npm pack \S+' (read --null < $$_ts_project_dir/modules/libs/nodejs/package.json))
     string match --regex '\S+$' $line
   end
 end
 
-function _sls_lib_tgz --argument-names lib --description "get tgz"
+function _ts_lib_tgz --argument-names lib --description "get tgz"
   test -n "$lib" || return 1
-  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json)
+  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_ts_project_dir/modules/libs/nodejs/package.json)
 end

@@ -33,7 +33,7 @@ function push --description "deploy CF stack/lambda function"
   test -z "$argv" && set --append targets .
 
   for target in $targets
-    _sls_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
+    _ts_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
     set --append {$type}s "$type:$name:$ver:$yml:pending"
   end
 
@@ -52,7 +52,7 @@ function push --description "deploy CF stack/lambda function"
 
     #update progress
     set targets[$i] "$type:$name:$ver:$yml:running"
-    test (count $targets) -gt 1 && _sls_progress $targets
+    test (count $targets) -gt 1 && _ts_progress $targets
 
     set --local working_dir (dirname $yml)
     set --local command "-v --profile $profile -s $stage -r $region"
@@ -66,10 +66,10 @@ function push --description "deploy CF stack/lambda function"
     end
     set --append command $args
     test "$type" = function \
-      && _sls_log deploying function: (set_color magenta)$name_ver(set_color normal) \
-      || _sls_log deploying stack: (set_color magenta)$name_ver(set_color normal)
-    _sls_log working directory: (set_color blue)$working_dir(set_color normal)
-    _sls_log execute command: (set_color green)$command(set_color normal)
+      && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
+      || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
+    _ts_log working directory: (set_color blue)$working_dir(set_color normal)
+    _ts_log execute command: (set_color green)$command(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
     withd "$working_dir" "test -e package.json && npm i --no-proxy; $command"
@@ -99,29 +99,23 @@ function push --description "deploy CF stack/lambda function"
     set --query sls_success_icon || set --local sls_success_icon 🎉
     set --query sls_failure_icon || set --local sls_failure_icon 🤡
     test $result -eq 0 \
-      && _sls_notify "$sls_success_icon deployed" "$notif_message" tink \
-      || _sls_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
+      && _ts_notify "$sls_success_icon deployed" "$notif_message" tink \
+      || _ts_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
   end
 
   #summary
   if test (count $targets) -gt 1
-    _sls_progress $targets
+    _ts_progress $targets
     functions --query fontface \
       && set success_count (fontface math_monospace $success_count) \
       && set failure_count (fontface math_monospace $failure_count)
     set --local notif_title (count $targets) stacks/functions deployed
     set --local notif_message success: $success_count\nfailure: $failure_count
-    _sls_notify "$notif_title" "$notif_message"
+    _ts_notify "$notif_title" "$notif_message"
   end
 end
 
-function _sls_notify --argument-names title message sound --description "send notification to system"
-  osascript -e "display notification \"$message\" with title \"$title\"" &
-  set sound "/System/Library/Sounds/$sound.aiff"
-  test -f "$sound" && afplay $sound &
-end
-
-function _sls_progress
+function _ts_progress
   set --local count (count $argv)
   set --local color_pending (set_color normal)
   set --local color_running (set_color magenta)
@@ -134,9 +128,9 @@ function _sls_progress
   set --local indent (test $count -gt 9 && echo 2 || echo 1)
   echo $argv[-1] | read --delimiter=: --local _ _ _ _ state
   if test "$state" = success -o "$state" = failure
-    _sls_log (set_color yellow)$count(set_color normal) stacks/functions deployed
+    _ts_log (set_color yellow)$count(set_color normal) stacks/functions deployed
   else
-    _sls_log deploying (set_color yellow)$count(set_color normal) stacks/functions
+    _ts_log deploying (set_color yellow)$count(set_color normal) stacks/functions
   end
   for i in (seq $count)
     echo $argv[$i] | read --delimiter=: --local _ name ver _ state
@@ -148,7 +142,7 @@ function _sls_progress
   end
 end
 
-function _sls_resolve_config --argument-names target config --description "type:name:version:yml"
+function _ts_resolve_config --argument-names target config --description "type:name:version:yml"
   set --local type
   set --local name
   set --local ver
@@ -157,8 +151,8 @@ function _sls_resolve_config --argument-names target config --description "type:
 
   if test -f "$target/serverless.yml"
     set yml (realpath "$target/serverless.yml")
-  else if test -f "$$_sls_project_dir/modules/$target/serverless.yml"
-    set yml (realpath "$$_sls_project_dir/modules/$target/serverless.yml")
+  else if test -f "$$_ts_project_dir/modules/$target/serverless.yml"
+    set yml (realpath "$$_ts_project_dir/modules/$target/serverless.yml")
   else if test -n "$config"
     set yml (realpath "$config")
   else if test -f "$PWD/serverless.yml"
@@ -169,11 +163,11 @@ function _sls_resolve_config --argument-names target config --description "type:
 
   if test -f (dirname "$yml")/package.json
     set json (dirname "$yml")/package.json
-  else if test -f "$$_sls_project_dir/modules/$target/nodejs/package.json"
-    set json (realpath "$$_sls_project_dir/modules/$target/nodejs/package.json")
+  else if test -f "$$_ts_project_dir/modules/$target/nodejs/package.json"
+    set json (realpath "$$_ts_project_dir/modules/$target/nodejs/package.json")
   end
 
-  if contains $target (_sls_functions "$yml")
+  if contains $target (_ts_functions "$yml")
     set type function
     set name $target
   else
