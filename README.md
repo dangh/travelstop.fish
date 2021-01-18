@@ -5,7 +5,7 @@
 ```sh
 fisher install jorgebucaran/getopts.fish
 fisher install dangh/withd.fish
-fisher install dangh/serverless.fish
+fisher install dangh/travelstop.fish
 ```
 
 To update AWS config automatically when copied to clipboard:
