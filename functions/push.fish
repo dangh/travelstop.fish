@@ -33,7 +33,7 @@ function push --description "deploy CF stack/lambda function"
   test -z "$argv" && set --append targets .
 
   for target in $targets
-    __sls_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
+    _sls_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
     set --append {$type}s "$type:$name:$ver:$yml:pending"
   end
 
@@ -52,7 +52,7 @@ function push --description "deploy CF stack/lambda function"
 
     #update progress
     set targets[$i] "$type:$name:$ver:$yml:running"
-    test (count $targets) -gt 1 && __sls_progress $targets
+    test (count $targets) -gt 1 && _sls_progress $targets
 
     set --local working_dir (dirname $yml)
     set --local command "-v --profile $profile -s $stage -r $region"
@@ -66,10 +66,10 @@ function push --description "deploy CF stack/lambda function"
     end
     set --append command $args
     test "$type" = function \
-      && __sls_log deploying function: (set_color magenta)$name_ver(set_color normal) \
-      || __sls_log deploying stack: (set_color magenta)$name_ver(set_color normal)
-    __sls_log working directory: (set_color blue)$working_dir(set_color normal)
-    __sls_log execute command: (set_color green)$command(set_color normal)
+      && _sls_log deploying function: (set_color magenta)$name_ver(set_color normal) \
+      || _sls_log deploying stack: (set_color magenta)$name_ver(set_color normal)
+    _sls_log working directory: (set_color blue)$working_dir(set_color normal)
+    _sls_log execute command: (set_color green)$command(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
     withd "$working_dir" "test -e package.json && npm i --no-proxy; $command"
@@ -99,29 +99,29 @@ function push --description "deploy CF stack/lambda function"
     set --query sls_success_icon || set --local sls_success_icon 🎉
     set --query sls_failure_icon || set --local sls_failure_icon 🤡
     test $result -eq 0 \
-      && __notify "$sls_success_icon deployed" "$notif_message" tink \
-      || __notify "$sls_failure_icon failed to deploy" "$notif_message" basso
+      && _sls_notify "$sls_success_icon deployed" "$notif_message" tink \
+      || _sls_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
   end
 
   #summary
   if test (count $targets) -gt 1
-    __sls_progress $targets
+    _sls_progress $targets
     functions --query fontface \
       && set success_count (fontface math_monospace $success_count) \
       && set failure_count (fontface math_monospace $failure_count)
     set --local notif_title (count $targets) stacks/functions deployed
     set --local notif_message success: $success_count\nfailure: $failure_count
-    __notify "$notif_title" "$notif_message"
+    _sls_notify "$notif_title" "$notif_message"
   end
 end
 
-function __notify --argument-names title message sound --description "send notification to system"
+function _sls_notify --argument-names title message sound --description "send notification to system"
   osascript -e "display notification \"$message\" with title \"$title\"" &
   set sound "/System/Library/Sounds/$sound.aiff"
   test -f "$sound" && afplay $sound &
 end
 
-function __sls_progress
+function _sls_progress
   set --local count (count $argv)
   set --local color_pending (set_color normal)
   set --local color_running (set_color magenta)
@@ -134,9 +134,9 @@ function __sls_progress
   set --local indent (test $count -gt 9 && echo 2 || echo 1)
   echo $argv[-1] | read --delimiter=: --local _ _ _ _ state
   if test "$state" = success -o "$state" = failure
-    __sls_log (set_color yellow)$count(set_color normal) stacks/functions deployed
+    _sls_log (set_color yellow)$count(set_color normal) stacks/functions deployed
   else
-    __sls_log deploying (set_color yellow)$count(set_color normal) stacks/functions
+    _sls_log deploying (set_color yellow)$count(set_color normal) stacks/functions
   end
   for i in (seq $count)
     echo $argv[$i] | read --delimiter=: --local _ name ver _ state
@@ -148,7 +148,7 @@ function __sls_progress
   end
 end
 
-function __sls_resolve_config --argument-names target config --description "type:name:version:yml"
+function _sls_resolve_config --argument-names target config --description "type:name:version:yml"
   set --local type
   set --local name
   set --local ver
@@ -173,7 +173,7 @@ function __sls_resolve_config --argument-names target config --description "type
     set json (realpath "$$_sls_project_dir/modules/$target/nodejs/package.json")
   end
 
-  if contains $target (__sls_functions "$yml")
+  if contains $target (_sls_functions "$yml")
     set type function
     set name $target
   else

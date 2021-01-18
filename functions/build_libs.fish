@@ -11,7 +11,7 @@ function build_libs --description "rebuild libs module"
     end
   end
 
-  __sls_libs | while read --local lib_dir
+  _sls_libs | while read --local lib_dir
     set --local lib (string match --regex '[^/]+$' $lib_dir)
     set --local lib_changed TRUE
     set --local last_commit_id (command git rev-list --max-count=1 HEAD "$packages_dir/$lib")
@@ -29,7 +29,7 @@ function build_libs --description "rebuild libs module"
     else if test "$force_install" = "TRUE"
       echo (set_color --bold magenta)$lib(set_color normal)(set_color magenta): FORCE REINSTALL(set_color normal)
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
-      set --append tgzs "$packages_dir/$lib/"(__sls_lib_tgz $lib)
+      set --append tgzs "$packages_dir/$lib/"(_sls_lib_tgz $lib)
     else
       echo (set_color --bold --dim)$lib(set_color normal)(set_color --dim): no changes .. SKIP(set_color normal)
     end
@@ -45,13 +45,13 @@ function build_libs --description "rebuild libs module"
   end
 end
 
-function __sls_libs --argument-names --description "get all libs"
+function _sls_libs --argument-names --description "get all libs"
   for line in (string match --regex --all 'npm pack \S+' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json))
     string match --regex '\S+$' $line
   end
 end
 
-function __sls_lib_tgz --argument-names lib --description "get tgz"
+function _sls_lib_tgz --argument-names lib --description "get tgz"
   test -n "$lib" || return 1
   string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_sls_project_dir/modules/libs/nodejs/package.json)
 end

@@ -11,15 +11,15 @@ function $_sls_project_dir --on-event fish_prompt
   end && $_sls_project_dir
 end
 
-function __sls_modules
+function _sls_modules
   test $status -eq 0 && ls "$$_sls_project_dir/modules"
 end
 
-function __sls_substacks
+function _sls_substacks
   find . -name serverless.yml -maxdepth 2 -mindepth 2 | string replace --regex '^\./(.*)/serverless\.yml$' '$1'
 end
 
-function __sls_functions --argument-names yml
+function _sls_functions --argument-names yml
   test -n "$yml" || set --local yml ./serverless.yml
   awk '{
     if ((y == 1) && ($0 ~ /^[^#[:space:]]/)) exit;
@@ -29,11 +29,11 @@ function __sls_functions --argument-names yml
   }' $yml 2>/dev/null
 end
 
-function __sls_log
+function _sls_log
   echo '('(set_color yellow)sls(set_color normal)')' $argv
 end
 
-function __sls_validate_path --argument-names path
+function _sls_validate_path --argument-names path
   set path (string replace --regex '^\./?(.*)' '$1' $path)
   string match --quiet --regex '^/' $path || set path (pwd)/$path
 
@@ -72,7 +72,7 @@ function __sls_validate_path --argument-names path
   echo $path
 end
 
-function __sls_uniq_completions
+function _sls_uniq_completions
   set --local cmd (commandline --current-process --tokenize --cut-at-cursor)
   set --erase cmd[1]
   for arg in $argv

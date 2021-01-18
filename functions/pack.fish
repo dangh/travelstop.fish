@@ -25,7 +25,7 @@ function pack --description "package a serverless service"
   end
   string match --quiet --regex '\.yml$' "$yml" || set yml $yml/serverless.yml
   if ! test -f "$yml"
-    __sls_log invalid serverless config: (__sls_validate_path $yml)
+    _sls_log invalid serverless config: (_sls_validate_path $yml)
     return 1
   end
   set yml (realpath $yml 2>/dev/null)
@@ -38,8 +38,8 @@ function pack --description "package a serverless service"
   test (basename $yml) != serverless.yml \
     && set --append command "-c" (basename $yml)
   set --append command $args
-  __sls_log packaging stack: (set_color magenta)$name_ver(set_color normal)
-  __sls_log config: (set_color blue)$yml(set_color normal)
-  __sls_log execute command: (set_color green)$command(set_color normal)
+  _sls_log packaging stack: (set_color magenta)$name_ver(set_color normal)
+  _sls_log config: (set_color blue)$yml(set_color normal)
+  _sls_log execute command: (set_color green)$command(set_color normal)
   withd "$working_dir" "$command"
 end
