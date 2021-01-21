@@ -4,12 +4,8 @@ function build_libs --description "rebuild libs module"
   set --local force_install FALSE
   set --local tgzs
 
-  getopts $argv | while read --local key value
-    switch $key
-    case force
-      set force_install TRUE
-    end
-  end
+  argparse --ignore-unknown '0-force' -- $argv
+  set --query _flag_force && set force_install TRUE
 
   _ts_libs | while read --local lib_dir
     set --local lib (string match --regex '[^/]+$' $lib_dir)
@@ -21,12 +17,12 @@ function build_libs --description "rebuild libs module"
         set lib_changed FALSE
       end
     end
-    if test "$lib_changed" = "TRUE"
+    if test "$lib_changed" = TRUE
       echo (set_color --bold green)$lib(set_color normal)(set_color green): changed .. REBUILD(set_color normal)
       set --local tgz (command npm run --prefix "$nodejs_dir" --silent build-$lib)
       set --append tgzs "$packages_dir/$lib/$tgz"
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
-    else if test "$force_install" = "TRUE"
+    else if test "$force_install" = TRUE
       echo (set_color --bold magenta)$lib(set_color normal)(set_color magenta): FORCE REINSTALL(set_color normal)
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
       set --append tgzs "$packages_dir/$lib/"(_ts_lib_tgz $lib)
@@ -36,12 +32,12 @@ function build_libs --description "rebuild libs module"
   end
 
   if test -n "$tgzs"
-    set --local command "npm install --no-proxy --loglevel=error --prefix="(string escape "$nodejs_dir")
+    set --local cmd "npm install --no-proxy --loglevel=error --prefix="(string escape "$nodejs_dir")
     for tgz in $tgzs
-      set command $command \\\n"  "(string escape "$tgz")
+      set cmd --append \\\n"  "(string escape "$tgz")
     end
-    echo (set_color yellow)$command(set_color normal)
-    withd "$nodejs_dir" "$command >/dev/null"
+    echo (set_color yellow)$cmd(set_color normal)
+    withd "$nodejs_dir" "command $cmd >/dev/null"
   end
 end
 

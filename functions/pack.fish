@@ -3,26 +3,23 @@ function pack --description "package a serverless service"
   set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
   set --local yml ./serverless.yml
-  set --local args
-  getopts $argv | while read --local key value
-    switch $key
-    case profile
-      set profile $value
-    case s stage
-      set stage $value
-    case r region
-      set region $value
-    case _ c config
-      set yml $value
-    case \*
-      test (string length $key) -eq 1 \
-        && set key "-$key" \
-        || set key "--$key"
-      test "$value" = true \
-        && set value
-      set --append $key $value
-    end
-  end
+
+  argparse --ignore-unknown \
+    '0-profile=?' \
+    's/stage=?' \
+    'r/region=?' \
+    '1-app=?' \
+    '2-org=?' \
+    'c/config=?' -- $ts_default_argv_pack $argv
+
+  # config is the first positional argument
+  set --query argv[1] && set yml $argv[1]
+
+  set --query _flag_profile && set profile $_flag_profile
+  set --query _flag_stage && set stage $_flag_stage
+  set --query _flag_region && set region $_flag_region
+  set --query _flag_config && set yml $_flag_config
+
   string match --quiet --regex '\.yml$' "$yml" || set yml $yml/serverless.yml
   if ! test -f "$yml"
     _ts_log invalid serverless config: (_ts_validate_path $yml)
@@ -34,12 +31,18 @@ function pack --description "package a serverless service"
   set --local json (realpath $working_dir/package.json 2>/dev/null)
   test -f "$json" || set --local json (realpath $working_dir/nodejs/package.json 2>/dev/null)
   test -f "$json" && set name_ver $name_ver-(string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
-  set --local command "sls package --profile $profile -s $stage -r $region"
-  test (basename $yml) != serverless.yml \
-    && set --append command "-c" (basename $yml)
-  set --append command $args
+
+  set --local cmd sls package
+  test -n "$profile" && set --append cmd --profile=(string escape "$profile")
+  test -n "$stage" && set --append cmd --stage=(string escape "$stage")
+  test -n "$region" && set --append cmd --region=(string escape "$region")
+  test -n "$_flag_package" && set --append cmd --package=(string escape "$_flag_package")
+  test -n "$_flag_app" && set --append cmd --app=(string escape "$_flag_app")
+  test -n "$_flag_org" && set --append cmd --org=(string escape "$_flag_org")
+  test (basename $yml) != serverless.yml && set --append cmd --config (basename $yml)
+
   _ts_log packaging stack: (set_color magenta)$name_ver(set_color normal)
   _ts_log config: (set_color blue)$yml(set_color normal)
-  _ts_log execute command: (set_color green)$command(set_color normal)
-  withd "$working_dir" "$command"
+  _ts_log execute command: (set_color green)$cmd(set_color normal)
+  withd "$working_dir" "command $cmd"
 end

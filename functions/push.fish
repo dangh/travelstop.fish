@@ -7,30 +7,30 @@ function push --description "deploy CF stack/lambda function"
   set --local modules
   set --local services
   set --local functions
-  getopts $argv | while read --local key value
-    switch $key
-    case _
-      set --append targets $value
-    case c config
-      set config $value
-    case profile
-      set profile $value
-    case s stage
-      set stage $value
-    case r region
-      set region $value
-    case \*
-      test (string length $key) -eq 1 \
-        && set key "-$key" \
-        || set key "--$key"
-      test "$value" = true \
-        && set --erase value
-      set --append args $key (string escape --style=script $value)
-    end
-  end
 
   #push without arguments
   test -z "$argv" && set --append targets .
+
+  argparse --ignore-unknown \
+    '0-conceal' \
+    '1-profile=?' \
+    's/stage=?' \
+    'r/region=?' \
+    'p/package=?' \
+    'v/verbose' \
+    '3-force' \
+    'f/function=?' \
+    'u/update-config' \
+    '4-aws-s3-accelerate' \
+    '5-app=?' \
+    '6-org=?' \
+    'c/config=?' -- $ts_default_argv_push $argv
+
+  set --query _flag_profile && set profile $_flag_profile
+  set --query _flag_stage && set stage $_flag_stage
+  set --query _flag_region && set region $_flag_region
+  set --query _flag_config && set config $_flag_config
+  set targets $argv
 
   for target in $targets
     _ts_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
@@ -55,24 +55,37 @@ function push --description "deploy CF stack/lambda function"
     test (count $targets) -gt 1 && _ts_progress $targets
 
     set --local working_dir (dirname $yml)
-    set --local command "-v --profile $profile -s $stage -r $region"
-    if test "$type" = function
-      set --append command "-f $name"
-      set --prepend command "sls deploy function"
-    else
-      set --prepend command "sls deploy"
-      test (basename $yml) != serverless.yml \
-        && set --append command "-c "(basename $yml)
+    set --local cmd
+    switch $type
+    case function
+      set cmd sls deploy function --function=(string escape "$name")
+      test -n "$profile" && set --append cmd --profile=(string escape "$profile")
+      test -n "$stage" && set --append cmd --stage=(string escape "$stage")
+      test -n "$region" && set --append cmd --region=(string escape "$region")
+      set --query _flag_force && set --append cmd --force
+      set --query _flag_update_config && set --append cmd --update-config
+    case \*
+      set cmd sls deploy
+      set --query _flag_conceal && set --append cmd --conceal
+      test -n "$profile" && set --append cmd --profile=(string escape "$profile")
+      test -n "$stage" && set --append cmd --stage=(string escape "$stage")
+      test -n "$region" && set --append cmd --region=(string escape "$region")
+      test -n "$_flag_package" && set --append cmd --package=(string escape "$_flag_package")
+      set --query _flag_verbose && set --append cmd --verbose
+      set --query _flag_force && set --append cmd --force
+      set --query _flag_aws_s3_accelerate && set --append cmd --aws-s3-accelerate
+      test -n "$_flag_app" && set --append cmd --app=(string escape "$_flag_app")
+      test -n "$_flag_org" && set --append cmd --org=(string escape "$_flag_org")
+      test (basename $yml) != serverless.yml && set --append cmd --config=(basename $yml)
     end
-    set --append command $args
     test "$type" = function \
       && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
       || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
     _ts_log working directory: (set_color blue)$working_dir(set_color normal)
-    _ts_log execute command: (set_color green)$command(set_color normal)
+    _ts_log execute command: (set_color green)$cmd(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy; $command"
+    withd "$working_dir" "test -e package.json && npm i --no-proxy; command $cmd"
 
     set --local result $status
 
