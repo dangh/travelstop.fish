@@ -31,8 +31,48 @@ function jsonColon(s) { return dim(bold(s)) }
 function jsonQuote(s) { return dim(noColor(s)) }
 function jsonBracket(s) { return dim(noColor(s)) }
 function jsonComma(s) { return dim(noColor(s)) }
+function formatJson(s) {
+  indent = key = value = comma = ""
+  if (match(s, /^[[:space:]]+/)) {
+    indent = substr(s, RSTART, RLENGTH)
+    s = substr(s, RSTART+RLENGTH)
+  }
+  if (match(s, /^"[^"]+": /)) {
+    key = jsonQuote("\"") jsonKey(substr(s, RSTART+1, RLENGTH-1-3)) jsonQuote("\"") jsonColon(":") " "
+    s = substr(s, RSTART+RLENGTH)
+  }
+  if (match(s, /,$/)) {
+    comma = jsonComma(substr(s, RSTART, RLENGTH))
+    s = substr(s, 1, RSTART-1)
+  }
+  value = s
+  if (match(value, /^".*"$/)) {
+    value = substr(value, 2, RSTART+RLENGTH-3)
+    if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}$/) {
+      value = jsonUuid(value)
+    } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z$/) {
+      value = jsonDate(value)
+    } else {
+      value = jsonString(value)
+    }
+    value = jsonQuote("\"") value jsonQuote("\"")
+  } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?$/) {
+    value = jsonNumber(value)
+  } else if (value ~ /^null$/) {
+    value = jsonNull(value)
+  } else if (value ~ /^undefined$/) {
+    value = jsonUndefined(value)
+  } else if (value ~ /^(true|false)$/) {
+    value = jsonBoolean(value)
+  } else {
+    value = jsonBracket(value)
+  }
+  return indent key value comma
+}
 {
   if ($0 ~ /^(START|END|REPORT|XRAY)/) {
+    level = ""
+
     gsub("\t", "\n  ")
     gsub(":", bold(":") dim())
 
@@ -50,6 +90,8 @@ function jsonComma(s) { return dim(noColor(s)) }
   } else {
     if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
       isCloudWatchLog = 1
+    } else {
+      isCloudWatchLog = 0
     }
 
     if (isCloudWatchLog) {
@@ -175,63 +217,39 @@ function jsonComma(s) { return dim(noColor(s)) }
       }
 
       #highlight json
-      #open/close of json object/array
-      gsub(/[{[]$|^[}\]]/, jsonBracket("&"))
-      #inside json object/array
-      if (match($0, /^[[:space:]]+/)) {
-        s = $0
-        indent = substr(s, RSTART, RLENGTH)
-        s = substr(s, RSTART+RLENGTH)
-        key = ""
-        value = ""
-        comma = ""
-        if (match(s, /^"[^"]+": /)) {
-          #line start with key
-          key = substr(s, RSTART+1, RLENGTH-1-3)
-          key = jsonQuote("\"") jsonKey(key) jsonQuote("\"") jsonColon(":") " "
-          s = substr(s, RSTART+RLENGTH)
-        }
-        value = s
-        if (match(value, /,$/)) {
-          comma = substr(value, RSTART, RLENGTH)
-          comma = jsonComma(comma)
-          value = substr(value, 1, RSTART-1)
-        }
-        if (match(value, /^".*"$/)) {
-          value = substr(value, 2, RSTART+RLENGTH-3)
-          if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}$/) {
-            value = jsonUuid(value)
-          } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z$/) {
-            value = jsonDate(value)
-          } else {
-            value = jsonString(value)
-          }
-          value = jsonQuote("\"") value jsonQuote("\"")
-        } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?$/) {
-          value = jsonNumber(value)
-        } else if (value ~ /^null$/) {
-          value = jsonNull(value)
-        } else if (value ~ /^undefined$/) {
-          value = jsonUndefined(value)
-        } else if (value ~ /^(true|false)$/) {
-          value = jsonBoolean(value)
-        } else {
-          value = jsonBracket(value)
-        }
-        #eol
-        $0 = indent key value comma
+      if (match($0, /[{[]$/)) {
+        isJson = 1
+        $0 = substr($0, 1, RSTART-1) formatJson(substr($0, RSTART, RLENGTH))
       }
-
-      #yellow uuid
-      s0 = ""
-      s = $0
-      while (match(s, /[^[:alnum:]-][[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}[^[:alnum:]-]/)) {
-        value = substr(s, RSTART+1, RLENGTH-1-1)
-        s0 = s0 substr(s, 1, RSTART) uuid(value)
-        s = substr(s, RSTART+RLENGTH-1)
-      }
-      $0 = s0 s
     }
+
+    if (isJson) {
+      if (match($0, /^[\]}]/)) {
+        isJson = 0
+        rest = substr($0, RSTART+RLENGTH)
+        $0 = formatJson(substr($0, RSTART, RLENGTH)) rest
+        if (match($0, /[{[]$/)) {
+          isJson = 1
+          $0 = substr($0, 1, RSTART-1) formatJson(substr($0, RSTART, RLENGTH))
+        }
+      } else {
+        $0 = formatJson($0)
+      }
+    }
+
+    if (level == "ERROR") {
+      $0 = red($0)
+    }
+
+    #yellow uuid
+    s0 = ""
+    s = $0
+    while (match(s, /[^[:alnum:]-][[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}[^[:alnum:]-]/)) {
+      value = substr(s, RSTART+1, RLENGTH-1-1)
+      s0 = s0 substr(s, 1, RSTART) uuid(value)
+      s = substr(s, RSTART+RLENGTH-1)
+    }
+    $0 = s0 s
   }
 
   print
