@@ -66,20 +66,24 @@ function jsonComma(s) { return dim(noColor(s)) }
       gsub(/^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/, "")
 
       #highlight metadata
-      if (match($0, /^\[([[:upper:]-]+)\]\[([[:digit:]TZ:.-]{24})\]\[([[:lower:].-]+):([[:digit:]]+)\]\[[[:alpha:].]+\]\[[[:upper:]]+\]: /)) {
+      if (match($0, /^\[[[:upper:]-]+\]\[[[:digit:]TZ:.-]{24}\]\[[[:lower:].-]+:[[:digit:]]+\](\[[[:alpha:].]+\])?\[[[:upper:]]+\]: /)) {
         rest = substr($0, RLENGTH+1)
-        split($0, tokens, /[[\]]/)
-        stage = tokens[2]
-        time = tokens[4]
-        split(tokens[6], location, /:/)
+        split(substr($0, 2, RLENGTH-3), tokens, /[[\]]+/)
+        stage = tokens[1]
+        time = tokens[2]
+        split(tokens[3], location, /:/)
         filename = location[1]
         lineno = location[2]
-        method = tokens[8]
-        level = tokens[10]
+        method = tokens[4]
+        level = tokens[5]
+        if (!level) {
+          level = method
+          method = ""
+        }
         $0 = metaDefault("[") metaStage(stage) metaDefault("]") \
              metaDefault("[") metaTimestamp(time) metaDefault("]") \
              metaDefault("[") metaSourceFile(filename) metaDefault(":") metaSourceLine(lineno) metaDefault("]") \
-             metaDefault("[") metaMethod(method) metaDefault("]") \
+             (method ? metaDefault("[") metaMethod(method) metaDefault("]") : "") \
              metaDefault("[") metaLogLevel(level) metaDefault("]") metaDefault(":") "\n" rest
 
         #blank line before each log entry
