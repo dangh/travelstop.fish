@@ -132,90 +132,6 @@ function formatJson(s) {
         $0 = "\n" $0
       }
 
-      #format embedded json
-      if (s ~ /"{/) {
-        s0 = ""
-        s = $0
-        spaces = ""
-        indent = 0
-        tabSize = 2
-        if (match(s, /^[[:space:]]+/)) {
-          spaces = substr(s, 1, RLENGTH)
-        }
-        while ((s ~ /\\?"/) && match(s, /[[{}\],]/)) {
-          m = substr(s, RSTART, RLENGTH)
-          if (m == "{" || m == "[") {
-            n = substr(s, RSTART+RLENGTH, 1)
-            if (n == "]" || n == "}") {
-              s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) jsonBracket(n)
-              s = substr(s, RSTART+RLENGTH+1)
-            } else {
-              indent += tabSize
-              s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" spaces sprintf("%*s", indent, "")
-              s = substr(s, RSTART+RLENGTH)
-            }
-          } else if (m == "}" || m == "]") {
-            indent -= tabSize
-            s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, "") jsonBracket(m)
-            s = substr(s, RSTART+RLENGTH)
-          } else if (m == ",") {
-            s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonComma(m) "\n" spaces sprintf("%*s", indent, "")
-            s = substr(s, RSTART+RLENGTH)
-          }
-          if (match(s, /^\\?"[^"]+\\?":/)) {
-            quote = substr(s, 0, 1) == "\\" ? "\\\"" : "\""
-            colon = ":"
-            key = substr(s, RSTART+length(quote), RLENGTH-length(quote)-length(quote)-length(colon))
-            quote = (substr(quote, 0, 1) == "\\" ? "\\" : "") jsonQuote("\"")
-            s0 = s0 jsonQuote(quote) jsonKey(key) jsonQuote(quote) jsonColon(colon) " "
-            s = substr(s, RSTART+RLENGTH)
-          }
-          if (match(s, /^\\?"/)) {
-            quote = substr(s, RSTART, RLENGTH)
-            s0 = s0 jsonQuote(quote)
-            s = substr(s, RSTART+RLENGTH)
-            if (s ~ /^[[{]/) {
-              #begin of embedded json
-              continue
-            }
-            if (match(s, /\\?"[,"}\]]/)) {
-              value = substr(s, 1, RSTART-1)
-              if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}/) {
-                value = jsonUuid(value)
-              } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z/) {
-                value = jsonDate(value)
-              } else {
-                value = jsonString(value)
-              }
-              s0 = s0 value jsonQuote(quote)
-              s = substr(s, RSTART+RLENGTH-1)
-            }
-          } else {
-            value = ""
-            if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?/)) {
-              value = jsonNumber(substr(s, RSTART, RLENGTH))
-            } else if (match(s, /^null/)) {
-              value = jsonNull(substr(s, RSTART, RLENGTH))
-            } else if (match(s, /^undefined/)) {
-              value = jsonUndefined(substr(s, RSTART, RLENGTH))
-            } else if (match(s, /^(true|false)/)) {
-              value = jsonBoolean(substr(s, RSTART, RLENGTH))
-            }
-            if (value != "") {
-              s0 = s0 substr(value, 1, RSTART-1) value
-              s = substr(s, RSTART+RLENGTH)
-            }
-          }
-        }
-        while ((indent > 0) && match(s, /[}\]]/)) {
-          m = substr(s, RSTART, RLENGTH)
-          indent -= tabSize
-          s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, "") jsonBracket(m)
-          s = substr(s, RSTART+RLENGTH)
-        }
-        $0 = s0 s
-      }
-
       #highlight json
       if (match($0, /[{[]$/)) {
         isJson = 1
@@ -235,6 +151,90 @@ function formatJson(s) {
       } else {
         $0 = formatJson($0)
       }
+    }
+
+    #format embedded json
+    if (s ~ /"{/) {
+      s0 = ""
+      s = $0
+      spaces = ""
+      indent = 0
+      tabSize = 2
+      if (match(s, /^[[:space:]]+/)) {
+        spaces = substr(s, 1, RLENGTH)
+      }
+      while ((s ~ /\\?"/) && match(s, /[[{}\],]/)) {
+        m = substr(s, RSTART, RLENGTH)
+        if (m == "{" || m == "[") {
+          n = substr(s, RSTART+RLENGTH, 1)
+          if (n == "]" || n == "}") {
+            s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) jsonBracket(n)
+            s = substr(s, RSTART+RLENGTH+1)
+          } else {
+            indent += tabSize
+            s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" spaces sprintf("%*s", indent, "")
+            s = substr(s, RSTART+RLENGTH)
+          }
+        } else if (m == "}" || m == "]") {
+          indent -= tabSize
+          s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, "") jsonBracket(m)
+          s = substr(s, RSTART+RLENGTH)
+        } else if (m == ",") {
+          s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonComma(m) "\n" spaces sprintf("%*s", indent, "")
+          s = substr(s, RSTART+RLENGTH)
+        }
+        if (match(s, /^\\?"[^"]+\\?":/)) {
+          quote = substr(s, 0, 1) == "\\" ? "\\\"" : "\""
+          colon = ":"
+          key = substr(s, RSTART+length(quote), RLENGTH-length(quote)-length(quote)-length(colon))
+          quote = (substr(quote, 0, 1) == "\\" ? "\\" : "") jsonQuote("\"")
+          s0 = s0 jsonQuote(quote) jsonKey(key) jsonQuote(quote) jsonColon(colon) " "
+          s = substr(s, RSTART+RLENGTH)
+        }
+        if (match(s, /^\\?"/)) {
+          quote = substr(s, RSTART, RLENGTH)
+          s0 = s0 jsonQuote(quote)
+          s = substr(s, RSTART+RLENGTH)
+          if (s ~ /^[[{]/) {
+            #begin of embedded json
+            continue
+          }
+          if (match(s, /\\?"[,"}\]]/)) {
+            value = substr(s, 1, RSTART-1)
+            if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}/) {
+              value = jsonUuid(value)
+            } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z/) {
+              value = jsonDate(value)
+            } else {
+              value = jsonString(value)
+            }
+            s0 = s0 value jsonQuote(quote)
+            s = substr(s, RSTART+RLENGTH-1)
+          }
+        } else {
+          value = ""
+          if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?/)) {
+            value = jsonNumber(substr(s, RSTART, RLENGTH))
+          } else if (match(s, /^null/)) {
+            value = jsonNull(substr(s, RSTART, RLENGTH))
+          } else if (match(s, /^undefined/)) {
+            value = jsonUndefined(substr(s, RSTART, RLENGTH))
+          } else if (match(s, /^(true|false)/)) {
+            value = jsonBoolean(substr(s, RSTART, RLENGTH))
+          }
+          if (value != "") {
+            s0 = s0 substr(value, 1, RSTART-1) value
+            s = substr(s, RSTART+RLENGTH)
+          }
+        }
+      }
+      while ((indent > 0) && match(s, /[}\]]/)) {
+        m = substr(s, RSTART, RLENGTH)
+        indent -= tabSize
+        s0 = s0 substr(s, 1, RSTART-1) "\n" spaces sprintf("%*s", indent, "") jsonBracket(m)
+        s = substr(s, RSTART+RLENGTH)
+      }
+      $0 = s0 s
     }
 
     if (level == "ERROR") {
