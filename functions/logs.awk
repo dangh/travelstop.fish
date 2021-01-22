@@ -91,7 +91,7 @@ function jsonComma(s) { return dim(noColor(s)) }
       }
 
       #format embedded json
-      if (s ~ /"[{[]/) {
+      if (s ~ /"{/) {
         s0 = ""
         s = $0
         spaces = ""
