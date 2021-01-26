@@ -50,7 +50,7 @@ function invoke --description "invoke lambda function"
   test -n "$profile" && set --append invoke_cmd --profile=(string escape "$profile")
   test -n "$stage" && set --append invoke_cmd --stage=(string escape "$stage")
   test -n "$region" && set --append invoke_cmd --region=(string escape "$region")
-  test -n "$type" && set --append invoke_cmd --type=(string escape "$type")
+  test -n "$_flag_type" && set --append invoke_cmd --type=(string escape "$_flag_type")
   test -n "$_flag_qualifier" && set --append invoke_cmd --qualifier=(string escape "$_flag_qualifier")
   test -n "$_flag_path" && set --append invoke_cmd --path=(string escape "$_flag_path")
   set --query _flag_log && set --append invoke_cmd --log
