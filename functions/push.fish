@@ -8,9 +8,6 @@ function push --description "deploy CF stack/lambda function"
   set --local services
   set --local functions
 
-  #push without arguments
-  test -z "$argv" && set --append targets .
-
   argparse --ignore-unknown \
     '0-conceal' \
     '1-profile=?' \
@@ -30,7 +27,10 @@ function push --description "deploy CF stack/lambda function"
   set --query _flag_stage && set stage $_flag_stage
   set --query _flag_region && set region $_flag_region
   set --query _flag_config && set config $_flag_config
-  set targets $argv
+  set --append targets $argv
+
+  #push without any target/config/function
+  test -z "$argv" -a -z "$config" -a -z "$function" && set --append targets .
 
   for target in $targets
     _ts_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
