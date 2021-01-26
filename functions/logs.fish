@@ -55,5 +55,5 @@ function logs --description "watch lambda function logs"
 
   echo (set_color green)$cmd(set_color normal)
   test "$TERM_PROGRAM" = iTerm.app && functions --query iterm2_prompt_mark && set --local sls_request_mark (iterm2_prompt_mark)
-  command $cmd | awk -v REQUEST_MARK="$sls_request_mark" -f (dirname (status --current-filename))/logs.awk
+  command $cmd | awk -v REQUEST_MARK="$sls_request_mark" -f $__fish_config_dir/functions/logs.awk
 end
