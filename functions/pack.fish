@@ -4,13 +4,15 @@ function pack --description "package a serverless service"
   set --local region $AWS_DEFAULT_REGION
   set --local yml ./serverless.yml
 
-  argparse --ignore-unknown \
-    '0-profile=?' \
+  argparse --name='sls package' (_ts_opt \
+    'profile=?' \
     's/stage=?' \
     'r/region=?' \
-    '1-app=?' \
-    '2-org=?' \
-    'c/config=?' -- $ts_default_argv_pack $argv
+    'app=?' \
+    'org=?' \
+    'c/config=?' \
+  ) -- $ts_default_argv_pack $argv
+  or return 1
 
   # config is the first positional argument
   set --query argv[1] && set yml $argv[1]

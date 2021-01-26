@@ -5,8 +5,8 @@ function invoke --description "invoke lambda function"
   set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
 
-  argparse --ignore-unknown \
-    '0-profile=?' \
+  argparse --name='sls invoke' (_ts_opt \
+    'profile=?' \
     'f/function=?' \
     's/stage=?' \
     'r/region=?' \
@@ -15,16 +15,18 @@ function invoke --description "invoke lambda function"
     't/type=?' \
     'l/log' \
     'd/data=?' \
-    '1-raw' \
-    '2-context=?' \
-    '3-contextPath=?' \
-    '4-app=?' \
-    '5-org=?' \
+    'raw' \
+    'context=?' \
+    'contextPath=?' \
+    'app=?' \
+    'org=?' \
     'c/config=?' \
-    '6-tail' \
-    '7-startTime=?' \
-    '8-filter=?' \
-    'i/interval=?' -- $ts_default_argv_invoke $argv
+    'tail' \
+    'startTime=?' \
+    'filter=?' \
+    'i/interval=?'
+  ) -- $ts_default_argv_invoke $argv
+  or return 1
 
   # function is the first positional argument
   set --query argv[1] && set function $argv[1]

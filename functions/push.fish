@@ -8,20 +8,22 @@ function push --description "deploy CF stack/lambda function"
   set --local services
   set --local functions
 
-  argparse --ignore-unknown \
-    '0-conceal' \
-    '1-profile=?' \
+  argparse --name='sls deploy' (_ts_opt \
+    'conceal' \
+    'profile=?' \
     's/stage=?' \
     'r/region=?' \
     'p/package=?' \
     'v/verbose' \
-    '3-force' \
+    'force' \
     'f/function=?' \
     'u/update-config' \
-    '4-aws-s3-accelerate' \
-    '5-app=?' \
-    '6-org=?' \
-    'c/config=?' -- $ts_default_argv_push $argv
+    'aws-s3-accelerate' \
+    'app=?' \
+    'org=?' \
+    'c/config=?' \
+  ) -- $ts_default_argv_push $argv
+  or return 1
 
   set --query _flag_profile && set profile $_flag_profile
   set --query _flag_stage && set stage $_flag_stage

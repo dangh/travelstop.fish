@@ -4,7 +4,10 @@ function build_libs --description "rebuild libs module"
   set --local force_install FALSE
   set --local tgzs
 
-  argparse --ignore-unknown '0-force' -- $argv
+  argparse (_ts_opt \
+    'force' \
+  ) -- $argv
+  or return 1
   set --query _flag_force && set force_install TRUE
 
   _ts_libs | while read --local lib_dir
