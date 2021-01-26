@@ -34,17 +34,20 @@ function pack --description "package a serverless service"
   test -f "$json" || set --local json (realpath $working_dir/nodejs/package.json 2>/dev/null)
   test -f "$json" && set name_ver $name_ver-(string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
 
-  set --local cmd sls package
-  test -n "$profile" && set --append cmd --profile=(string escape "$profile")
-  test -n "$stage" && set --append cmd --stage=(string escape "$stage")
-  test -n "$region" && set --append cmd --region=(string escape "$region")
-  test -n "$_flag_package" && set --append cmd --package=(string escape "$_flag_package")
-  test -n "$_flag_app" && set --append cmd --app=(string escape "$_flag_app")
-  test -n "$_flag_org" && set --append cmd --org=(string escape "$_flag_org")
-  test (basename $yml) != serverless.yml && set --append cmd --config (basename $yml)
+  set --local package_cmd sls package
+  test -n "$profile" && set --append package_cmd --profile=(string escape "$profile")
+  test -n "$stage" && set --append package_cmd --stage=(string escape "$stage")
+  test -n "$region" && set --append package_cmd --region=(string escape "$region")
+  test -n "$_flag_package" && set --append package_cmd --package=(string escape "$_flag_package")
+  test -n "$_flag_app" && set --append package_cmd --app=(string escape "$_flag_app")
+  test -n "$_flag_org" && set --append package_cmd --org=(string escape "$_flag_org")
+  test (basename $yml) != serverless.yml && set --append package_cmd --config (basename $yml)
+
+  set --query ts_proxy && set --prepend package_cmd HTTPS_PROXY=$ts_proxy
 
   _ts_log packaging stack: (set_color magenta)$name_ver(set_color normal)
   _ts_log config: (set_color blue)$yml(set_color normal)
-  _ts_log execute command: (set_color green)$cmd(set_color normal)
-  withd "$working_dir" "command $cmd"
+  _ts_log execute command: (set_color green)$package_cmd(set_color normal)
+
+  withd "$working_dir" "$package_cmd"
 end

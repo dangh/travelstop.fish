@@ -13,6 +13,12 @@ To show blank line between prompts
 set -U ts_newline
 ```
 
+To use sls with proxy implicitly:
+
+```sh
+set -U ts_proxy <proxy>
+```
+
 To update AWS config automatically when copied to clipboard:
 
 ```sh

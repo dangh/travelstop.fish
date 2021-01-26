@@ -57,37 +57,37 @@ function push --description "deploy CF stack/lambda function"
     test (count $targets) -gt 1 && _ts_progress $targets
 
     set --local working_dir (dirname $yml)
-    set --local cmd
+    set --local deploy_cmd sls deploy
     switch $type
     case function
-      set cmd sls deploy function --function=(string escape "$name")
-      test -n "$profile" && set --append cmd --profile=(string escape "$profile")
-      test -n "$stage" && set --append cmd --stage=(string escape "$stage")
-      test -n "$region" && set --append cmd --region=(string escape "$region")
-      set --query _flag_force && set --append cmd --force
-      set --query _flag_update_config && set --append cmd --update-config
+      set --append deploy_cmd function --function=(string escape "$name")
+      test -n "$profile" && set --append deploy_cmd --profile=(string escape "$profile")
+      test -n "$stage" && set --append deploy_cmd --stage=(string escape "$stage")
+      test -n "$region" && set --append deploy_cmd --region=(string escape "$region")
+      set --query _flag_force && set --append deploy_cmd --force
+      set --query _flag_update_config && set --append deploy_cmd --update-config
     case \*
-      set cmd sls deploy
-      set --query _flag_conceal && set --append cmd --conceal
-      test -n "$profile" && set --append cmd --profile=(string escape "$profile")
-      test -n "$stage" && set --append cmd --stage=(string escape "$stage")
-      test -n "$region" && set --append cmd --region=(string escape "$region")
-      test -n "$_flag_package" && set --append cmd --package=(string escape "$_flag_package")
-      set --query _flag_verbose && set --append cmd --verbose
-      set --query _flag_force && set --append cmd --force
-      set --query _flag_aws_s3_accelerate && set --append cmd --aws-s3-accelerate
-      test -n "$_flag_app" && set --append cmd --app=(string escape "$_flag_app")
-      test -n "$_flag_org" && set --append cmd --org=(string escape "$_flag_org")
-      test (basename $yml) != serverless.yml && set --append cmd --config=(basename $yml)
+      set --query _flag_conceal && set --append deploy_cmd --conceal
+      test -n "$profile" && set --append deploy_cmd --profile=(string escape "$profile")
+      test -n "$stage" && set --append deploy_cmd --stage=(string escape "$stage")
+      test -n "$region" && set --append deploy_cmd --region=(string escape "$region")
+      test -n "$_flag_package" && set --append deploy_cmd --package=(string escape "$_flag_package")
+      set --query _flag_verbose && set --append deploy_cmd --verbose
+      set --query _flag_force && set --append deploy_cmd --force
+      set --query _flag_aws_s3_accelerate && set --append deploy_cmd --aws-s3-accelerate
+      test -n "$_flag_app" && set --append deploy_cmd --app=(string escape "$_flag_app")
+      test -n "$_flag_org" && set --append deploy_cmd --org=(string escape "$_flag_org")
+      test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
     end
+    set --query ts_proxy && set --prepend deploy_cmd HTTPS_PROXY=$ts_proxy
     test "$type" = function \
       && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
       || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
     _ts_log working directory: (set_color blue)$working_dir(set_color normal)
-    _ts_log execute command: (set_color green)$cmd(set_color normal)
+    _ts_log execute command: (set_color green)$deploy_cmd(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy; command $cmd"
+    withd "$working_dir" "test -e package.json && npm i --no-proxy; $deploy_cmd"
 
     set --local result $status
 

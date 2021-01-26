@@ -64,20 +64,23 @@ function invoke --description "invoke lambda function"
   test -n "$_flag_org" && set --append invoke_cmd --org=(string escape "$_flag_org")
   test -n "$_flag_config" && set --append invoke_cmd --config=(string escape "$_flag_config")
 
-  set --local logs_cmd logs
-  test -n "$function" && set --append logs_cmd --function=(string escape "$function")
-  test -n "$profile" && set --append logs_cmd --profile=(string escape "$profile")
-  test -n "$stage" && set --append logs_cmd --stage=(string escape "$stage")
-  test -n "$region" && set --append logs_cmd --region=(string escape "$region")
-  set --query _flag_tail && set --append logs_cmd --tail
-  test -n "$startTime" && set --append logs_cmd --startTime=(string escape "$startTime")
-  test -n "$_flag_filter" && set --append logs_cmd --filter=(string escape "$_flag_filter")
-  test -n "$_flag_interval" && set --append logs_cmd --interval=(string escape "$_flag_interval")
-  test -n "$_flag_app" && set --append logs_cmd --app=(string escape "$_flag_app")
-  test -n "$_flag_org" && set --append logs_cmd --org=(string escape "$_flag_org")
-  test -n "$_flag_config" && set --append logs_cmd --config=(string escape "$_flag_config")
+  set --local logs_argv logs
+  test -n "$function" && set --append logs_argv --function=(string escape "$function")
+  test -n "$profile" && set --append logs_argv --profile=(string escape "$profile")
+  test -n "$stage" && set --append logs_argv --stage=(string escape "$stage")
+  test -n "$region" && set --append logs_argv --region=(string escape "$region")
+  set --query _flag_tail && set --append logs_argv --tail
+  test -n "$startTime" && set --append logs_argv --startTime=(string escape "$startTime")
+  test -n "$_flag_filter" && set --append logs_argv --filter=(string escape "$_flag_filter")
+  test -n "$_flag_interval" && set --append logs_argv --interval=(string escape "$_flag_interval")
+  test -n "$_flag_app" && set --append logs_argv --app=(string escape "$_flag_app")
+  test -n "$_flag_org" && set --append logs_argv --org=(string escape "$_flag_org")
+  test -n "$_flag_config" && set --append logs_argv --config=(string escape "$_flag_config")
+
+  set --query ts_proxy && set --prepend invoke_cmd HTTPS_PROXY=$ts_proxy
 
   echo (set_color green)$invoke_cmd(set_color normal)
-  command $invoke_cmd
-  $logs_cmd
+  eval $invoke_cmd
+
+  logs $logs_argv
 end
