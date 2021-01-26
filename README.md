@@ -7,6 +7,12 @@ fisher install dangh/withd.fish
 fisher install dangh/travelstop.fish
 ```
 
+To show blank line between prompts
+
+```sh
+set -U ts_newline
+```
+
 To update AWS config automatically when copied to clipboard:
 
 ```sh

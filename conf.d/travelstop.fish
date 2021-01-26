@@ -61,6 +61,14 @@ function _ts_prompt_enable --on-variable PWD
   end
 end && _ts_prompt_enable
 
+function _ts_prompt_newline_postexec --on-event fish_postexec --description "new line between commands"
+  set -q ts_newline && test -n "$argv" && echo
+end
+
+function _ts_prompt_newline_cancel --on-event fish_cancel --description "new line after cancel current commandline"
+  set -q ts_newline && echo
+end
+
 ! functions --query fish_right_prompt_original && functions --query fish_right_prompt && functions --copy fish_right_prompt fish_right_prompt_original
 
 function fish_right_prompt
