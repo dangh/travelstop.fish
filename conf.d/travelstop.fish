@@ -69,12 +69,15 @@ function _ts_prompt_newline_cancel --on-event fish_cancel --description "new lin
   set -q ts_newline && echo
 end
 
-! functions --query fish_right_prompt_original && functions --query fish_right_prompt && functions --copy fish_right_prompt fish_right_prompt_original
-
-function fish_right_prompt
+if ! set --query _ts_fish_right_prompt_backup
+  set --global _ts_fish_right_prompt_backup
+  functions --query fish_right_prompt && functions --copy fish_right_prompt fish_right_prompt_original
+end
+function fish_right_prompt --inherit-variable _ts_prompt_version
   if set --query _ts_prompt_enable
     string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
   else
+    set --local v $_ts_prompt_version && set --erase _ts_prompt_version
     functions --query fish_right_prompt_original && fish_right_prompt_original
   end
 end
