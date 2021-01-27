@@ -143,6 +143,11 @@ function formatJson(s, indent, key, value, comma) {
   return indent key value comma
 }
 {
+  isCloudWatchLog = 0
+  if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
+    isCloudWatchLog = 1
+  }
+
   if ($0 ~ /^(START|END|REPORT|XRAY)/) {
     level = ""
 
@@ -161,12 +166,6 @@ function formatJson(s, indent, key, value, comma) {
     #dim aws messages
     $0 = dim($0)
   } else {
-    if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
-      isCloudWatchLog = 1
-    } else {
-      isCloudWatchLog = 0
-    }
-
     if (isCloudWatchLog) {
       #remove consecutive spaces
       s0 = ""
@@ -200,9 +199,6 @@ function formatJson(s, indent, key, value, comma) {
              metaDefault("[") metaSourceFile(filename) metaDefault(":") metaSourceLine(lineno) metaDefault("]") \
              (method ? metaDefault("[") metaMethod(method) metaDefault("]") : "") \
              metaDefault("[") metaLogLevel(level) metaDefault("]") metaDefault(":") "\n" rest
-
-        #blank line before each log entry
-        $0 = "\n" $0
       }
     }
 
@@ -242,6 +238,11 @@ function formatJson(s, indent, key, value, comma) {
       s = substr(s, RSTART+RLENGTH-1)
     }
     $0 = s0 s
+
+    if (isCloudWatchLog) {
+      #blank line before each log entry
+      $0 = "\n" $0
+    }
   }
 
   print
