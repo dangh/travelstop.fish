@@ -13,10 +13,10 @@ To show blank line between prompts
 set -U ts_newline
 ```
 
-To use sls with proxy implicitly:
+To use environment variables:
 
 ```sh
-set -U ts_proxy <proxy>
+set -U ts_env HTTPS_PROXY=http://localhost:8888
 ```
 
 To update AWS config automatically when copied to clipboard:

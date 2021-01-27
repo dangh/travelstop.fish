@@ -43,7 +43,7 @@ function pack --description "package a serverless service"
   test -n "$_flag_org" && set --append package_cmd --org=(string escape "$_flag_org")
   test (basename $yml) != serverless.yml && set --append package_cmd --config (basename $yml)
 
-  set --query ts_proxy && set --prepend package_cmd HTTPS_PROXY=$ts_proxy
+  test -n "$ts_env" && set --prepend package_cmd $ts_env
 
   _ts_log packaging stack: (set_color magenta)$name_ver(set_color normal)
   _ts_log config: (set_color blue)$yml(set_color normal)

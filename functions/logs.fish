@@ -53,7 +53,7 @@ function logs --description "watch lambda function logs"
   test -n "$_flag_org" && set --append logs_cmd --org=(string escape "$_flag_org")
   test -n "$_flag_config" && set --append logs_cmd --config=(string escape "$_flag_config")
 
-  set --query ts_proxy && set --prepend logs_cmd HTTPS_PROXY=$ts_proxy
+  test -n "$ts_env" && set --prepend logs_cmd $ts_env
 
   set --local awk_cmd awk
   test "$TERM_PROGRAM" = iTerm.app && functions --query iterm2_prompt_mark && set --append awk_cmd -v REQUEST_MARK=(iterm2_prompt_mark)

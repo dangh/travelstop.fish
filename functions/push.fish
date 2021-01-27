@@ -79,7 +79,7 @@ function push --description "deploy CF stack/lambda function"
       test -n "$_flag_org" && set --append deploy_cmd --org=(string escape "$_flag_org")
       test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
     end
-    set --query ts_proxy && set --prepend deploy_cmd HTTPS_PROXY=$ts_proxy
+    test -n "$ts_env" && set --prepend deploy_cmd $ts_env
     test "$type" = function \
       && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
       || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
