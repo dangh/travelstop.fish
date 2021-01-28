@@ -170,10 +170,10 @@ function formatJson(s, indent, key, value, comma) {
     $0 = dim($0)
   } else {
     if (isCloudWatchLog) {
-      #remove consecutive spaces
+      #collapse consecutive spaces
       s0 = ""
       s = $0
-      while (match(s, /[^[:space:]][[:space:]]{2,}/)) {
+      while (match(s, /[^[:space:]"][[:space:]]{2,}/)) {
         s0 = s0 substr(s, 1, RSTART) " "
         s = substr(s, RSTART+RLENGTH)
       }
