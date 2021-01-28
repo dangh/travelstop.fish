@@ -35,16 +35,19 @@ function formatInlineJson(s, indent, s0, key, value) {
   TAB_SIZE = 2
   while (match(s, /[[{}\],]/)) {
     m = substr(s, RSTART, RLENGTH)
-    if (m ~ /[{[]/) {
-      n = substr(s, RSTART+RLENGTH, 1)
-      if (n ~ /[\]}]/) {
-        s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) jsonBracket(n)
-        s = substr(s, RSTART+RLENGTH+1)
-      } else {
-        offset += TAB_SIZE
-        s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" indent sprintf("%*s", offset, "")
-        s = substr(s, RSTART+RLENGTH)
-      }
+    n = substr(s, RSTART+RLENGTH, 1)
+    if (m n ~ /{}|\[]/) {
+      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m n)
+      s = substr(s, RSTART+RLENGTH+1)
+    } else if (m ~ /[{[]/) {
+      offset += TAB_SIZE
+      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" indent sprintf("%*s", offset, "")
+      s = substr(s, RSTART+RLENGTH)
+    } else if (m n ~ /[}\]]"/) {
+      offset -= TAB_SIZE
+      s0 = s0 substr(s, 1, RSTART-1) "\n" indent sprintf("%*s", offset, "") jsonBracket(m) jsonQuote(n)
+      s = substr(s, RSTART+RLENGTH+1)
+      continue  # end of embedded JSON, out to inline JSON
     } else if (m ~ /[}\]]/) {
       offset -= TAB_SIZE
       s0 = s0 substr(s, 1, RSTART-1) "\n" indent sprintf("%*s", offset, "") jsonBracket(m)
