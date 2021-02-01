@@ -101,7 +101,7 @@ function _ts_modules --description "list all modules"
 end
 
 function _ts_substacks --description "list all sub directories contains serverless.yml"
-  find . -name serverless.yml -maxdepth 2 -mindepth 2 | string replace --regex '^\./(.*)/serverless\.yml$' '$1'
+  printf -- '%s\n' */serverless.yml | string replace /serverless.yml ''
 end
 
 function _ts_functions --argument-names yml --description "list all lambda functions in serverless.yml"
