@@ -101,7 +101,8 @@ function _ts_modules --description "list all modules"
 end
 
 function _ts_substacks --description "list all sub directories contains serverless.yml"
-  printf -- '%s\n' */serverless.yml | string replace /serverless.yml ''
+  set files */serverless.yml */*/serverless.yml
+  printf -- '%s\n' $files | string replace /serverless.yml ''
 end
 
 function _ts_functions --argument-names yml --description "list all lambda functions in serverless.yml"
