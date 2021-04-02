@@ -105,10 +105,7 @@ set --global _ts_project_dir _ts_project_dir_$fish_pid
 
 function $_ts_project_dir --on-event fish_prompt
   function $_ts_project_dir --on-variable PWD
-    fish --private --command "
-      set --universal $_ts_project_dir (git rev-parse --show-toplevel 2>/dev/null)
-    " &
-    disown
+    set --universal $_ts_project_dir (git --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
   end && $_ts_project_dir
   function clear_$_ts_project_dir --on-event fish_exit
     set --erase $_ts_project_dir
