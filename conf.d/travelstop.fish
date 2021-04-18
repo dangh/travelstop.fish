@@ -45,6 +45,10 @@ function _ts_opt
   end
 end
 
+function _ts_log
+  echo '('(set_color yellow)sls(set_color normal)')' $argv
+end
+
 status is-interactive || exit
 
 set --query ts_color_profile || set --global ts_color_profile \--bold magenta
@@ -129,10 +133,6 @@ function _ts_functions --argument-names yml --description "list all lambda funct
     if ($0 ~ /^functions:/) { y = 1; next; }
     if ((y == 1) && match($0, /^[[:space:]]{2}[[:alpha:]]+:/)) print substr($0, RSTART+2, RLENGTH-2-1);
   }' $yml 2>/dev/null
-end
-
-function _ts_log
-  echo '('(set_color yellow)sls(set_color normal)')' $argv
 end
 
 function _ts_validate_path --argument-names path --description "validate path existence and print it with colors"

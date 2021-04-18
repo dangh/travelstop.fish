@@ -1,0 +1,21 @@
+function sls --description "wraps sls to provide stage/profile/region implicitly"
+  set --local profile $AWS_PROFILE
+  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
+  set --local region $AWS_DEFAULT_REGION
+
+  argparse --ignore-unknown (_ts_opt \
+    'profile=?' \
+    's/stage=?' \
+    'r/region=?' \
+  ) -- $argv
+  or return 1
+
+  set --query _flag_profile && set profile $_flag_profile
+  set --query _flag_stage && set stage $_flag_stage
+  set --query _flag_region && set region $_flag_region
+
+  set --local cmd sls $argv --profile=$profile --stage=$stage --region=$region
+
+  _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $cmd)(set_color normal)
+  eval $ts_env command $cmd
+end

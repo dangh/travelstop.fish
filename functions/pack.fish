@@ -43,11 +43,9 @@ function pack --description "package a serverless service"
   test -n "$_flag_org" && set --append package_cmd --org=(string escape "$_flag_org")
   test (basename $yml) != serverless.yml && set --append package_cmd --config (basename $yml)
 
-  test -n "$ts_env" && set --prepend package_cmd $ts_env
-
   _ts_log packaging stack: (set_color magenta)$name_ver(set_color normal)
   _ts_log config: (set_color blue)$yml(set_color normal)
-  _ts_log execute command: (set_color green)$package_cmd(set_color normal)
+  _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $package_cmd)(set_color normal)
 
-  withd "$working_dir" "$package_cmd"
+  withd "$working_dir" "$ts_env command $package_cmd"
 end

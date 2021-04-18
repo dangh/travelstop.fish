@@ -79,15 +79,14 @@ function push --description "deploy CF stack/lambda function"
       test -n "$_flag_org" && set --append deploy_cmd --org=(string escape "$_flag_org")
       test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
     end
-    test -n "$ts_env" && set --prepend deploy_cmd $ts_env
     test "$type" = function \
       && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
       || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
     _ts_log working directory: (set_color blue)$working_dir(set_color normal)
-    _ts_log execute command: (set_color green)$deploy_cmd(set_color normal)
+    _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $deploy_cmd)(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod; $deploy_cmd"
+    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod; $ts_env command $deploy_cmd"
 
     set --local result $status
 
