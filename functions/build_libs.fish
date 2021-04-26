@@ -41,7 +41,7 @@ function build_libs --description "rebuild libs module"
     for tgz in $tgzs
       set --append cmd \\\n"  "(string escape "$tgz")
     end
-    _ts_log (set_color --dim)....(set_color normal)(set_color yellow)$cmd(set_color normal)
+    _ts_log (set_color --dim)... (set_color normal)(set_color yellow)$cmd(set_color normal)
     withd "$nodejs_dir" "command $cmd >/dev/null"
   end
 end
