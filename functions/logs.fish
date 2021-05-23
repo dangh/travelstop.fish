@@ -41,22 +41,22 @@ function logs --description "watch lambda function logs"
   end
 
   set --local logs_cmd sls logs
-  test -n "$function" && set --append logs_cmd --function=(string escape "$function")
-  test -n "$profile" && set --append logs_cmd --profile=(string escape "$profile")
-  test -n "$stage" && set --append logs_cmd --stage=(string escape "$stage")
-  test -n "$region" && set --append logs_cmd --region=(string escape "$region")
+  test -n "$function" && set --append logs_cmd --function=(string escape -- $function)
+  test -n "$profile" && set --append logs_cmd --profile=(string escape -- $profile)
+  test -n "$stage" && set --append logs_cmd --stage=(string escape -- $stage)
+  test -n "$region" && set --append logs_cmd --region=(string escape -- $region)
   set --query _flag_tail && set --append logs_cmd --tail
-  test -n "$startTime" && set --append logs_cmd --startTime=(string escape "$startTime")
-  test -n "$_flag_filter" && set --append logs_cmd --filter=(string escape "$_flag_filter")
-  test -n "$_flag_interval" && set --append logs_cmd --interval=(string escape "$_flag_interval")
-  test -n "$_flag_app" && set --append logs_cmd --app=(string escape "$_flag_app")
-  test -n "$_flag_org" && set --append logs_cmd --org=(string escape "$_flag_org")
-  test -n "$_flag_config" && set --append logs_cmd --config=(string escape "$_flag_config")
+  test -n "$startTime" && set --append logs_cmd --startTime=(string escape -- $startTime)
+  test -n "$_flag_filter" && set --append logs_cmd --filter=(string escape -- $_flag_filter)
+  test -n "$_flag_interval" && set --append logs_cmd --interval=(string escape -- $_flag_interval)
+  test -n "$_flag_app" && set --append logs_cmd --app=(string escape -- $_flag_app)
+  test -n "$_flag_org" && set --append logs_cmd --org=(string escape -- $_flag_org)
+  test -n "$_flag_config" && set --append logs_cmd --config=(string escape -- $_flag_config)
 
   set --local awk_cmd awk
-  test "$TERM_PROGRAM" = iTerm.app && functions --query iterm2_prompt_mark && set --append awk_cmd -v REQUEST_MARK=(iterm2_prompt_mark)
-  set --append awk_cmd -f $__fish_config_dir/functions/logs.awk
+  test "$TERM_PROGRAM" = iTerm.app && functions --query iterm2_prompt_mark && set --append awk_cmd -v REQUEST_MARK=(string escape -- (iterm2_prompt_mark))
+  set --append awk_cmd -f (string escape -- $__fish_config_dir/functions/logs.awk)
 
   _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $logs_cmd \| $awk_cmd)(set_color normal)
-  eval $ts_env command $logs_cmd \| $awk_cmd
+  eval (string escape -- $ts_env command $logs_cmd) \| (string escape -- $awk_cmd)
 end

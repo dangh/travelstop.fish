@@ -48,39 +48,39 @@ function invoke --description "invoke lambda function"
   end
 
   set --local invoke_cmd sls invoke
-  test -n "$function" && set --append invoke_cmd --function=(string escape "$function")
-  test -n "$profile" && set --append invoke_cmd --profile=(string escape "$profile")
-  test -n "$stage" && set --append invoke_cmd --stage=(string escape "$stage")
-  test -n "$region" && set --append invoke_cmd --region=(string escape "$region")
-  test -n "$_flag_type" && set --append invoke_cmd --type=(string escape "$_flag_type")
-  test -n "$_flag_qualifier" && set --append invoke_cmd --qualifier=(string escape "$_flag_qualifier")
-  test -n "$_flag_path" && set --append invoke_cmd --path=(string escape "$_flag_path")
+  test -n "$function" && set --append invoke_cmd --function=(string escape -- $function)
+  test -n "$profile" && set --append invoke_cmd --profile=(string escape -- $profile)
+  test -n "$stage" && set --append invoke_cmd --stage=(string escape -- $stage)
+  test -n "$region" && set --append invoke_cmd --region=(string escape -- $region)
+  test -n "$_flag_type" && set --append invoke_cmd --type=(string escape -- $_flag_type)
+  test -n "$_flag_qualifier" && set --append invoke_cmd --qualifier=(string escape -- $_flag_qualifier)
+  test -n "$_flag_path" && set --append invoke_cmd --path=(string escape -- $_flag_path)
   set --query _flag_log && set --append invoke_cmd --log
-  test -n "$_flag_data" && set --append invoke_cmd --data=(string escape "$_flag_data")
+  test -n "$_flag_data" && set --append invoke_cmd --data=(string escape -- $_flag_data)
   set --query _flag_raw && set --append invoke_cmd --raw
-  test -n "$_flag_context" && set --append invoke_cmd --context=(string escape "$_flag_context")
-  test -n "$_flag_contextPath" && set --append invoke_cmd --contextPath=(string escape "$_flag_contextPath")
-  test -n "$_flag_app" && set --append invoke_cmd --app=(string escape "$_flag_app")
-  test -n "$_flag_org" && set --append invoke_cmd --org=(string escape "$_flag_org")
-  test -n "$_flag_config" && set --append invoke_cmd --config=(string escape "$_flag_config")
+  test -n "$_flag_context" && set --append invoke_cmd --context=(string escape -- $_flag_context)
+  test -n "$_flag_contextPath" && set --append invoke_cmd --contextPath=(string escape -- $_flag_contextPath)
+  test -n "$_flag_app" && set --append invoke_cmd --app=(string escape -- $_flag_app)
+  test -n "$_flag_org" && set --append invoke_cmd --org=(string escape -- $_flag_org)
+  test -n "$_flag_config" && set --append invoke_cmd --config=(string escape -- $_flag_config)
 
   set --local logs_argv logs
-  test -n "$function" && set --append logs_argv --function=(string escape "$function")
-  test -n "$profile" && set --append logs_argv --profile=(string escape "$profile")
-  test -n "$stage" && set --append logs_argv --stage=(string escape "$stage")
-  test -n "$region" && set --append logs_argv --region=(string escape "$region")
+  test -n "$function" && set --append logs_argv --function=(string escape -- $function)
+  test -n "$profile" && set --append logs_argv --profile=(string escape -- $profile)
+  test -n "$stage" && set --append logs_argv --stage=(string escape -- $stage)
+  test -n "$region" && set --append logs_argv --region=(string escape -- $region)
   set --query _flag_tail && set --append logs_argv --tail
-  test -n "$startTime" && set --append logs_argv --startTime=(string escape "$startTime")
-  test -n "$_flag_filter" && set --append logs_argv --filter=(string escape "$_flag_filter")
-  test -n "$_flag_interval" && set --append logs_argv --interval=(string escape "$_flag_interval")
-  test -n "$_flag_app" && set --append logs_argv --app=(string escape "$_flag_app")
-  test -n "$_flag_org" && set --append logs_argv --org=(string escape "$_flag_org")
-  test -n "$_flag_config" && set --append logs_argv --config=(string escape "$_flag_config")
+  test -n "$startTime" && set --append logs_argv --startTime=(string escape -- $startTime)
+  test -n "$_flag_filter" && set --append logs_argv --filter=(string escape -- $_flag_filter)
+  test -n "$_flag_interval" && set --append logs_argv --interval=(string escape -- $_flag_interval)
+  test -n "$_flag_app" && set --append logs_argv --app=(string escape -- $_flag_app)
+  test -n "$_flag_org" && set --append logs_argv --org=(string escape -- $_flag_org)
+  test -n "$_flag_config" && set --append logs_argv --config=(string escape -- $_flag_config)
 
   test -n "$ts_env" && set --prepend invoke_cmd $ts_env
 
   echo (set_color green)$invoke_cmd(set_color normal)
-  eval $invoke_cmd
+  eval (string escape -- $invoke_cmd)
 
   logs $logs_argv
 end
