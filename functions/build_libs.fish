@@ -24,8 +24,8 @@ function build_libs --description "rebuild libs module"
     end
     if test "$lib_changed" = TRUE
       _ts_log (set_color --dim)... (set_color normal)(set_color --bold green)$lib(set_color normal)(set_color green): changed .. REBUILD(set_color normal)
-      set --local tgz (command npm run --prefix "$nodejs_dir" --silent build-$lib)
-      set --append tgzs "$packages_dir/$lib/$tgz"
+      set --local tgz (command npm run --prefix (string escape -- $nodejs_dir) --silent build-$lib)
+      set --append tgzs (string escape -- $packages_dir/$lib/$tgz)
       rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
     else if test "$force_install" = TRUE
       _ts_log (set_color --dim)... (set_color normal)(set_color --bold magenta)$lib(set_color normal)(set_color magenta): FORCE REINSTALL(set_color normal)
@@ -37,12 +37,9 @@ function build_libs --description "rebuild libs module"
   end
 
   if test -n "$tgzs"
-    set --local cmd "npm install --no-proxy --loglevel=error --prefix="(string escape "$nodejs_dir")
-    for tgz in $tgzs
-      set --append cmd \\\n"  "(string escape "$tgz")
-    end
-    _ts_log (set_color --dim)... (set_color normal)(set_color yellow)$cmd(set_color normal)
-    withd "$nodejs_dir" "command $cmd >/dev/null"
+    set --local cmd npm install --no-proxy --loglevel=error --prefix=(string escape -- $nodejs_dir)
+    _ts_log (set_color --dim)... (set_color normal)(set_color yellow)$cmd \\\n"  "$tgzs (set_color normal)
+    withd "$nodejs_dir" (string escape -- command $cmd $tgzs) ">/dev/null"
   end
 end
 

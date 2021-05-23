@@ -60,23 +60,23 @@ function push --description "deploy CF stack/lambda function"
     set --local deploy_cmd sls deploy
     switch $type
     case function
-      set --append deploy_cmd function --function=(string escape "$name")
-      test -n "$profile" && set --append deploy_cmd --profile=(string escape "$profile")
-      test -n "$stage" && set --append deploy_cmd --stage=(string escape "$stage")
-      test -n "$region" && set --append deploy_cmd --region=(string escape "$region")
+      set --append deploy_cmd function --function=(string escape -- $name)
+      test -n "$profile" && set --append deploy_cmd --profile=(string escape -- $profile)
+      test -n "$stage" && set --append deploy_cmd --stage=(string escape -- $stage)
+      test -n "$region" && set --append deploy_cmd --region=(string escape -- $region)
       set --query _flag_force && set --append deploy_cmd --force
       set --query _flag_update_config && set --append deploy_cmd --update-config
     case \*
       set --query _flag_conceal && set --append deploy_cmd --conceal
-      test -n "$profile" && set --append deploy_cmd --profile=(string escape "$profile")
-      test -n "$stage" && set --append deploy_cmd --stage=(string escape "$stage")
-      test -n "$region" && set --append deploy_cmd --region=(string escape "$region")
-      test -n "$_flag_package" && set --append deploy_cmd --package=(string escape "$_flag_package")
+      test -n "$profile" && set --append deploy_cmd --profile=(string escape -- $profile)
+      test -n "$stage" && set --append deploy_cmd --stage=(string escape -- $stage)
+      test -n "$region" && set --append deploy_cmd --region=(string escape -- $region)
+      test -n "$_flag_package" && set --append deploy_cmd --package=(string escape -- $_flag_package)
       set --query _flag_verbose && set --append deploy_cmd --verbose
       set --query _flag_force && set --append deploy_cmd --force
       set --query _flag_aws_s3_accelerate && set --append deploy_cmd --aws-s3-accelerate
-      test -n "$_flag_app" && set --append deploy_cmd --app=(string escape "$_flag_app")
-      test -n "$_flag_org" && set --append deploy_cmd --org=(string escape "$_flag_org")
+      test -n "$_flag_app" && set --append deploy_cmd --app=(string escape -- $_flag_app)
+      test -n "$_flag_org" && set --append deploy_cmd --org=(string escape -- $_flag_org)
       test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
     end
     test "$type" = function \
@@ -86,7 +86,7 @@ function push --description "deploy CF stack/lambda function"
     _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $deploy_cmd)(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod; $ts_env command $deploy_cmd"
+    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod;" (string escape -- $ts_env command $deploy_cmd)
 
     set --local result $status
 
