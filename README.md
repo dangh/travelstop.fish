@@ -33,9 +33,3 @@ set -U ts_default_argv_push --conceal --verbose
 set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
-
-To use sls with proxy:
-
-```sh
-set -U ts_env HTTPS_PROXY=http://localhost:8888
-```
