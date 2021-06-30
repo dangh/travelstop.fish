@@ -37,9 +37,9 @@ set -U ts_default_argv_invoke --type=Event
 Useful abbreviations:
 
 ```sh
-abbr -au p push
-abbr -au l logs
-abbr -au i invoke
+abbr -aU p push
+abbr -aU l logs
+abbr -aU i invoke
 abbr -aU b build_libs
 abbr -aU r rename_libs
 ```
