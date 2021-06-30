@@ -33,3 +33,13 @@ set -U ts_default_argv_push --conceal --verbose
 set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
+
+Useful abbreviations:
+
+```sh
+abbr -au p push
+abbr -au l logs
+abbr -au i invoke
+abbr -aU b build_libs
+abbr -aU r rename_libs
+```
