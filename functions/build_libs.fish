@@ -51,5 +51,5 @@ end
 
 function _ts_lib_tgz --argument-names lib --description "get tgz"
   test -n "$lib" || return 1
-  string match --regex $lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_ts_project_dir/modules/libs/nodejs/package.json)
+  string match --regex '/'$lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read --null < $$_ts_project_dir/modules/libs/nodejs/package.json) | string sub --start 2
 end
