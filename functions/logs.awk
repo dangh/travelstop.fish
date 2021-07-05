@@ -31,8 +31,13 @@ function jsonColon(s) { return dim(bold(s)) }
 function jsonQuote(s) { return dim(noColor(s)) }
 function jsonBracket(s) { return dim(noColor(s)) }
 function jsonComma(s) { return dim(noColor(s)) }
-function formatInlineJson(s, indent, s0, key, value) {
-  TAB_SIZE = 2
+function repeat(s, times) {
+  s1 = ""
+  for (i = 0; i < times; i++) s1 = s1 s
+  return s1
+}
+function formatInlineJson(s, baseIndent, s0, key, value, indentLevel) {
+  indentLevel = 0
   while (match(s, /[[{}\],]/)) {
     m = substr(s, RSTART, RLENGTH)
     n = substr(s, RSTART+RLENGTH, 1)
@@ -40,20 +45,20 @@ function formatInlineJson(s, indent, s0, key, value) {
       s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m n)
       s = substr(s, RSTART+RLENGTH+1)
     } else if (m ~ /[{[]/) {
-      offset += TAB_SIZE
-      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" indent sprintf("%*s", offset, "")
+      indentLevel++
+      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" baseIndent repeat(TAB_CHAR, indentLevel)
       s = substr(s, RSTART+RLENGTH)
     } else if (m n ~ /[}\]]"/) {
-      offset -= TAB_SIZE
-      s0 = s0 substr(s, 1, RSTART-1) "\n" indent sprintf("%*s", offset, "") jsonBracket(m) jsonQuote(n)
+      indentLevel--
+      s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m) jsonQuote(n)
       s = substr(s, RSTART+RLENGTH+1)
       continue  # end of embedded JSON, out to inline JSON
     } else if (m ~ /[}\]]/) {
-      offset -= TAB_SIZE
-      s0 = s0 substr(s, 1, RSTART-1) "\n" indent sprintf("%*s", offset, "") jsonBracket(m)
+      indentLevel--
+      s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m)
       s = substr(s, RSTART+RLENGTH)
     } else if (m ~ /,/) {
-      s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonComma(m) "\n" indent sprintf("%*s", offset, "")
+      s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonComma(m) "\n" baseIndent repeat(TAB_CHAR, indentLevel)
       s = substr(s, RSTART+RLENGTH)
     }
     if (match(s, /^\\?"[^"]+\\?":/)) {
@@ -75,7 +80,7 @@ function formatInlineJson(s, indent, s0, key, value) {
         } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z/) {
           value = jsonDate(value)
         } else if (value ~ /{\\"/) {
-          value = formatInlineJson(value, indent)
+          value = formatInlineJson(value, baseIndent)
         } else {
           value = jsonString(value)
         }
@@ -98,17 +103,17 @@ function formatInlineJson(s, indent, s0, key, value) {
       }
     }
   }
-  while ((offset > 0) && match(s, /[}\]]/)) {
+  while ((indentLevel > 0) && match(s, /[}\]]/)) {
     m = substr(s, RSTART, RLENGTH)
-    offset -= TAB_SIZE
-    s0 = s0 substr(s, 1, RSTART-1) "\n" indent sprintf("%*s", offset, "") jsonBracket(m)
+    indentLevel--
+    s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m)
     s = substr(s, RSTART+RLENGTH)
   }
   return s0 s
 }
 function formatJson(s, indent, key, value, comma) {
-  if (match(s, /^[[:space:]]+/)) {
-    indent = substr(s, RSTART, RLENGTH)
+  if (match(s, /^[[:blank:]]+/)) {
+    indent = repeat(TAB_CHAR, int(RLENGTH/2))
     s = substr(s, RSTART+RLENGTH)
   }
   if (match(s, /^"[^"]+": /)) {
@@ -145,6 +150,10 @@ function formatJson(s, indent, key, value, comma) {
   }
   return indent key value comma
 }
+BEGIN {
+  TAB_CHAR = noColor(dim(TAB_CHAR ? TAB_CHAR : "  "))
+  REQUEST_MARK = REQUEST_MARK ? REQUEST_MARK : "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
+}
 {
   isCloudWatchLog = 0
   if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
@@ -154,12 +163,19 @@ function formatJson(s, indent, key, value, comma) {
   if ($0 ~ /^(START|END|REPORT|XRAY)/) {
     level = ""
 
-    gsub("\t", "\n  ")
     gsub(":", bold(":") dim())
+    s0 = ""
+    s = $0
+    while (match(s, /\t/)) {
+      s0 = s0 substr(s, 1, RSTART-1)
+      s = substr(s, RSTART+1)
+      n = substr(s, RSTART+RLENGTH, 1)
+      if (n ~ /[^[:blank:]]/) s0 = s0 "\n" TAB_CHAR dim()
+    }
+    $0 = s0 s
 
     if ($0 ~ /^START RequestId/) {
       #mark start of request
-      if (!REQUEST_MARK) REQUEST_MARK = "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
       $0 = REQUEST_MARK $0
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
@@ -173,7 +189,7 @@ function formatJson(s, indent, key, value, comma) {
       #collapse consecutive spaces
       s0 = ""
       s = $0
-      while (match(s, /[^[:space:]"][[:space:]]{2,}/)) {
+      while (match(s, /[^[:blank:]"][[:blank:]]{2,}/)) {
         s0 = s0 substr(s, 1, RSTART) " "
         s = substr(s, RSTART+RLENGTH)
       }
@@ -208,7 +224,7 @@ function formatJson(s, indent, key, value, comma) {
     if (match($0, /{"/)) {
       preceeding = substr($0, 1, RSTART-1)
       rest = substr($0, RSTART)
-      if (match($0, /^[[:space:]]+/)) indent = substr($0, RSTART, RLENGTH)
+      if (match($0, /^[[:blank:]]+/)) indent = repeat(TAB_CHAR, int(RLENGTH/2))
       $0 = preceeding formatInlineJson(rest, indent)
     }
     if (isJson) {
@@ -229,7 +245,11 @@ function formatJson(s, indent, key, value, comma) {
     }
 
     if (level == "ERROR") {
-      $0 = red($0)
+      if (match($0, /^[[:blank:]]+/)) {
+        $0 = repeat(TAB_CHAR, int(RLENGTH/4)) red(substr($0, RSTART+RLENGTH))
+      } else {
+        $0 = red($0)
+      }
     }
 
     #yellow uuid
