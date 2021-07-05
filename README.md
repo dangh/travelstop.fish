@@ -17,6 +17,7 @@ To use environment variables:
 
 ```sh
 set -U ts_env HTTPS_PROXY=http://localhost:8888
+set -a ts_env SLS_DEPRECATION_DISABLE=\\\*
 ```
 
 To update AWS config automatically when copied to clipboard:
