@@ -58,5 +58,5 @@ function logs --description "watch lambda function logs"
   set --append awk_cmd -f (string escape -- $__fish_config_dir/functions/logs.awk)
 
   _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $logs_cmd \| $awk_cmd)(set_color normal)
-  eval (string escape -- $ts_env command $logs_cmd) \| (string escape -- $awk_cmd)
+  eval $ts_env (string escape -- command $logs_cmd) \| (string escape -- $awk_cmd)
 end
