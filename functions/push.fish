@@ -83,10 +83,10 @@ function push --description "deploy CF stack/lambda function"
       && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
       || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
     _ts_log working directory: (set_color blue)$working_dir(set_color normal)
-    _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $deploy_cmd)(set_color normal)
+    _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $deploy_cmd)(set_color normal)
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod; $ts_env" (string escape -- command $deploy_cmd)
+    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod;" (_ts_env --mode=env) "command $deploy_cmd"
 
     set --local result $status
 

@@ -16,6 +16,6 @@ function sls --description "wraps sls to provide stage/profile/region implicitly
 
   set --local cmd sls $argv --profile=$profile --stage=$stage --region=$region
 
-  _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $cmd)(set_color normal)
-  eval $ts_env command $cmd
+  _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $cmd)(set_color normal)
+  eval (_ts_env --mode=env) command $cmd
 end

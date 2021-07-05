@@ -49,6 +49,27 @@ function _ts_log
   echo '('(set_color yellow)sls(set_color normal)')' $argv
 end
 
+function _ts_env
+  test -n "$ts_env" || return 1
+
+  argparse (_ts_opt 'mode=?') -- $argv
+  set --local result
+
+  switch $_flag_mode
+  case 'env'
+    for pair in $ts_env
+      echo $pair | read --delimiter = --local key value
+      set --append result $key=(string escape -- $value)
+    end
+  case 'awk'
+    for pair in $ts_env
+      echo $pair | read --delimiter = --local key value
+      set --append result -v $key=(string escape -- $value)
+    end
+  end
+  echo -n (string join ' ' -- $result)
+end
+
 status is-interactive || exit
 
 set --query ts_color_profile || set --global ts_color_profile \--bold magenta

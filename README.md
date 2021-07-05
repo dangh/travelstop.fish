@@ -16,8 +16,15 @@ set -U ts_newline
 To use environment variables:
 
 ```sh
-set -U ts_env HTTPS_PROXY=http://localhost:8888
-set -a ts_env SLS_DEPRECATION_DISABLE=\\\*
+set -U ts_env
+# set proxy
+set -a ts_env HTTPS_PROXY=http://localhost:8888
+# disable serverless deprecation warnings
+set -a ts_env SLS_DEPRECATION_DISABLE='*'
+# change indentation to 4 spaces
+set -a ts_env TAB_CHAR='    '
+# or use a dot as indent guide
+set -a ts_ENV TAB_CHAR='﹒  '
 ```
 
 To update AWS config automatically when copied to clipboard:

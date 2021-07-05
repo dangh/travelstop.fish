@@ -45,7 +45,7 @@ function pack --description "package a serverless service"
 
   _ts_log packaging stack: (set_color magenta)$name_ver(set_color normal)
   _ts_log config: (set_color blue)$yml(set_color normal)
-  _ts_log execute command: (set_color green)(string join ' ' -- $ts_env $package_cmd)(set_color normal)
+  _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $package_cmd)(set_color normal)
 
-  withd "$working_dir" "$ts_env command $package_cmd"
+  withd "$working_dir" (_ts_env --mode=env) "command $package_cmd"
 end
