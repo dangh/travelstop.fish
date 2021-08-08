@@ -106,11 +106,11 @@ function _ts_prompt_enable --on-variable PWD
 end && _ts_prompt_enable
 
 function _ts_prompt_newline_postexec --on-event fish_postexec --description "new line between commands"
-  set -q ts_newline && test -n "$argv" && echo
+  set --query ts_newline && test -n "$argv" && echo
 end
 
 function _ts_prompt_newline_cancel --on-event fish_cancel --description "new line after cancel current commandline"
-  set -q ts_newline && echo
+  set --query ts_newline && echo
 end
 
 if ! set --query _ts_fish_right_prompt_backup
@@ -119,7 +119,10 @@ if ! set --query _ts_fish_right_prompt_backup
 end
 function fish_right_prompt --inherit-variable _ts_prompt_version
   if set --query _ts_prompt_enable
-    string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+    if test -z "$TMUX"
+      string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+    end
+    command tmux set-option -g @content_x $_ts_profile \; set-option -g @content_z $_ts_stage \; refresh-client -S 2>/dev/null
   else
     set --local v $_ts_prompt_version && set --erase _ts_prompt_version
     functions --query fish_right_prompt_original && fish_right_prompt_original
