@@ -1,19 +1,21 @@
-# serverless.fish
+# travelstop.fish
 
-### Install
+## Installation
 
 ```sh
 fisher install dangh/withd.fish
 fisher install dangh/travelstop.fish
 ```
 
-To show blank line between prompts
+## Configuration
+
+### To show blank line between prompts:
 
 ```sh
 set -U ts_newline
 ```
 
-To use environment variables:
+### To use environment variables:
 
 ```sh
 set -U ts_env
@@ -21,20 +23,16 @@ set -U ts_env
 set -a ts_env HTTPS_PROXY=http://localhost:8888
 # disable serverless deprecation warnings
 set -a ts_env SLS_DEPRECATION_DISABLE='*'
-# change indentation to 4 spaces
-set -a ts_env TAB_CHAR='    '
-# or use a dot as indent guide
-set -a ts_ENV TAB_CHAR='﹒  '
 ```
 
-To update AWS config automatically when copied to clipboard:
+### To update AWS config automatically when copied to clipboard:
 
 ```sh
 fisher install dangh/pbmonitor.fish
 set -U ts_aws_creds account_id,stage,region account_id_2,stage_2,region_2
 ```
 
-To apply default arguments to commands:
+### To apply default arguments to commands:
 
 ```sh
 set -U ts_default_argv_push --conceal --verbose
@@ -42,7 +40,55 @@ set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
 
-Useful abbreviations:
+### Logs formatting
+
+To change default style, use environment variables prefixed with `ts_` and set the value follow [tmux styles](http://man.openbsd.org/OpenBSD-current/man1/tmux.1#STYLES). For example, to make JSON keys bold and green:
+
+```sh
+set -Ux ts_json_key_style bold,fg=green
+```
+
+To show some indicator text before each request:
+
+```sh
+# show 20 blank lines
+set -Ux ts_blank_page_height 20
+
+# show random fortune cookie in pride
+set -Ux ts_blank_page_cmd 'echo; fortune -s | cowsay -f $(cowsay -l | tail -n +2 | tr  " "  "\n" | sort -R | head -n 1) | lolcat; echo;'
+```
+
+List of supported variables:
+
+| Key                         | Default value     | Description                                                                         |
+| ---                         | ---               | ---                                                                                 |
+| `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
+| `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
+| `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |
+| `ts_meta_source_line_style` | `fg=magenta,bold` |                                                                                     |
+| `ts_meta_method_style`      | `fg=cyan`         |                                                                                     |
+| `ts_meta_log_level_style`   | `fg=blue`         |                                                                                     |
+| `ts_meta_style`             | `fg=blue,dim`     |                                                                                     |
+| `ts_json_key_style`         | `fg=magenta`      |                                                                                     |
+| `ts_json_string_style`      |                   |                                                                                     |
+| `ts_json_boolean_style`     | `fg=green`        |                                                                                     |
+| `ts_json_number_style`      | `fg=green`        |                                                                                     |
+| `ts_json_null_style`        | `bold`            |                                                                                     |
+| `ts_json_undefined_style`   | `dim`             |                                                                                     |
+| `ts_json_date_style`        |                   |                                                                                     |
+| `ts_json_uuid_style`        | `fg=yellow`       |                                                                                     |
+| `ts_json_colon_style`       | `dim,bold`        |                                                                                     |
+| `ts_json_quote_style`       | `dim`             |                                                                                     |
+| `ts_json_bracket_style`     | `dim`             |                                                                                     |
+| `ts_json_comma_style`       | `dim`             |                                                                                     |
+| `ts_uuid_style`             | `yellow`          |                                                                                     |
+| `ts_indent_guide_style`     | `reverse`         |                                                                                     |
+| `ts_indent_size`            | 4                 | Size of indent in JSON                                                              |
+| `ts_blank_page_cmd`         |                   | Command to print text before each request                                           |
+| `ts_blank_page`             |                   | Text to show before each request if `ts_blank_page_cmd` is not defined              |
+| `ts_blank_page_height`      |                   | Number of blank lines to show before each request if `ts_blank_page` is not defined |
+
+### Useful abbreviations:
 
 ```sh
 abbr -aU p push

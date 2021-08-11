@@ -1,101 +1,156 @@
-function bold(s) { return sprintf("\x1b[1m%s%s", s, (!s ? "" : "\x1b[22m")) }
-function dim(s) { return sprintf("\x1b[2m%s%s", s, (!s ? "" : "\x1b[22m")) }
-function noDim() { return "\x1b[22m" }
-function italic(s) { return sprintf("\x1b[3m%s%s", s, (!s ? "" : "\x1b[23m")) }
-function underline(s) { return sprintf("\x1b[4m%s%s", s, (!s ? "" : "\x1b[24m")) }
-function black(s) { return sprintf("\x1b[0m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function red(s) { return sprintf("\x1b[31m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function green(s) { return sprintf("\x1b[32m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function yellow(s) { return sprintf("\x1b[33m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function blue(s) { return sprintf("\x1b[34m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function magenta(s) { return sprintf("\x1b[35m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function cyan(s) { return sprintf("\x1b[36m%s%s", s, (!s ? "" : "\x1b[39m")) }
-function noColor(s) { return sprintf("\x1b[39m%s", s) }
-function metaStage(s) { return blue(s) }
-function metaTimestamp(s) { return blue(s) }
-function metaSourceFile(s) { return magenta(s) }
-function metaSourceLine(s) { return bold(magenta(s)) }
-function metaMethod(s) { return (s == "null") ? blue(s) : cyan(s) }
-function metaLogLevel(s) { return (s == "ERROR") ? red(s) : (s == "WARN") ? yellow(s) : (s == "INFO") ? green(s) : blue(s) }
-function metaDefault(s) { return dim(blue(s)) }
-function uuid(s) { gsub("-", dim("-"), s); return yellow(s); }
-function jsonKey(s) { return magenta(s) }
-function jsonString(s) { return noColor(s) }
-function jsonBoolean(s) { return green(s) }
-function jsonNumber(s) { return green(s) }
-function jsonNull(s) { return bold(s) }
-function jsonUndefined(s) { return dim(s) }
-function jsonDate(s) { return jsonString(s) }
-function jsonUuid(s) { return uuid(s) }
-function jsonColon(s) { return dim(bold(s)) }
-function jsonQuote(s) { return dim(noColor(s)) }
-function jsonBracket(s) { return dim(noColor(s)) }
-function jsonComma(s) { return dim(noColor(s)) }
-function repeat(s, times) {
-  s1 = ""
-  for (i = 0; i < times; i++) s1 = s1 s
-  return s1
+function get_style(name) {
+  if (name == "meta_stage")       return environ("ts_meta_stage_style",       "fg=blue")
+  if (name == "meta_timestamp")   return environ("ts_meta_timestamp_style",   "fg=blue")
+  if (name == "meta_source_file") return environ("ts_meta_source_file_style", "fg=magenta")
+  if (name == "meta_source_line") return environ("ts_meta_source_line_style", "fg=magenta,bold")
+  if (name == "meta_method")      return environ("ts_meta_method_style",      "fg=cyan")
+  if (name == "meta_log_level")   return environ("ts_meta_log_level_style",   "fg=blue")
+  if (name == "meta")             return environ("ts_meta_style",             "fg=blue,dim")
+  if (name == "json_key")         return environ("ts_json_key_style",         "fg=magenta")
+  if (name == "json_string")      return environ("ts_json_string_style")
+  if (name == "json_boolean")     return environ("ts_json_boolean_style",     "fg=green")
+  if (name == "json_number")      return environ("ts_json_number_style",      "fg=green")
+  if (name == "json_null")        return environ("ts_json_null_style",        "bold")
+  if (name == "json_undefined")   return environ("ts_json_undefined_style",   "dim")
+  if (name == "json_date")        return environ("ts_json_date_style")
+  if (name == "json_uuid")        return environ("ts_json_uuid_style",        "fg=yellow")
+  if (name == "json_colon")       return environ("ts_json_colon_style",       "dim,bold")
+  if (name == "json_quote")       return environ("ts_json_quote_style",       "dim")
+  if (name == "json_bracket")     return environ("ts_json_bracket_style",     "dim")
+  if (name == "json_comma")       return environ("ts_json_comma_style",       "dim")
+  if (name == "uuid")             return environ("ts_uuid_style",             "fg=yellow")
+  if (name == "indent_guide")     return environ("ts_indent_guide_style",     "reverse")
+  return name
 }
-function formatInlineJson(s, baseIndent, s0, key, value, indentLevel) {
-  indentLevel = 0
+function repeat(s, times) { s1 = ""; for (i = 1; i <= times; i++) s1 = s1 s; return s1; }
+function default(value, fallback) { return !value ? fallback : value }
+function environ(key, default) { return key in ENVIRON ? ENVIRON[key] : default }
+function format(styles, s) {
+  styles = get_style(styles)
+  on = ""
+  off = ""
+  count = split(styles, styleArr, ",")
+  for (i = 1; i <= count; i++) {
+    style = styleArr[i]
+    if (style ~ /^none$/) on = on ";0"
+    if (style ~ /^(bold|bright)$/) on = on ";1"
+    if (style ~ /^(no)?(bold|bright)$/) off = off ";22"
+    if (style ~ /^dim$/) on = on ";2"
+    if (style ~ /^(no)?dim$/) off = off ";22"
+    if (style ~ /^italics$/) on = on ";3"
+    if (style ~ /^(no)?italics$/) off = off ";23"
+    if (style ~ /^under(score|line)$/) on = on ";4"
+    if (style ~ /^(no)?under(score|line)$/) off = off ";24"
+    if (style ~ /^blink$/) on = on ";5"
+    if (style ~ /^(no)?blink$/) off = off ";25"
+    if (style ~ /^reverse$/) on = on ";7"
+    if (style ~ /^(no)?reverse$/) off = off ";27"
+    if (style ~ /^hidden$/) on = on ";8"
+    if (style ~ /^(no)?hidden$/) off = off ";28"
+    if (style ~ /^strikethrough$/) on = on ";9"
+    if (style ~ /^(no)?strikethrough$/) off = off ";29"
+    if (style ~ /^overline$/) on = on ";53"
+    if (style ~ /^(no)?overline$/) off = off ";55"
+    if (style ~ /^fg=/) {
+      if (style ~ /^fg=black$/) on = on ";30"
+      if (style ~ /^fg=red$/) on = on ";31"
+      if (style ~ /^fg=green$/) on = on ";32"
+      if (style ~ /^fg=yellow$/) on = on ";33"
+      if (style ~ /^fg=blue$/) on = on ";34"
+      if (style ~ /^fg=magenta$/) on = on ";35"
+      if (style ~ /^fg=cyan$/) on = on ";36"
+      if (style ~ /^fg=[0-9]+$/) on = on ";38;5;" substr(style, 4)
+      if (style ~ /^fg=#[A-Fa-f0-9]{6}$/) on = on ";38;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
+      if (style ~ /^fg=none$/) {
+        on = on ";39"
+      } else {
+        off = off ";39"
+      }
+    }
+    if (style ~ /^bg=/) {
+      if (style ~ /^bg=black$/) on = on ";40"
+      if (style ~ /^bg=red$/) on = on ";41"
+      if (style ~ /^bg=green$/) on = on ";42"
+      if (style ~ /^bg=yellow$/) on = on ";43"
+      if (style ~ /^bg=blue$/) on = on ";44"
+      if (style ~ /^bg=magenta$/) on = on ";45"
+      if (style ~ /^bg=cyan$/) on = on ";46"
+      if (style ~ /^bg=[0-9]+$/) on = on ";48;5;" substr(style, 4)
+      if (style ~ /^bg=#[A-Fa-f0-9]{6}$/) on = on ";48;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
+      if (style ~ /^bg=none$/) {
+        on = on ";49"
+      } else {
+        off = off ";49"
+      }
+    }
+  }
+  if (on) {
+    on = "\x1b[" substr(on, 2) "m"
+    off = "\x1b[" substr(off, 2) "m"
+  }
+  return on s (s && off ? off : "")
+}
+function indent_guide(level) { return repeat(format("indent_guide", " ") repeat(" ", default(ENVIRON["ts_indent_size"], 4) - 1), level) }
+function format_inline_json(s, base_indent, s0, key, value, indent_level) {
+  indent_level = 0
   while (match(s, /[[{}\],]/)) {
     m = substr(s, RSTART, RLENGTH)
     n = substr(s, RSTART+RLENGTH, 1)
     if (m n ~ /{}|\[]/) {
-      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m n)
+      s0 = s0 substr(s, 1, RSTART-1) format("json_bracket", m n)
       s = substr(s, RSTART+RLENGTH+1)
     } else if (m ~ /[{[]/) {
-      indentLevel++
-      s0 = s0 substr(s, 1, RSTART-1) jsonBracket(m) "\n" baseIndent repeat(TAB_CHAR, indentLevel)
+      indent_level++
+      s0 = s0 substr(s, 1, RSTART-1) format("json_bracket", m) "\n" base_indent indent_guide(indent_level)
       s = substr(s, RSTART+RLENGTH)
     } else if (m n ~ /[}\]]"/) {
-      indentLevel--
-      s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m) jsonQuote(n)
+      indent_level--
+      s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m) format("json_quote", n)
       s = substr(s, RSTART+RLENGTH+1)
       continue  # end of embedded JSON, out to inline JSON
     } else if (m ~ /[}\]]/) {
-      indentLevel--
-      s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m)
+      indent_level--
+      s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m)
       s = substr(s, RSTART+RLENGTH)
     } else if (m ~ /,/) {
-      s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) jsonComma(m) "\n" baseIndent repeat(TAB_CHAR, indentLevel)
+      s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) format("json_comma", m) "\n" base_indent indent_guide(indent_level)
       s = substr(s, RSTART+RLENGTH)
     }
     if (match(s, /^\\?"[^"]+\\?":/)) {
       quote = ((s ~ /^\\/) ? "\\\"" : "\"")
       colon = ":"
       key = substr(s, RSTART+length(quote), RLENGTH-length(quote)-length(quote)-length(colon))
-      s0 = s0 jsonQuote(quote) jsonKey(key) jsonQuote(quote) jsonColon(colon) " "
+      s0 = s0 format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", colon) " "
       s = substr(s, RSTART+RLENGTH)
     }
     if (match(s, /^\\?"/)) {
       quote = substr(s, RSTART, RLENGTH)
-      s0 = s0 jsonQuote(quote)
+      s0 = s0 format("json_quote", quote)
       s = substr(s, RSTART+RLENGTH)
       if (match(s, /\\?"[,"}\]]/)) {
         value = substr(s, 1, RSTART-1)
         s = substr(s, RSTART+RLENGTH-1)
         if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}/) {
-          value = jsonUuid(value)
+          value = format("json_uuid", value)
         } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z/) {
-          value = jsonDate(value)
+          value = format("json_date", value)
         } else if (value ~ /{\\"/) {
-          value = formatInlineJson(value, baseIndent)
+          value = format_inline_json(value, base_indent)
         } else {
-          value = jsonString(value)
+          value = format("json_string", value)
         }
-        s0 = s0 value jsonQuote(quote)
+        s0 = s0 value format("json_quote", quote)
       }
     } else {
       value = ""
       if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?/)) {
-        value = jsonNumber(substr(s, RSTART, RLENGTH))
+        value = format("json_number", substr(s, RSTART, RLENGTH))
       } else if (match(s, /^null/)) {
-        value = jsonNull(substr(s, RSTART, RLENGTH))
+        value = format("json_null", substr(s, RSTART, RLENGTH))
       } else if (match(s, /^undefined/)) {
-        value = jsonUndefined(substr(s, RSTART, RLENGTH))
+        value = format("json_undefined", substr(s, RSTART, RLENGTH))
       } else if (match(s, /^(true|false)/)) {
-        value = jsonBoolean(substr(s, RSTART, RLENGTH))
+        value = format("json_boolean", substr(s, RSTART, RLENGTH))
       }
       if (value != "") {
         s0 = s0 substr(value, 1, RSTART-1) value
@@ -103,89 +158,88 @@ function formatInlineJson(s, baseIndent, s0, key, value, indentLevel) {
       }
     }
   }
-  while ((indentLevel > 0) && match(s, /[}\]]/)) {
+  while ((indent_level > 0) && match(s, /[}\]]/)) {
     m = substr(s, RSTART, RLENGTH)
-    indentLevel--
-    s0 = s0 substr(s, 1, RSTART-1) "\n" baseIndent repeat(TAB_CHAR, indentLevel) jsonBracket(m)
+    indent_level--
+    s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m)
     s = substr(s, RSTART+RLENGTH)
   }
   return s0 s
 }
-function formatJson(s, indent, key, value, comma) {
+function format_json(s, indent, key, value, comma) {
   if (match(s, /^[[:blank:]]+/)) {
-    indent = repeat(TAB_CHAR, int(RLENGTH/2))
+    indent = indent_guide(int(RLENGTH/2))
     s = substr(s, RSTART+RLENGTH)
   }
   if (match(s, /^"[^"]+": /)) {
-    key = jsonQuote("\"") jsonKey(substr(s, RSTART+1, RLENGTH-1-3)) jsonQuote("\"") jsonColon(":") " "
+    key = format("json_quote", "\"") format("json_key", substr(s, RSTART+1, RLENGTH-1-3)) format("json_quote", "\"") format("json_colon", ":") " "
     s = substr(s, RSTART+RLENGTH)
   }
   if (match(s, /,$/)) {
-    comma = jsonComma(substr(s, RSTART, RLENGTH))
+    comma = format("json_comma", substr(s, RSTART, RLENGTH))
     s = substr(s, 1, RSTART-1)
   }
   value = s
   if (match(value, /^".*"$/)) {
     value = substr(value, 2, RSTART+RLENGTH-3)
     if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}$/) {
-      value = jsonUuid(value)
+      value = format("json_uuid", value)
     } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z$/) {
-      value = jsonDate(value)
+      value = format("json_date", value)
     } else if (value ~ /\\"/) {
-      value = formatInlineJson(value, indent)
+      value = format_inline_json(value, indent)
     } else {
-      value = jsonString(value)
+      value = format("json_string", value)
     }
-    value = jsonQuote("\"") value jsonQuote("\"")
+    value = format("json_quote", "\"") value format("json_quote", "\"")
   } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?$/) {
-    value = jsonNumber(value)
+    value = format("json_number", value)
   } else if (value ~ /^null$/) {
-    value = jsonNull(value)
+    value = format("json_null", value)
   } else if (value ~ /^undefined$/) {
-    value = jsonUndefined(value)
+    value = format("json_undefined", value)
   } else if (value ~ /^(true|false)$/) {
-    value = jsonBoolean(value)
+    value = format("json_boolean", value)
   } else {
-    value = jsonBracket(value)
+    value = format("json_bracket", value)
   }
   return indent key value comma
 }
-BEGIN {
-  TAB_CHAR = noColor(dim(TAB_CHAR ? TAB_CHAR : "  "))
-  REQUEST_MARK = REQUEST_MARK ? REQUEST_MARK : "\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n"
-}
 {
-  isCloudWatchLog = 0
+  is_cloudwatch_log = 0
   if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
-    isCloudWatchLog = 1
+    is_cloudwatch_log = 1
   }
 
   if ($0 ~ /^(START|END|REPORT|XRAY)/) {
     level = ""
 
-    gsub(":", bold(":") dim())
+    gsub(":", format("bold,dim", ":") format("dim"))
     s0 = ""
     s = $0
-    while (match(s, /\t/)) {
+    while (match(s, /\t+/)) {
       s0 = s0 substr(s, 1, RSTART-1)
-      s = substr(s, RSTART+1)
-      n = substr(s, RSTART+RLENGTH, 1)
-      if (n ~ /[^[:blank:]]/) s0 = s0 "\n" TAB_CHAR dim()
+      s = substr(s, RSTART+RLENGTH)
+      if (s ~ /[^[:blank:]]/) s0 = s0 "\n" indent_guide(RLENGTH) format("dim")
     }
     $0 = s0 s
 
     if ($0 ~ /^START RequestId/) {
-      #mark start of request
-      $0 = REQUEST_MARK $0
+      if (ENVIRON["ts_blank_page_cmd"]) {
+        system(ENVIRON["ts_blank_page_cmd"])
+      } else {
+        print environ("ts_blank_page", format(ENVIRON["ts_blank_page_style"], repeat(repeat(" ", default(ENVIRON["ts_blank_page_width"], 0)) "\n", default(ENVIRON["ts_blank_page_height"], 1))))
+      }
+      # $0 = BLANK_PAGE $0
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
       $0 = "\n" $0
     }
 
     #dim aws messages
-    $0 = dim($0)
+    $0 = format("dim", $0)
   } else {
-    if (isCloudWatchLog) {
+    if (is_cloudwatch_log) {
       #collapse consecutive spaces
       s0 = ""
       s = $0
@@ -213,56 +267,56 @@ BEGIN {
           level = method
           method = ""
         }
-        $0 = metaDefault("[") metaStage(stage) metaDefault("]") \
-             metaDefault("[") metaTimestamp(time) metaDefault("]") \
-             metaDefault("[") metaSourceFile(filename) metaDefault(":") metaSourceLine(lineno) metaDefault("]") \
-             (method ? metaDefault("[") metaMethod(method) metaDefault("]") : "") \
-             metaDefault("[") metaLogLevel(level) metaDefault("]") metaDefault(":") "\n" rest
+        $0 = format("meta", "[") format("meta_stage", stage) format("meta", "]") \
+             format("meta", "[") format("meta_timestamp", time) format("meta", "]") \
+             format("meta", "[") format("meta_source_file", filename) format("meta", ":") format("meta_source_line", lineno) format("meta", "]") \
+             (method ? format("meta", "[") format("meta_method", method) format("meta", "]") : "") \
+             format("meta", "[") format("meta_log_level", level) format("meta", "]") format("meta", ":") "\n" rest
       }
     }
 
     if (match($0, /{"/)) {
       preceeding = substr($0, 1, RSTART-1)
       rest = substr($0, RSTART)
-      if (match($0, /^[[:blank:]]+/)) indent = repeat(TAB_CHAR, int(RLENGTH/2))
-      $0 = preceeding formatInlineJson(rest, indent)
+      if (match($0, /^[[:blank:]]+/)) indent = indent_guide(int(RLENGTH/2))
+      $0 = preceeding format_inline_json(rest, indent)
     }
     if (isJson) {
       if (match($0, /^[\]}]/)) {
         # end of JSON object
         isJson = 0
         rest = substr($0, RSTART+RLENGTH)
-        $0 = jsonBracket(substr($0, RSTART, RLENGTH)) rest
+        $0 = format("json_bracket", substr($0, RSTART, RLENGTH)) rest
       } else {
         # inside JSON object
-        $0 = formatJson($0)
+        $0 = format_json($0)
       }
     }
     if (match($0, /[{[]$/)) {
       # start of JSON object
       isJson = 1
-      $0 = substr($0, 1, RSTART-1) jsonBracket(substr($0, RSTART, RLENGTH))
+      $0 = substr($0, 1, RSTART-1) format("json_bracket", substr($0, RSTART, RLENGTH))
     }
 
     if (level == "ERROR") {
       if (match($0, /^[[:blank:]]+/)) {
-        $0 = repeat(TAB_CHAR, int(RLENGTH/4)) red(substr($0, RSTART+RLENGTH))
+        $0 = indent_guide(int(RLENGTH/4)) format("fg=red", substr($0, RSTART+RLENGTH))
       } else {
-        $0 = red($0)
+        $0 = format("fg=red", $0)
       }
     }
 
-    #yellow uuid
+    #highlight uuid
     s0 = ""
     s = $0
     while (match(s, /[^[:alnum:]-][[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}[^[:alnum:]-]/)) {
       value = substr(s, RSTART+1, RLENGTH-1-1)
-      s0 = s0 substr(s, 1, RSTART) uuid(value)
+      s0 = s0 substr(s, 1, RSTART) format("uuid", value)
       s = substr(s, RSTART+RLENGTH-1)
     }
     $0 = s0 s
 
-    if (isCloudWatchLog) {
+    if (is_cloudwatch_log) {
       #blank line before each log entry
       $0 = "\n" $0
     }
