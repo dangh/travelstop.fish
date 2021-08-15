@@ -1,37 +1,37 @@
 function get_style(name) {
-  if (name == "meta_stage")       return environ("ts_meta_stage_style",       "fg=blue")
-  if (name == "meta_timestamp")   return environ("ts_meta_timestamp_style",   "fg=blue")
-  if (name == "meta_source_file") return environ("ts_meta_source_file_style", "fg=magenta")
-  if (name == "meta_source_line") return environ("ts_meta_source_line_style", "fg=magenta,bold")
-  if (name == "meta_method")      return environ("ts_meta_method_style",      "fg=cyan")
-  if (name == "meta_log_level")   return environ("ts_meta_log_level_style",   "fg=blue")
-  if (name == "meta")             return environ("ts_meta_style",             "fg=blue,dim")
-  if (name == "json_key")         return environ("ts_json_key_style",         "fg=magenta")
-  if (name == "json_string")      return environ("ts_json_string_style")
-  if (name == "json_boolean")     return environ("ts_json_boolean_style",     "fg=green")
-  if (name == "json_number")      return environ("ts_json_number_style",      "fg=green")
-  if (name == "json_null")        return environ("ts_json_null_style",        "bold")
-  if (name == "json_undefined")   return environ("ts_json_undefined_style",   "dim")
-  if (name == "json_date")        return environ("ts_json_date_style")
-  if (name == "json_uuid")        return environ("ts_json_uuid_style",        "fg=yellow")
-  if (name == "json_colon")       return environ("ts_json_colon_style",       "dim,bold")
-  if (name == "json_quote")       return environ("ts_json_quote_style",       "dim")
-  if (name == "json_bracket")     return environ("ts_json_bracket_style",     "dim")
-  if (name == "json_comma")       return environ("ts_json_comma_style",       "dim")
-  if (name == "uuid")             return environ("ts_uuid_style",             "fg=yellow")
-  if (name == "indent_guide")     return environ("ts_indent_guide_style",     "reverse")
-  return name
+  if ( name == "meta_stage"       ) { return env( "meta_stage_style"       , "fg=blue"         ) }
+  if ( name == "meta_timestamp"   ) { return env( "meta_timestamp_style"   , "fg=blue"         ) }
+  if ( name == "meta_source_file" ) { return env( "meta_source_file_style" , "fg=magenta"      ) }
+  if ( name == "meta_source_line" ) { return env( "meta_source_line_style" , "fg=magenta,bold" ) }
+  if ( name == "meta_method"      ) { return env( "meta_method_style"      , "fg=cyan"         ) }
+  if ( name == "meta_log_level"   ) { return env( "meta_log_level_style"   , "fg=blue"         ) }
+  if ( name == "meta"             ) { return env( "meta_style"             , "fg=blue,dim"     ) }
+  if ( name == "json_key"         ) { return env( "json_key_style"         , "fg=magenta"      ) }
+  if ( name == "json_string"      ) { return env( "json_string_style"      , ""                ) }
+  if ( name == "json_boolean"     ) { return env( "json_boolean_style"     , "fg=green"        ) }
+  if ( name == "json_number"      ) { return env( "json_number_style"      , "fg=green"        ) }
+  if ( name == "json_null"        ) { return env( "json_null_style"        , "bold"            ) }
+  if ( name == "json_undefined"   ) { return env( "json_undefined_style"   , "dim"             ) }
+  if ( name == "json_date"        ) { return env( "json_date_style"        , ""                ) }
+  if ( name == "json_uuid"        ) { return env( "json_uuid_style"        , "fg=yellow"       ) }
+  if ( name == "json_colon"       ) { return env( "json_colon_style"       , "dim,bold"        ) }
+  if ( name == "json_quote"       ) { return env( "json_quote_style"       , "dim"             ) }
+  if ( name == "json_bracket"     ) { return env( "json_bracket_style"     , "dim"             ) }
+  if ( name == "json_comma"       ) { return env( "json_comma_style"       , "dim"             ) }
+  if ( name == "uuid"             ) { return env( "uuid_style"             , "fg=yellow"       ) }
+  if ( name == "indent_guide"     ) { return env( "indent_guide_style"     , "reverse"         ) }
+  if ( name == "blank_page"       ) { return env( "blank_page_style"       , ""                ) }
+  return env(name, name)
 }
-function repeat(s, times) { s1 = ""; for (i = 1; i <= times; i++) s1 = s1 s; return s1; }
+function repeat(s, n, sep) { if (n > 0) out = s; for (i = 2; i <= n; i++) out = out sep s; return out; }
 function default(value, fallback) { return !value ? fallback : value }
-function environ(key, default) { return key in ENVIRON ? ENVIRON[key] : default }
-function format(styles, s) {
-  styles = get_style(styles)
+function env(key, default) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : default }
+function format(style_str, s) {
   on = ""
   off = ""
-  count = split(styles, styleArr, ",")
+  count = split(get_style(style_str), style_arr, ",")
   for (i = 1; i <= count; i++) {
-    style = styleArr[i]
+    style = style_arr[i]
     if (style ~ /^none$/) on = on ";0"
     if (style ~ /^(bold|bright)$/) on = on ";1"
     if (style ~ /^(no)?(bold|bright)$/) off = off ";22"
@@ -84,13 +84,11 @@ function format(styles, s) {
       }
     }
   }
-  if (on) {
-    on = "\x1b[" substr(on, 2) "m"
-    off = "\x1b[" substr(off, 2) "m"
-  }
+  if (on) on = "\x1b[" substr(on, 2) "m"
+  if (off) off = "\x1b[" substr(off, 2) "m"
   return on s (s && off ? off : "")
 }
-function indent_guide(level) { return repeat(format("indent_guide", " ") repeat(" ", default(ENVIRON["ts_indent_size"], 4) - 1), level) }
+function indent_guide(level) { return format("none") repeat(INDENT_GUIDE, level) format("none") }
 function format_inline_json(s, base_indent, s0, key, value, indent_level) {
   indent_level = 0
   while (match(s, /[[{}\],]/)) {
@@ -205,6 +203,10 @@ function format_json(s, indent, key, value, comma) {
   }
   return indent key value comma
 }
+BEGIN {
+  INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
+  BLANK_PAGE = default(env("blank_page"), format("blank_page") repeat("\x1b[2K", default(env("blank_page_height"), 1), "\n"))
+}
 {
   is_cloudwatch_log = 0
   if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/) {
@@ -225,12 +227,14 @@ function format_json(s, indent, key, value, comma) {
     $0 = s0 s
 
     if ($0 ~ /^START RequestId/) {
-      if (ENVIRON["ts_blank_page_cmd"]) {
-        system(ENVIRON["ts_blank_page_cmd"])
+      #blank lines before each request
+      print format("none")
+      if (env("blank_page_cmd")) {
+        system(env("blank_page_cmd"))
       } else {
-        print environ("ts_blank_page", format(ENVIRON["ts_blank_page_style"], repeat(repeat(" ", default(ENVIRON["ts_blank_page_width"], 0)) "\n", default(ENVIRON["ts_blank_page_height"], 1))))
+        print BLANK_PAGE
       }
-      # $0 = BLANK_PAGE $0
+      print format("none")
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
       $0 = "\n" $0

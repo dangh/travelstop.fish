@@ -87,6 +87,7 @@ List of supported variables:
 | `ts_blank_page_cmd`         |                   | Command to print text before each request                                           |
 | `ts_blank_page`             |                   | Text to show before each request if `ts_blank_page_cmd` is not defined              |
 | `ts_blank_page_height`      |                   | Number of blank lines to show before each request if `ts_blank_page` is not defined |
+| `ts_blank_page_style`       |                   | Style of blank lines to show before each request if `ts_blank_page` is not defined  |
 
 ### Useful abbreviations:
 
