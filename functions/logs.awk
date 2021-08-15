@@ -23,12 +23,10 @@ function get_style(name) {
   if ( name == "blank_page"       ) { return env( "blank_page_style"       , ""                ) }
   return env(name, name)
 }
-function repeat(s, n, sep) { if (n > 0) out = s; for (i = 2; i <= n; i++) out = out sep s; return out; }
+function repeat(s, n, sep, out) { if (n > 0) out = s; for (i = 2; i <= n; i++) out = out sep s; return out; }
 function default(value, fallback) { return !value ? fallback : value }
 function env(key, default) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : default }
-function format(style_str, s) {
-  on = ""
-  off = ""
+function format(style_str, s, on, off, style_arr, count) {
   count = split(get_style(style_str), style_arr, ",")
   for (i = 1; i <= count; i++) {
     style = style_arr[i]
@@ -88,70 +86,86 @@ function format(style_str, s) {
   if (off) off = "\x1b[" substr(off, 2) "m"
   return on s (s && off ? off : "")
 }
-function indent_guide(level) { return format("none") repeat(INDENT_GUIDE, level) format("none") }
-function format_inline_json(s, base_indent, s0, key, value, indent_level) {
+function indent_guide(level) { if (level) return format("none") repeat(INDENT_GUIDE, level) format("none") }
+function format_inline_json(s, base_indent, key, value, indent_level, quote, open_bracket, close_bracket, close_quote, m, n, colon) {
   indent_level = 0
   while (match(s, /[[{}\],]/)) {
     m = substr(s, RSTART, RLENGTH)
     n = substr(s, RSTART+RLENGTH, 1)
     if (m n ~ /{}|\[]/) {
-      s0 = s0 substr(s, 1, RSTART-1) format("json_bracket", m n)
+      open_bracket = m
+      close_bracket = n
+      printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket close_bracket)
       s = substr(s, RSTART+RLENGTH+1)
     } else if (m ~ /[{[]/) {
       indent_level++
-      s0 = s0 substr(s, 1, RSTART-1) format("json_bracket", m) "\n" base_indent indent_guide(indent_level)
+      open_bracket = m
+      printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket) "\n"
+      printf "%s", base_indent indent_guide(indent_level)
       s = substr(s, RSTART+RLENGTH)
     } else if (m n ~ /[}\]]"/) {
       indent_level--
-      s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m) format("json_quote", n)
+      close_bracket = m
+      close_quote = n
+      printf "%s", substr(s, 1, RSTART-1) "\n"
+      printf "%s", base_indent indent_guide(indent_level)
+      printf "%s", format("json_bracket", close_bracket) format("json_quote", close_quote)
       s = substr(s, RSTART+RLENGTH+1)
       continue  # end of embedded JSON, out to inline JSON
     } else if (m ~ /[}\]]/) {
       indent_level--
-      s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m)
+      close_bracket = m
+      printf "%s", substr(s, 1, RSTART-1) "\n"
+      printf "%s", base_indent indent_guide(indent_level)
+      printf "%s", format("json_bracket", close_bracket)
       s = substr(s, RSTART+RLENGTH)
     } else if (m ~ /,/) {
-      s0 = s0 substr(s, 1, RSTART+RLENGTH-1-1) format("json_comma", m) "\n" base_indent indent_guide(indent_level)
+      comma = m
+      printf "%s", substr(s, 1, RSTART+RLENGTH-1-1) format("json_comma", comma) "\n"
+      printf "%s", base_indent indent_guide(indent_level)
       s = substr(s, RSTART+RLENGTH)
     }
     if (match(s, /^\\?"[^"]+\\?":/)) {
       quote = ((s ~ /^\\/) ? "\\\"" : "\"")
       colon = ":"
       key = substr(s, RSTART+length(quote), RLENGTH-length(quote)-length(quote)-length(colon))
-      s0 = s0 format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", colon) " "
+      printf "%s", format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", colon) " "
       s = substr(s, RSTART+RLENGTH)
     }
     if (match(s, /^\\?"/)) {
       quote = substr(s, RSTART, RLENGTH)
-      s0 = s0 format("json_quote", quote)
+      printf "%s", format("json_quote", quote)
       s = substr(s, RSTART+RLENGTH)
       if (match(s, /\\?"[,"}\]]/)) {
         value = substr(s, 1, RSTART-1)
         s = substr(s, RSTART+RLENGTH-1)
         if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}/) {
-          value = format("json_uuid", value)
+          printf "%s", format("json_uuid", value)
         } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z/) {
-          value = format("json_date", value)
+          printf "%s", format("json_date", value)
         } else if (value ~ /{\\"/) {
-          value = format_inline_json(value, base_indent)
+          format_inline_json(value, base_indent)
         } else {
-          value = format("json_string", value)
+          printf "%s", format("json_string", value)
         }
-        s0 = s0 value format("json_quote", quote)
+        printf "%s", format("json_quote", quote)
       }
     } else {
       value = ""
       if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?/)) {
-        value = format("json_number", substr(s, RSTART, RLENGTH))
+        value = substr(s, RSTART, RLENGTH)
+        printf "%s", format("json_number", value)
       } else if (match(s, /^null/)) {
-        value = format("json_null", substr(s, RSTART, RLENGTH))
+        value = substr(s, RSTART, RLENGTH)
+        printf "%s", format("json_null", value)
       } else if (match(s, /^undefined/)) {
-        value = format("json_undefined", substr(s, RSTART, RLENGTH))
+        value = substr(s, RSTART, RLENGTH)
+        printf "%s", format("json_undefined", value)
       } else if (match(s, /^(true|false)/)) {
-        value = format("json_boolean", substr(s, RSTART, RLENGTH))
+        value = substr(s, RSTART, RLENGTH)
+        printf "%s", format("json_boolean", value)
       }
       if (value != "") {
-        s0 = s0 substr(value, 1, RSTART-1) value
         s = substr(s, RSTART+RLENGTH)
       }
     }
@@ -159,49 +173,55 @@ function format_inline_json(s, base_indent, s0, key, value, indent_level) {
   while ((indent_level > 0) && match(s, /[}\]]/)) {
     m = substr(s, RSTART, RLENGTH)
     indent_level--
-    s0 = s0 substr(s, 1, RSTART-1) "\n" base_indent indent_guide(indent_level) format("json_bracket", m)
+    printf "%s", substr(s, 1, RSTART-1) "\n"
+    printf "%s", base_indent indent_guide(indent_level)
+    printf "%s", format("json_bracket", m)
     s = substr(s, RSTART+RLENGTH)
   }
-  return s0 s
+  return s
 }
 function format_json(s, indent, key, value, comma) {
   if (match(s, /^[[:blank:]]+/)) {
     indent = indent_guide(int(RLENGTH/2))
+    printf "%s", indent
     s = substr(s, RSTART+RLENGTH)
   }
   if (match(s, /^"[^"]+": /)) {
-    key = format("json_quote", "\"") format("json_key", substr(s, RSTART+1, RLENGTH-1-3)) format("json_quote", "\"") format("json_colon", ":") " "
+    key = substr(s, RSTART+1, RLENGTH-1-3)
+    printf "%s", format("json_quote", "\"") format("json_key", key) format("json_quote", "\"") format("json_colon", ":") " "
     s = substr(s, RSTART+RLENGTH)
   }
   if (match(s, /,$/)) {
-    comma = format("json_comma", substr(s, RSTART, RLENGTH))
+    comma = substr(s, RSTART, RLENGTH)
     s = substr(s, 1, RSTART-1)
   }
   value = s
   if (match(value, /^".*"$/)) {
+    quote = "\""
+    printf "%s", format("json_quote", quote)
     value = substr(value, 2, RSTART+RLENGTH-3)
     if (value ~ /^[[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}$/) {
-      value = format("json_uuid", value)
+      printf "%s", format("json_uuid", value)
     } else if (value ~ /^[[:digit:]]{4}-[[:digit:]]{2}-[[:digit:]]{2}T[[:digit:]]{2}:[[:digit:]]{2}:[[:digit:]]{2}(\.[[:digit:]]{3})?Z$/) {
-      value = format("json_date", value)
+      printf "%s", format("json_date", value)
     } else if (value ~ /\\"/) {
-      value = format_inline_json(value, indent)
+      s = format_inline_json(value, indent)
     } else {
-      value = format("json_string", value)
+      printf "%s", format("json_string", value)
     }
-    value = format("json_quote", "\"") value format("json_quote", "\"")
+    printf "%s", format("json_quote", quote)
   } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?$/) {
-    value = format("json_number", value)
+    printf "%s", format("json_number", value)
   } else if (value ~ /^null$/) {
-    value = format("json_null", value)
+    printf "%s", format("json_null", value)
   } else if (value ~ /^undefined$/) {
-    value = format("json_undefined", value)
+    printf "%s", format("json_undefined", value)
   } else if (value ~ /^(true|false)$/) {
-    value = format("json_boolean", value)
+    printf "%s", format("json_boolean", value)
   } else {
-    value = format("json_bracket", value)
+    printf "%s", format("json_bracket", value)
   }
-  return indent key value comma
+  printf "%s", format("json_comma", comma)
 }
 BEGIN {
   INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
@@ -216,16 +236,6 @@ BEGIN {
   if ($0 ~ /^(START|END|REPORT|XRAY)/) {
     level = ""
 
-    gsub(":", format("bold,dim", ":") format("dim"))
-    s0 = ""
-    s = $0
-    while (match(s, /\t+/)) {
-      s0 = s0 substr(s, 1, RSTART-1)
-      s = substr(s, RSTART+RLENGTH)
-      if (s ~ /[^[:blank:]]/) s0 = s0 "\n" indent_guide(RLENGTH) format("dim")
-    }
-    $0 = s0 s
-
     if ($0 ~ /^START RequestId/) {
       #blank lines before each request
       print format("none")
@@ -237,8 +247,20 @@ BEGIN {
       print format("none")
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
-      $0 = "\n" $0
+      printf "%s", "\n"
     }
+
+    gsub(":", format("bold,dim", ":") format("dim"))
+    s0 = ""
+    s = $0
+    while (match(s, /\t+/)) {
+      s0 = s0 substr(s, 1, RSTART-1)
+      s = substr(s, RSTART+RLENGTH)
+      if (s ~ /[^[:blank:]]/) {
+        s0 = s0 "\n" indent_guide(RLENGTH) format("dim")
+      }
+    }
+    $0 = s0 s
 
     #dim aws messages
     $0 = format("dim", $0)
