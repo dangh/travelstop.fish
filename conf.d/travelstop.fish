@@ -122,7 +122,7 @@ function fish_right_prompt --inherit-variable _ts_prompt_version
     if test -z "$TMUX"
       string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
     end
-    command tmux set-option -g @content_x $_ts_profile \; set-option -g @content_z $_ts_stage \; refresh-client -S 2>/dev/null
+    command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
   else
     set --local v $_ts_prompt_version && set --erase _ts_prompt_version
     functions --query fish_right_prompt_original && fish_right_prompt_original
