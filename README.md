@@ -92,9 +92,14 @@ List of supported variables:
 ### Useful abbreviations:
 
 ```sh
-abbr -aU p push
-abbr -aU l logs
-abbr -aU i invoke
-abbr -aU b build_libs
-abbr -aU r rename_libs
+abbr -aU -- p push
+abbr -aU -- l logs
+abbr -aU -- i invoke
+abbr -aU -- b build_libs
+abbr -aU -- r rename_libs
+abbr -aU -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
+abbr -aU -- l5 'logs --startTime=5m'
+abbr -aU -- l10 'logs --startTime=10m'
+abbr -aU -- l15 'logs --startTime=15m'
+abbr -aU -- l30 'logs --startTime=30m'
 ```
