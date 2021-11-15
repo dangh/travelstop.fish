@@ -12,6 +12,7 @@ function _ts_aws_creds --on-event clipboard_change --argument-names creds --desc
     for stage_config in $ts_aws_creds
       echo $stage_config | read --delimiter=, --local _account_id stage region
       test "$account_id" = "$_account_id" || continue
+      mkdir -p ~/.aws
       echo [$role@$stage]\n{$aws_access_key_id}\n{$aws_secret_access_key}\n{$aws_session_token} > ~/.aws/credentials
       set --universal --export AWS_PROFILE $role@$stage
       set --universal --export AWS_DEFAULT_REGION $region
