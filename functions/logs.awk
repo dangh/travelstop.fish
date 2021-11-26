@@ -279,7 +279,7 @@ BEGIN {
       gsub(/^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(INFO|ERROR)\t/, "")
 
       #highlight metadata
-      if (match($0, /^\[[[:upper:]-]+\]\[[[:digit:]TZ:.-]{24}\]\[[[:lower:].-]+:[[:digit:]]+\](\[[[:alpha:].]+\])?\[[[:upper:]]+\]: /)) {
+      if (match($0, /^\[[[:upper:]-]+\]\[[[:digit:]TZ:.-]{24}\]\[[[:lower:].-]+:[[:digit:]]+\](\[[[:alpha:]. ]+\])?\[[[:upper:]]+\]: /)) {
         rest = substr($0, RLENGTH+1)
         split(substr($0, 2, RLENGTH-3), tokens, /[[\]]+/)
         stage = tokens[1]
