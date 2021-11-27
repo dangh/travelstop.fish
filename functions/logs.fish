@@ -53,7 +53,7 @@ function logs --description "watch lambda function logs"
   test -n "$_flag_org" && set --append logs_cmd --org=(string escape -- $_flag_org)
   test -n "$_flag_config" && set --append logs_cmd --config=(string escape -- $_flag_config)
 
-  set --local awk_cmd awk -f (string escape -- $__fish_config_dir/functions/logs.awk)
+  set --local awk_cmd LC_CTYPE=C awk -f (string escape -- $__fish_config_dir/functions/logs.awk)
 
   _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $logs_cmd \| $awk_cmd)(set_color normal)
   eval (_ts_env --mode=env) (string escape -- command $logs_cmd) \| $awk_cmd
