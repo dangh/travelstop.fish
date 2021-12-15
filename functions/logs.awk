@@ -152,7 +152,7 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
       }
     } else {
       value = ""
-      if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?/)) {
+      if (match(s, /^-?[[:digit:]]+(\.?[[:digit:]]+)?(e-?[[:digit:]]+)?/)) {
         value = substr(s, RSTART, RLENGTH)
         printf "%s", format("json_number", value)
       } else if (match(s, /^null/)) {
@@ -210,7 +210,7 @@ function format_json(s, indent, key, value, comma) {
       printf "%s", format("json_string", value)
     }
     printf "%s", format("json_quote", quote)
-  } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?$/) {
+  } else if (value ~ /^-?[[:digit:]]+(\.?[[:digit:]]+)?(e-?[[:digit:]]+)?$/) {
     printf "%s", format("json_number", value)
   } else if (value ~ /^null$/) {
     printf "%s", format("json_null", value)
