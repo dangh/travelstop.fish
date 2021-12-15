@@ -32,7 +32,7 @@ function push --description "deploy CF stack/lambda function"
   set --append targets $argv
 
   #push without any target/config/function
-  test -z "$argv" -a -z "$config" -a -z "$function" && set --append targets .
+  test -z "$argv" -a -z "$function" && set --append targets .
 
   for target in $targets
     _ts_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
@@ -163,12 +163,12 @@ function _ts_resolve_config --argument-names target config --description "type:n
   set --local yml
   set --local json
 
-  if test -f "$target/serverless.yml"
+  if test -n "$config"
+    set yml (realpath "$config")
+  else if test -f "$target/serverless.yml"
     set yml (realpath "$target/serverless.yml")
   else if test -f "$$_ts_project_dir/modules/$target/serverless.yml"
     set yml (realpath "$$_ts_project_dir/modules/$target/serverless.yml")
-  else if test -n "$config"
-    set yml (realpath "$config")
   else if test -f "$PWD/serverless.yml"
     set yml "$PWD/serverless.yml"
   end
