@@ -40,6 +40,13 @@ set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
 
+### To push notification after deploy with [Pushover](https://pushover.net)
+
+```
+set -U PUSHOVER_APP_TOKEN <app_token>
+set -U PUSHOVER_USER_KEY <user_key>
+```
+
 ### Logs formatting
 
 To change default style, use environment variables prefixed with `ts_` and set the value follow [tmux styles](http://man.openbsd.org/OpenBSD-current/man1/tmux.1#STYLES). For example, to make JSON keys bold and green:

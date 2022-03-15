@@ -4,6 +4,17 @@ function _ts_notify --argument-names title message sound --description "send not
   test -f "$sound" && afplay $sound &
 end
 
+function _ts_pushover --argument-names title message
+  test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN" || return
+  wait #queue pushover api calls
+  curl -s \
+    --form-string "token=$PUSHOVER_APP_TOKEN" \
+    --form-string "user=$PUSHOVER_USER_KEY" \
+    --form-string "title=$title" \
+    --form-string "message=$message" \
+    https://api.pushover.net/1/messages.json > /dev/null 2>&1 &
+end
+
 function _ts_aws_creds --on-event clipboard_change --argument-names creds --description "monitor clipboard for AWS credentials and store it"
   set --query ts_aws_creds || return
   if string match --quiet --regex '^\[[[:alnum:]_]+\](\naws_[[:alpha:]_]+=.*)+$' "$creds"

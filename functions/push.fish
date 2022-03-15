@@ -115,17 +115,20 @@ function push --description "deploy CF stack/lambda function"
     test $result -eq 0 \
       && _ts_notify "$sls_success_icon deployed" "$notif_message" tink \
       || _ts_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
+
+    test $result -eq 0 || break
   end
 
   #summary
   if test (count $targets) -gt 1
     _ts_progress $targets
+    set --local notif_title (math $success_count + $failure_count) stacks/functions deployed
     functions --query fontface \
       && set success_count (fontface math_monospace $success_count) \
       && set failure_count (fontface math_monospace $failure_count)
-    set --local notif_title (count $targets) stacks/functions deployed
     set --local notif_message success: $success_count\nfailure: $failure_count
     _ts_notify "$notif_title" "$notif_message"
+    _ts_pushover "$notif_title" "$notif_message"
   end
 end
 
