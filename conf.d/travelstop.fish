@@ -99,58 +99,64 @@ for color in ts_color_{profile,stage,sep}
   end
 end
 
-function _ts_prompt_repaint --on-variable AWS_PROFILE
-  set --global _ts_profile (string replace --regex '@.*' '' "$AWS_PROFILE")
-  set --global _ts_stage (string replace --regex '.*@' '' "$AWS_PROFILE")
-  ts_color_profile
-  ts_color_stage
-  ts_color_sep
-  commandline --function repaint-mode
-end && _ts_prompt_repaint
+function _ts_project_dir_setup
+  set --global _ts_project_dir _ts_project_dir_$fish_pid
 
-function _ts_prompt_enable --on-variable PWD
-  set --query ts_path || set --local ts_path '/wip/travelstop/'
-  if string match --quiet "*$ts_path*" "$PWD/"
-    set --global _ts_prompt_enable
-  else
-    set --erase _ts_prompt_enable
-  end
-end && _ts_prompt_enable
+  function $_ts_project_dir --on-event fish_prompt # wait until first prompt evaluated
+    functions --erase $_ts_project_dir
 
-function _ts_prompt_newline_postexec --on-event fish_postexec --description "new line between commands"
-  set --query ts_newline && test -n "$argv" && echo
-end
+    function $_ts_project_dir --on-variable PWD
+      set --universal $_ts_project_dir (git --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
+      test -n "$$_ts_project_dir" || set --erase $_ts_project_dir
+    end && $_ts_project_dir
 
-function _ts_prompt_newline_cancel --on-event fish_cancel --description "new line after cancel current commandline"
-  set --query ts_newline && echo
-end
-
-if ! set --query _ts_fish_right_prompt_backup
-  set --global _ts_fish_right_prompt_backup
-  functions --query fish_right_prompt && functions --copy fish_right_prompt fish_right_prompt_original
-end
-function fish_right_prompt --inherit-variable _ts_prompt_version
-  if set --query _ts_prompt_enable
-    if test -z "$TMUX"
-      string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+    function clear_$_ts_project_dir --on-event fish_exit
+      set --erase $_ts_project_dir
     end
-    command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
-  else
-    set --local v $_ts_prompt_version && set --erase _ts_prompt_version
-    functions --query fish_right_prompt_original && fish_right_prompt_original
   end
-end
+end && _ts_project_dir_setup && functions --erase _ts_project_dir_setup
 
-set --global _ts_project_dir _ts_project_dir_$fish_pid
+function _ts_prompt_setup
+  functions --query fish_right_prompt && functions --copy fish_right_prompt fish_right_prompt_original
 
-function $_ts_project_dir --on-event fish_prompt
-  function $_ts_project_dir --on-variable PWD
-    set --universal $_ts_project_dir (git --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
-  end && $_ts_project_dir
-  function clear_$_ts_project_dir --on-event fish_exit
-    set --erase $_ts_project_dir
+  function _ts_prompt_repaint --on-variable AWS_PROFILE
+    set --global _ts_profile (string replace --regex '@.*' '' "$AWS_PROFILE")
+    set --global _ts_stage (string replace --regex '.*@' '' "$AWS_PROFILE")
+    ts_color_profile
+    ts_color_stage
+    ts_color_sep
+    commandline --function repaint-mode
+  end && _ts_prompt_repaint
+
+  function _ts_prompt_enable --on-variable PWD
+    set --query ts_path || set --local ts_path '/wip/travelstop/'
+    if string match --quiet "*$ts_path*" "$PWD/"
+      set --global _ts_prompt_enable
+    else
+      set --erase _ts_prompt_enable
+    end
+  end && _ts_prompt_enable
+
+  function _ts_prompt_newline_postexec --on-event fish_postexec --description "new line between commands"
+    set --query ts_newline && test -n "$argv" && echo
   end
-end
+
+  function _ts_prompt_newline_cancel --on-event fish_cancel --description "new line after cancel current commandline"
+    set --query ts_newline && echo
+  end
+
+  function fish_right_prompt
+    if set --query _ts_prompt_enable
+      if test -z "$TMUX"
+        string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+      else
+        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
+      end
+    else
+      functions --query fish_right_prompt_original && fish_right_prompt_original
+    end
+  end
+end && _ts_prompt_setup && functions --erase _ts_prompt_setup
 
 function _ts_modules --description "list all modules"
   test $status -eq 0 && ls "$$_ts_project_dir/modules"
