@@ -158,12 +158,18 @@ function _ts_prompt_setup
 end && _ts_prompt_setup && functions --erase _ts_prompt_setup
 
 function _ts_modules --description "list all modules"
+  set --query $_ts_project_dir || return
   test $status -eq 0 && ls "$$_ts_project_dir/modules"
 end
 
 function _ts_substacks --description "list all sub directories contains serverless.yml"
-  set files */serverless.yml */*/serverless.yml
-  printf -- '%s\n' $files | string replace /serverless.yml ''
+  set --query $_ts_project_dir || return
+  if type --query fd
+    fd --strip-cwd-prefix serverless.yml | string replace /serverless.yml ''
+  else
+    set files */serverless.yml */*/serverless.yml
+    printf -- '%s\n' $files | string replace /serverless.yml ''
+  end
 end
 
 function _ts_functions --argument-names yml --description "list all lambda functions in serverless.yml"
