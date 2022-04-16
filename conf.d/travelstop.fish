@@ -136,24 +136,24 @@ function _ts_prompt_setup
     end
   end && _ts_prompt_enable
 
+  function fish_right_prompt
+    if set --query _ts_prompt_enable
+      if test -n "$TMUX"
+        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
+      else
+        string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+      end
+    else
+      functions --query fish_right_prompt_original && fish_right_prompt_original
+    end
+  end
+
   function _ts_prompt_newline_postexec --on-event fish_postexec --description "new line between commands"
     set --query ts_newline && test -n "$argv" && echo
   end
 
   function _ts_prompt_newline_cancel --on-event fish_cancel --description "new line after cancel current commandline"
     set --query ts_newline && echo
-  end
-
-  function fish_right_prompt
-    if set --query _ts_prompt_enable
-      if test -z "$TMUX"
-        string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
-      else
-        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
-      end
-    else
-      functions --query fish_right_prompt_original && fish_right_prompt_original
-    end
   end
 end && _ts_prompt_setup && functions --erase _ts_prompt_setup
 
