@@ -129,8 +129,7 @@ function _ts_prompt_setup
   end && _ts_prompt_repaint
 
   function _ts_prompt_enable --on-variable PWD
-    set --query ts_path || set --local ts_path '/wip/travelstop/'
-    if string match --quiet "*$ts_path*" "$PWD/"
+    if string match --quiet "*WhiteLabs/Travelstop.git" (git config --get remote.origin.url 2>/dev/null)
       set --global _ts_prompt_enable
     else
       set --erase _ts_prompt_enable
