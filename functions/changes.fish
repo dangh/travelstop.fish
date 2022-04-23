@@ -35,6 +35,19 @@ function changes --argument-names from --description "print list of changed serv
   end
   for name in $stack_names
     set --local v $stack_versions[(contains --index -- $name $stack_names)]
-    echo $name$v
-  end | sort
+    set --local group (string match --regex '^\w+' $name | string replace --regex 's$' '')
+    set --local group_order 1
+    set --local stack_order 1
+    switch $name
+    case 'module-*'
+      set group_order 0
+    case '*web'
+      set group_order 3
+    case 'admin-*'
+      set group_order 2
+    case '*-resources'
+      set stack_order 0
+    end
+    echo $name$v $group_order $group $stack_order
+  end | sort --key=2,2n --key=3,3 --key=4,4n | sed -E 's/ .+//'
 end
