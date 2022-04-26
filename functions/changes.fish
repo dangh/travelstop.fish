@@ -7,31 +7,34 @@ function changes --argument-names from --description "print list of changed serv
   else
     set --function range $from...
   end
-  set --local package_jsons
-  set --local serverless_ymls
+  set --local manifests
+  set --local root (git rev-parse --show-toplevel)
+  set --local visited_dirs
+  for file in (git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/')
+    set --local dir $file
+    set --local found 0
+    while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && ! contains $dir $visited_dirs && set --append visited_dirs $dir
+      for manifest in $root/$dir/package.json $root/$dir/serverless.yml
+        if test -f $manifest
+          set found 1
+          set --append manifests $manifest
+          break
+        end
+      end
+    end
+  end
   set --local stack_names
   set --local stack_versions
-  set --local root (git rev-parse --show-toplevel)
-  for path in (git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/')
-    while set path (string replace --regex '/[^/]+$' '' $path)
-      contains $root/$path/package.json $package_jsons || set --append package_jsons $root/$path/package.json
-      contains $root/$path/serverless.yml $serverless_ymls || set --append serverless_ymls $root/$path/serverless.yml
+  for manifest in $manifests
+    switch $manifest
+    case '*/package.json'
+      string match --quiet --regex '"name": "(travelstop-)?(?<name>[^"]+)"' < $manifest
+      string match --quiet --regex '"version": "(?<v>[^"]+)"' < $manifest
+    case '*/serverless.yml'
+      string match --quiet --regex '^service:\s*(?<name>module-\w+|\S+)\S*\s*$' < $manifest
     end
-  end
-  for json in $package_jsons
-    test -f $json || continue
-    string match --quiet --regex '"name": "(travelstop-)?(?<name>[^"]+)"' < $json
-    string match --quiet --regex '"version": "(?<v>[^"]+)"' < $json
     set --append stack_names $name
-    set --append stack_versions -$v
-  end
-  for yml in $serverless_ymls
-    test -f $yml || continue
-    string match --quiet --regex '^service:\s*(?<name>module-\w+|\S+)\S*\s*$' < $yml
-    if not contains -- $name $stack_names
-      set --append stack_names $name
-      set --append stack_versions ''
-    end
+    set --append stack_versions $v
   end
   for name in $stack_names
     set --local v $stack_versions[(contains --index -- $name $stack_names)]
@@ -48,6 +51,7 @@ function changes --argument-names from --description "print list of changed serv
     case '*-resources'
       set stack_order 0
     end
+    test -n "$v" && set v -$v
     echo $name$v $group_order $group $stack_order
   end | sort --key=2,2n --key=3,3 --key=4,4n | sed -E 's/ .+//'
 end
