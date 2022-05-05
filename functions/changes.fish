@@ -14,10 +14,12 @@ function changes --argument-names from --description "print list of changed serv
     set --local dir $file
     set --local found 0
     while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && ! contains $dir $visited_dirs && set --append visited_dirs $dir
-      for manifest in $root/$dir/package.json $root/$dir/serverless.yml
+      for manifest in $root/$dir/package.json $root/$dir/nodejs/package.json $root/$dir/serverless.yml
         if test -f $manifest
           set found 1
-          set --append manifests $manifest
+          if not contains $manifest $manifests
+            set --append manifests $manifest
+          end
           break
         end
       end
