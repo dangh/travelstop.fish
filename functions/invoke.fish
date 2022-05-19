@@ -77,7 +77,6 @@ function invoke --description "invoke lambda function"
   test -n "$_flag_org" && set --append logs_argv --org=(string escape -- $_flag_org)
   test -n "$_flag_config" && set --append logs_argv --config=(string escape -- $_flag_config)
 
-  echo (set_color green)(string join ' ' -- (_ts_env --mode=env) $invoke_cmd)(set_color normal)
   eval (_ts_env --mode=env) (string escape -- $invoke_cmd)
 
   logs $logs_argv
