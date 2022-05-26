@@ -87,8 +87,9 @@ function format(style_str, s, on, off, style_arr, count) {
   return on s (s && off ? off : "")
 }
 function indent_guide(level) { if (level) return format("none") repeat(INDENT_GUIDE, level) format("none") }
-function format_inline_json(s, base_indent, key, value, indent_level, quote, open_bracket, close_bracket, close_quote, m, n, colon) {
+function format_inline_json(s, base_indent, key, value, indent_level, quote, open_bracket, close_bracket, close_quote, m, n, colon, inline_object) {
   indent_level = 0
+  inline_object = 0
   while (match(s, /[[{}\],]/)) {
     m = substr(s, RSTART, RLENGTH)
     n = substr(s, RSTART+RLENGTH, 1)
@@ -98,11 +99,18 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
       printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket close_bracket)
       s = substr(s, RSTART+RLENGTH+1)
     } else if (m ~ /[{[]/) {
-      indent_level++
       open_bracket = m
-      printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket) "\n"
-      printf "%s", base_indent indent_guide(indent_level)
+      printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket)
       s = substr(s, RSTART+RLENGTH)
+      # inline simple object
+      if (env("inline_simple_object", 1) && s ~ /^"[^"]+":("[^"]{1,40}"|(\d+(\.\d+))")[}\]]/) {
+        inline_object = 1
+        printf " "
+      } else {
+        indent_level++
+        printf "\n"
+        printf "%s", base_indent indent_guide(indent_level)
+      }
     } else if (m n ~ /[}\]]"/) {
       indent_level--
       close_bracket = m
@@ -113,10 +121,15 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
       s = substr(s, RSTART+RLENGTH+1)
       continue  # end of embedded JSON, out to inline JSON
     } else if (m ~ /[}\]]/) {
-      indent_level--
       close_bracket = m
-      printf "%s", substr(s, 1, RSTART-1) "\n"
-      printf "%s", base_indent indent_guide(indent_level)
+      if (env("inline_simple_object", 1) && inline_object) {
+        inline_object = 0
+        printf " "
+      } else {
+        indent_level--
+        printf "%s", substr(s, 1, RSTART-1) "\n"
+        printf "%s", base_indent indent_guide(indent_level)
+      }
       printf "%s", format("json_bracket", close_bracket)
       s = substr(s, RSTART+RLENGTH)
     } else if (m ~ /,/) {

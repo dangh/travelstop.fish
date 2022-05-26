@@ -91,6 +91,7 @@ List of supported variables:
 | `ts_uuid_style`             | `yellow`          |                                                                                     |
 | `ts_indent_guide_style`     | `reverse`         |                                                                                     |
 | `ts_indent_size`            | 4                 | Size of indent in JSON                                                              |
+| `ts_inline_simple_object`   | 1                 | Simple JSON object will be print in single line                                     |
 | `ts_blank_page_cmd`         |                   | Command to print text before each request                                           |
 | `ts_blank_page`             |                   | Text to show before each request if `ts_blank_page_cmd` is not defined              |
 | `ts_blank_page_height`      |                   | Number of blank lines to show before each request if `ts_blank_page` is not defined |
