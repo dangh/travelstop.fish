@@ -13,6 +13,16 @@ function mappings --argument-names from --description "print index mapping chang
   set --local root (git rev-parse --show-toplevel)
   set --local visited_dirs
   set --local printed 0
+
+  set --function RED ''
+  set --function CYAN ''
+  set --function NORMAL ''
+  if isatty stdout && ! set -q NO_COLOR
+    set RED (set_color red)
+    set CYAN (set_color cyan)
+    set NORMAL (set_color normal)
+  end
+
   for file in (git diff --name-only $range $root/schema | grep -F 'index-mappings.json')
     set --local diff (node -e "
 const fs = require('fs');
@@ -48,7 +58,7 @@ function diff(a, b) {
     if test "$diff" != "undefined"
       test "$printed" -eq 1 && echo
       string match --regex --quiet '(?<index>[^/]+)-index-mappings.json' -- $file
-      echo (set_color red)PUT(set_color normal) /(set_color --bold cyan)$index(set_color normal)/_mapping
+      echo {$RED}PUT{$NORMAL} /{$CYAN}$index{$NORMAL}/_mapping
       echo $diff | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
       set printed 1
     end

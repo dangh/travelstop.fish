@@ -27,6 +27,8 @@ function repeat(s, n, sep, out) { if (n > 0) out = s; for (i = 2; i <= n; i++) o
 function default(value, fallback) { return !value ? fallback : value }
 function env(key, default) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : default }
 function format(style_str, s, on, off, style_arr, count) {
+  if (NO_COLOR == 1) return s
+
   count = split(get_style(style_str), style_arr, ",")
   for (i = 1; i <= count; i++) {
     style = style_arr[i]
@@ -239,6 +241,7 @@ function format_json(s, indent, key, value, comma) {
 BEGIN {
   INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
   BLANK_PAGE = default(env("blank_page"), format("blank_page") repeat("\x1b[2K", default(env("blank_page_height"), 1), "\n"))
+  NO_COLOR = "NO_COLOR" in ENVIRON ? 1 : system("test -t 1")
 }
 {
   is_cloudwatch_log = 0
