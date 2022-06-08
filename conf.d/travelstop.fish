@@ -159,7 +159,12 @@ end && _ts_prompt_setup && functions --erase _ts_prompt_setup
 
 function _ts_modules --description "list all modules"
   set --query $_ts_project_dir || return
-  test $status -eq 0 && ls "$$_ts_project_dir/modules"
+  if type --query fd
+    fd serverless.yml --strip-cwd-prefix --base-directory $$_ts_project_dir/modules | string replace /serverless.yml '' | string replace --regex '^' modules/
+  else
+    set files $$_ts_project_dir/modules/*/serverless.yml
+    printf -- '%s\n' $files | string replace /serverless.yml '' | string replace $$_ts_project_dir ''
+  end
 end
 
 function _ts_substacks --description "list all sub directories contains serverless.yml"
