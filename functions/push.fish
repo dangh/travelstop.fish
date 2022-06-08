@@ -165,6 +165,7 @@ function _ts_resolve_config --argument-names target config --description "type:n
   set --local ver
   set --local yml
   set --local json
+  set --local changelog
 
   if test -n "$config"
     set yml (realpath "$config")
@@ -182,6 +183,8 @@ function _ts_resolve_config --argument-names target config --description "type:n
     set json (dirname "$yml")/package.json
   else if test -f "$$_ts_project_dir/modules/$target/nodejs/package.json"
     set json (realpath "$$_ts_project_dir/modules/$target/nodejs/package.json")
+  else if test -f (dirname "$yml")/CHANGELOG.md
+    set changelog (dirname "$yml")/CHANGELOG.md
   end
 
   if contains $target (_ts_functions "$yml")
@@ -191,9 +194,12 @@ function _ts_resolve_config --argument-names target config --description "type:n
     string match --quiet --regex '/modules/' "$yml" \
       && set type module \
       || set type service
-    set name (string match --regex '^service:\s*([^\s]*)' < $yml)[2]
-    test -n "$json" \
-      && set ver (string match --regex '^\s*"version":\s*"([^"]*)"' < $json)[2]
+    string match --quiet --regex '^service:\s*(?<name>[^\s]*)' < $yml
+    if test -n "$json"
+      string match --quiet --regex '^\s*"version":\s*"(?<ver>[^"]*)"' < $json
+    else if test -n "$changelog"
+      string match --quiet --regex '# (?<ver>\d+(\.\d+)+)' < $changelog
+    end
   end
 
   echo "$type:$name:$ver:$yml"

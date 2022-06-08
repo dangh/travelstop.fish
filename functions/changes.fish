@@ -35,6 +35,12 @@ function changes --argument-names from --description "print list of changed serv
     case '*/serverless.yml'
       string match --quiet --regex '^service:\s*(?<name>module-\w+|\S+)\S*\s*$' < $manifest
     end
+    if test -z "$v"
+      set --local changelog (string replace --regex '[^/]+$' 'CHANGELOG.md' $manifest)
+      if test -f $changelog
+        string match --quiet --regex '# (?<v>\d+(\.\d+)+)' < $changelog
+      end
+    end
     set --append stack_names $name
     set --append stack_versions $v
   end
