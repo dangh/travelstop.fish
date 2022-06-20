@@ -21,10 +21,23 @@ function mappings --argument-names from --description "print index mapping chang
     set RED (set_color red)
     set CYAN (set_color cyan)
     set NORMAL (set_color normal)
+    set BOLD (set_color --bold)
   end
 
-  for file in (git diff --name-only $range $root/schema | grep -F 'index-mappings.json')
-    set --local diff (node -e "
+  git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read --local state file
+    string match --quiet --regex '(?<index>[^/]+)-index-mappings.json' -- $file
+    switch $state
+    case 'D'
+      test "$printed" -eq 1 && echo
+      echo {$RED}DELETE{$NORMAL} {$CYAN}/{$BOLD}$index{$NORMAL}
+      set printed 1
+    case 'A'
+      test "$printed" -eq 1 && echo
+      echo {$RED}PUT{$NORMAL} {$CYAN}/{$BOLD}$index{$NORMAL}
+      cat $root/$file | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+      set printed 1
+    case 'M'
+      set --local diff (node -e "
 const fs = require('fs');
 
 let a = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
@@ -54,13 +67,12 @@ function diff(a, b) {
   return d;
 }
 " (git show $from:$file | psub) $root/$file)
-
-    if test "$diff" != "undefined"
-      test "$printed" -eq 1 && echo
-      string match --regex --quiet '(?<index>[^/]+)-index-mappings.json' -- $file
-      echo {$RED}PUT{$NORMAL} /{$CYAN}$index{$NORMAL}/_mapping
-      echo $diff | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
-      set printed 1
+      if test "$diff" != "undefined"
+        test "$printed" -eq 1 && echo
+        echo {$RED}PUT{$NORMAL} {$CYAN}/{$BOLD}$index{$NORMAL}/_mapping
+        echo $diff | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+        set printed 1
+      end
     end
   end
 end
