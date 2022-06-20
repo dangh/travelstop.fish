@@ -26,7 +26,7 @@ function get_style(name) {
 function repeat(s, n, sep, out) { if (n > 0) out = s; for (i = 2; i <= n; i++) out = out sep s; return out; }
 function default(value, fallback) { return !value ? fallback : value }
 function env(key, default) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : default }
-function format(style_str, s, on, off, style_arr, count) {
+function format(style_str, s, force, on, off, style_arr, count) {
   if (NO_COLOR == 1) return s
 
   count = split(get_style(style_str), style_arr, ",")
@@ -86,9 +86,9 @@ function format(style_str, s, on, off, style_arr, count) {
   }
   if (on) on = "\x1b[" substr(on, 2) "m"
   if (off) off = "\x1b[" substr(off, 2) "m"
-  return on s (s && off ? off : "")
+  if (s || force) return on s off
 }
-function indent_guide(level) { if (level) return format("none") repeat(INDENT_GUIDE, level) format("none") }
+function indent_guide(level) { if (level) return format("none", "", 1) repeat(INDENT_GUIDE, level) format("none", "", 1) }
 function format_inline_json(s, base_indent, key, value, indent_level, quote, open_bracket, close_bracket, close_quote, m, n, colon, inline_object) {
   indent_level = 0
   inline_object = 0
@@ -260,26 +260,26 @@ BEGIN {
 
     if ($0 ~ /^START RequestId/) {
       #blank lines before each request
-      print format("none")
+      print format("none", "", 1)
       if (env("blank_page_cmd")) {
         system(env("blank_page_cmd"))
       } else {
         print BLANK_PAGE
       }
-      print format("none")
+      print format("none", "", 1)
     } else if ($0 ~ /^END RequestId/) {
       #blank line before end request
       printf "%s", "\n"
     }
 
-    gsub(":", format("bold,dim", ":") format("dim"))
+    gsub(":", format("bold,dim", ":") format("dim", "", 1))
     s0 = ""
     s = $0
     while (match(s, /\t+/)) {
       s0 = s0 substr(s, 1, RSTART-1)
       s = substr(s, RSTART+RLENGTH)
       if (s ~ /[^[:blank:]]/) {
-        s0 = s0 "\n" indent_guide(RLENGTH) format("dim")
+        s0 = s0 "\n" indent_guide(RLENGTH) format("dim", "", 1)
       }
     }
     $0 = s0 s
