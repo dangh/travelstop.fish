@@ -140,12 +140,14 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
       printf "%s", base_indent indent_guide(indent_level)
       s = substr(s, RSTART+RLENGTH)
     }
-    if (match(s, /^\\?"[^"]+\\?":/)) {
+    if (match(s, /^\\?"[^"]+\\?"[[:space:]]*:[[:space:]]*/)) {
       quote = ((s ~ /^\\/) ? "\\\"" : "\"")
-      colon = ":"
-      key = substr(s, RSTART+length(quote), RLENGTH-length(quote)-length(quote)-length(colon))
-      printf "%s", format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", colon) " "
+      key = substr(s, RSTART+length(quote), RLENGTH-length(quote))
       s = substr(s, RSTART+RLENGTH)
+      match(key, /[[:space:]]*:[[:space:]]*$/)
+      colon = substr(key, RSTART, RLENGTH)
+      key = substr(key, 1, length(key)-length(quote)-length(colon))
+      printf "%s", format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", colon) " "
     }
     if (match(s, /^\\?"/)) {
       quote = substr(s, RSTART, RLENGTH)
@@ -201,10 +203,14 @@ function format_json(s, indent, key, value, comma) {
     printf "%s", indent
     s = substr(s, RSTART+RLENGTH)
   }
-  if (match(s, /^"[^"]+": /)) {
-    key = substr(s, RSTART+1, RLENGTH-1-3)
-    printf "%s", format("json_quote", "\"") format("json_key", key) format("json_quote", "\"") format("json_colon", ":") " "
+  if (match(s, /^"[^"]+"[[:space:]]*:[[:space:]]*/)) {
+    quote = "\""
+    key = substr(s, RSTART+length(quote), RLENGTH-length(quote))
     s = substr(s, RSTART+RLENGTH)
+    match(key, /[[:space:]]*:[[:space:]]*$/)
+    colon = substr(key, RSTART, RLENGTH)
+    key = substr(key, 1, length(key)-length(quote)-length(colon))
+    printf "%s", format("json_quote", quote) format("json_key", key) format("json_quote", quote) format("json_colon", ":") " "
   }
   if (match(s, /,$/)) {
     comma = substr(s, RSTART, RLENGTH)
