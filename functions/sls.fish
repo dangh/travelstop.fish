@@ -3,11 +3,11 @@ function sls --description "wraps sls to provide stage/profile/region implicitly
   set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
 
-  argparse --ignore-unknown (_ts_opt \
+  argparse --ignore-unknown \
     'profile=?' \
     's/stage=?' \
     'r/region=?' \
-  ) -- $argv
+    -- $argv
   or return 1
 
   set --query _flag_profile && set profile $_flag_profile

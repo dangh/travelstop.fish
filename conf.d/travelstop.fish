@@ -38,25 +38,6 @@ function _ts_aws_creds --on-event clipboard_change --argument-names creds --desc
   end
 end
 
-function _ts_opt
-  set --local short_flags 0 1 2 3 4 5 6 7 8 9 a b c d e f g h i j k l m n o p q r s t u v w x y z
-  for arg in $argv
-    if string match --quiet -- '*/*' $arg
-      set --local short_flag (string sub --start 1 --length 1 -- $arg)
-      set --local index (contains --index -- $short_flag $short_flags)
-      test "$index" -gt 0 && set --erase short_flags[$index]
-    end
-  end
-  for arg in $argv
-    if ! string match --quiet -- '*/*' $arg
-      echo -- "$short_flags[1]-$arg"
-      set --erase short_flags[1]
-    else
-      echo -- $arg
-    end
-  end
-end
-
 function _ts_log
   echo '('(set_color yellow)sls(set_color normal)')' $argv
 end
@@ -64,7 +45,7 @@ end
 function _ts_env
   test -n "$ts_env" || return 1
 
-  argparse (_ts_opt 'mode=?') -- $argv
+  argparse 'mode=?' -- $argv
   set --local result
 
   switch $_flag_mode

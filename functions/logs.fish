@@ -5,7 +5,7 @@ function logs --description "watch lambda function logs"
   set --local region $AWS_DEFAULT_REGION
   set --local startTime 2m
 
-  argparse --name='sls logs' (_ts_opt \
+  argparse --name='sls logs' \
     'f/function=?' \
     'profile=?' \
     's/stage=?' \
@@ -17,7 +17,7 @@ function logs --description "watch lambda function logs"
     'app=?' \
     'org=?' \
     'c/config=?' \
-  ) -- $ts_default_argv_logs $argv
+    -- $ts_default_argv_logs $argv
   or return 1
 
   # function as the the first positional argument

@@ -5,7 +5,7 @@ function invoke --description "invoke lambda function"
   set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
   set --local region $AWS_DEFAULT_REGION
 
-  argparse --name='sls invoke' (_ts_opt \
+  argparse --name='sls invoke' \
     'profile=?' \
     'f/function=?' \
     's/stage=?' \
@@ -24,8 +24,8 @@ function invoke --description "invoke lambda function"
     'tail' \
     'startTime=?' \
     'filter=?' \
-    'i/interval=?'
-  ) -- $ts_default_argv_invoke $argv
+    'i/interval=?' \
+    -- $ts_default_argv_invoke $argv
   or return 1
 
   # function is the first positional argument

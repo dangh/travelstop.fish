@@ -8,7 +8,7 @@ function push --description "deploy CF stack/lambda function"
   set --local services
   set --local functions
 
-  argparse --name='sls deploy' (_ts_opt \
+  argparse --name='sls deploy' \
     'conceal' \
     'profile=?' \
     's/stage=?' \
@@ -22,7 +22,7 @@ function push --description "deploy CF stack/lambda function"
     'app=?' \
     'org=?' \
     'c/config=?' \
-  ) -- $ts_default_argv_push $argv
+    -- $ts_default_argv_push $argv
   or return 1
 
   set --query _flag_profile && set profile $_flag_profile

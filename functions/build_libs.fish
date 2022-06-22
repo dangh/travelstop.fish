@@ -4,9 +4,7 @@ function build_libs --description "rebuild libs module"
   set --local force_install FALSE
   set --local tgzs
 
-  argparse (_ts_opt \
-    'f/force' \
-  ) -- $argv
+  argparse 'f/force' -- $argv
   or return 1
   set --query _flag_force && set force_install TRUE
 
