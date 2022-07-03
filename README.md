@@ -3,11 +3,34 @@
 ## Installation
 
 ```sh
-fisher install dangh/withd.fish
-fisher install dangh/travelstop.fish
+brew install \
+  openvpn \
+  tinyproxy \
+  fswatch \
+  fd \
+  jq \
+  dangh/formulae/pbmonitor
+fisher install \
+  dangh/withd.fish \
+  dangh/openvpn.fish \
+  dangh/tinyproxy.fish \
+  dangh/pbmonitor.fish \
+  dangh/travelstop.fish
 ```
 
-## Configuration
+## Usage
+
+### To connect to VPN and expose as a proxy
+
+Put VPN config in $HOME/.config/vpn/config
+Put VPN password in $HOME/.config/vpn/passwd
+
+```sh
+# Launch VPN and proxy server
+vpn
+
+# Proxy now exposed at localhost:8888
+```
 
 ### To show blank line between prompts:
 
@@ -28,8 +51,7 @@ set -a ts_env SLS_DEPRECATION_DISABLE='*'
 ### To update AWS config automatically when copied to clipboard:
 
 ```sh
-fisher install dangh/pbmonitor.fish
-set -U ts_aws_creds account_id,stage,region account_id_2,stage_2,region_2
+set -U ts_aws_creds <account_id_1>,<stage_1>,<region_1> <account_id_2>,<stage_2>,<region_2>
 ```
 
 ### To apply default arguments to commands:
