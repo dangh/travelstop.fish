@@ -4,16 +4,11 @@
 
 ```sh
 brew install \
-  openvpn \
-  tinyproxy \
-  fswatch \
   fd \
   jq \
   dangh/formulae/pbmonitor
 fisher install \
   dangh/withd.fish \
-  dangh/openvpn.fish \
-  dangh/tinyproxy.fish \
   dangh/pbmonitor.fish \
   dangh/travelstop.fish
 ```
@@ -26,8 +21,11 @@ Put VPN config in $HOME/.config/vpn/config
 Put VPN password in $HOME/.config/vpn/passwd
 
 ```sh
+# Install required packages
+brew install docker colima
+
 # Launch VPN and proxy server
-vpn
+vpn-docker
 
 # Proxy now exposed at localhost:8888
 ```

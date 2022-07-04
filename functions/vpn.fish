@@ -1,4 +1,4 @@
-function vpn
+function vpn-native
   set --local pidfile {$TMPDIR}travelstop-vpn.pid
   sudo pkill -9 -F $pidfile >/dev/null 2>&1
   if not test -f ~/.config/vpn/config
@@ -18,4 +18,31 @@ function vpn
     _ts_notify "$notif_title" "$notif_message"
   end
   openvpn --config ~/.config/vpn/config --askpass ~/.config/vpn/passwd --auth-nocache --daemon travelstop-vpn --fast-io --writepid $pidfile
+end
+
+function vpn-docker
+  set --local image huynhminhdang/openvpn-tinyproxy:latest
+  set --local container travelstop-vpn
+  if string match --quiet '*colima is not running*' (colima status 2>&1)
+    colima start --runtime docker --cpu 1 --memory 1 --disk 1 --verbose
+  end
+  if test -z (docker images --quiet $image)
+    docker pull $image
+  end
+  docker kill (docker ps --quiet --filter "name=$container") 2>/dev/null
+  docker run \
+    --name $container \
+    --volume ~/.config/vpn:/etc/openvpn/profile \
+    --volume ~/.config/vpn:/etc/openvpn/hosts \
+    --publish 8888:8888 \
+    --device /dev/net/tun \
+    --cap-add NET_ADMIN \
+    --rm \
+    --tty \
+    --detach \
+    $image
+end
+
+function vpn
+  vpn-docker
 end
