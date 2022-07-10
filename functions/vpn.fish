@@ -21,20 +21,25 @@ function vpn-native
 end
 
 function vpn-docker --argument-names action
+  set --local runtime docker
+  set --local image huynhminhdang/openvpn-tinyproxy:latest
+  set --local container travelstop-vpn
+  set --local colima colima --profile $container-$runtime
+  set --local ctl docker
   switch "$action"
     case stop
-      colima stop
+      command $colima stop
+    case update
+      command $colima status 2>&1 | string match --quiet '*already running*' ||
+        command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
+      command $ctl pull $image
     case \*
-      set --local image huynhminhdang/openvpn-tinyproxy:latest
-      set --local container travelstop-vpn
-      if string match --quiet '*colima is not running*' (colima status 2>&1)
-        colima start --runtime docker --cpu 1 --memory 1 --disk 1 --verbose
-      end
-      if test -z (docker images --quiet $image)
-        docker pull $image
-      end
-      docker kill (docker ps --quiet --filter "name=$container") 2>/dev/null
-      docker run \
+      command $colima status 2>&1 | string match --quiet '*already running*' ||
+        command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
+      command $ctl images --quiet $image | test -n - ||
+        command $ctl pull $image
+      command $ctl kill (command $ctl ps --quiet --filter "name=$container") 2>/dev/null
+      command $ctl run \
         --name $container \
         --volume ~/.config/vpn:/etc/openvpn/profile \
         --volume ~/.config/vpn:/etc/openvpn/hosts \
@@ -48,11 +53,46 @@ function vpn-docker --argument-names action
   end
 end
 
+function vpn-containerd --argument-names action
+  set --local runtime containerd
+  set --local image huynhminhdang/openvpn-tinyproxy:latest
+  set --local container travelstop-vpn
+  set --local colima colima --profile $container-$runtime
+  set --local ctl $colima nerdctl --
+  switch "$action"
+    case stop
+      command $colima stop
+    case update
+      command $colima status 2>&1 | string match --quiet '*already running*' ||
+        command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
+      command $ctl pull $image
+    case \*
+      command $colima status 2>&1 | string match --quiet '*already running*' ||
+        command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
+      command $ctl images --quiet $image | test -n - ||
+        command $ctl pull $image
+      command $ctl ps --all | grep $image | read container_id _ 2>/dev/null
+      test -n "$container_id" &&
+        command $ctl rm --force $container_id
+      command $ctl run \
+        --name $container \
+        --volume ~/.config/vpn:/etc/openvpn/profile \
+        --volume ~/.config/vpn:/etc/openvpn/hosts \
+        --publish 8888:8888 \
+        --device /dev/net/tun \
+        --cap-add NET_ADMIN \
+        --detach \
+        $image
+  end
+end
+
 function vpn
   switch "$ts_vpn"
     case native
       vpn-native $argv
-    case \*
+    case docker
       vpn-docker $argv
+    case \*
+      vpn-containerd $argv
   end
 end
