@@ -20,29 +20,39 @@ function vpn-native
   openvpn --config ~/.config/vpn/config --askpass ~/.config/vpn/passwd --auth-nocache --daemon travelstop-vpn --fast-io --writepid $pidfile
 end
 
-function vpn-docker
-  set --local image huynhminhdang/openvpn-tinyproxy:latest
-  set --local container travelstop-vpn
-  if string match --quiet '*colima is not running*' (colima status 2>&1)
-    colima start --runtime docker --cpu 1 --memory 1 --disk 1 --verbose
+function vpn-docker --argument-names action
+  switch "$action"
+    case stop
+      colima stop
+    case \*
+      set --local image huynhminhdang/openvpn-tinyproxy:latest
+      set --local container travelstop-vpn
+      if string match --quiet '*colima is not running*' (colima status 2>&1)
+        colima start --runtime docker --cpu 1 --memory 1 --disk 1 --verbose
+      end
+      if test -z (docker images --quiet $image)
+        docker pull $image
+      end
+      docker kill (docker ps --quiet --filter "name=$container") 2>/dev/null
+      docker run \
+        --name $container \
+        --volume ~/.config/vpn:/etc/openvpn/profile \
+        --volume ~/.config/vpn:/etc/openvpn/hosts \
+        --publish 8888:8888 \
+        --device /dev/net/tun \
+        --cap-add NET_ADMIN \
+        --rm \
+        --tty \
+        --detach \
+        $image
   end
-  if test -z (docker images --quiet $image)
-    docker pull $image
-  end
-  docker kill (docker ps --quiet --filter "name=$container") 2>/dev/null
-  docker run \
-    --name $container \
-    --volume ~/.config/vpn:/etc/openvpn/profile \
-    --volume ~/.config/vpn:/etc/openvpn/hosts \
-    --publish 8888:8888 \
-    --device /dev/net/tun \
-    --cap-add NET_ADMIN \
-    --rm \
-    --tty \
-    --detach \
-    $image
 end
 
 function vpn
-  vpn-docker
+  switch "$ts_vpn"
+    case native
+      vpn-native $argv
+    case \*
+      vpn-docker $argv
+  end
 end
