@@ -28,6 +28,7 @@ function changes --argument-names from --description "print list of changed serv
   set --local stack_names
   set --local stack_versions
   for manifest in $manifests
+    set --local v
     switch $manifest
     case '*/package.json'
       string match --quiet --regex '"name": "(travelstop-)?(?<name>[^"]+)"' < $manifest
