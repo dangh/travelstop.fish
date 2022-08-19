@@ -43,7 +43,7 @@ function changes --argument-names from --description "print list of changed serv
       end
     end
     set --append stack_names $name
-    set --append stack_versions $v
+    set --append stack_versions "$v"
   end
   for name in $stack_names
     set --local v $stack_versions[(contains --index -- $name $stack_names)]
