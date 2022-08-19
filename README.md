@@ -124,7 +124,7 @@ abbr -aU -- p push
 abbr -aU -- l logs
 abbr -aU -- i invoke
 abbr -aU -- b build_libs
-abbr -aU -- r rename_libs
+abbr -aU -- r rename_modules
 abbr -aU -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
 abbr -aU -- l5 'logs --startTime=5m'
 abbr -aU -- l10 'logs --startTime=10m'
