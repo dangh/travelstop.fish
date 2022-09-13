@@ -8,6 +8,7 @@ brew install \
   jq \
   dangh/formulae/pbmonitor
 fisher install \
+  dangh/ansi-escape.fish \
   dangh/withd.fish \
   dangh/pbmonitor.fish \
   dangh/travelstop.fish
@@ -120,6 +121,7 @@ List of supported variables:
 ### Useful abbreviations:
 
 ```sh
+abbr -aU -- c changes
 abbr -aU -- p push
 abbr -aU -- l logs
 abbr -aU -- i invoke

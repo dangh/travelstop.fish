@@ -1,16 +1,53 @@
-function changes --argument-names from --description "print list of changed services and modules"
-  argparse --ignore-unknown 'i/index' -- $argv
-  if set --query _flag_index
-    set --function range (git merge-base origin/master HEAD)
-  else if test -z "$from"
-    set --function range origin/master...
-  else
-    set --function range $from...
+function changes --argument-names type --description "print list of changes"
+  argparse --ignore-unknown f/from= t/to= -- $argv
+  switch "$type"
+    case 'stacks'
+      _change_stacks "$_flag_from" "$_flag_to"
+    case 'mappings'
+      _change_mappings "$_flag_from" "$flag_to"
+    case 'translations'
+      _change_translations "$_flag_from" "$_flag_to"
+    case 'all' '*'
+      _change_stacks "$_flag_from" "$_flag_to" | read --null --list --local changes
+      if test -n "$changes"
+        echo (magenta (dim '**')(bold 'Packages')(dim '**'))
+        echo (magenta (dim '-'))
+        echo \n'- '$changes
+        set --function changed
+      end
+      _change_mappings "$_flag_from" "$flag_to" | read --null --local changes
+      if test -n "$changes"
+        set --query --function changed && echo
+        echo (magenta (dim '**')(bold 'Mappings')(dim '**'))
+        echo (magenta (dim '-'))
+        echo
+        echo $changes
+        set --function changed
+      end
+      _change_translations "$_flag_from" "$_flag_to" | read --null --array --local changes
+      if test -n "$changes"
+        set --query --function changed && echo
+        echo (magenta (dim '**')(bold 'Translations')(dim '**'))
+        echo (magenta (dim '-'))
+        echo \n$changes
+      end
   end
+end
+
+function _change_stacks --argument-names from to --description "print list of changed services and modules"
+  test -z "$from" && set from 'merge-base'
+  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test -z "$to" && set to 'index'
+  if test "$to" = 'index'
+    set --function range $from
+  else
+    set --function range $from...$to
+  end
+
   set --local manifests
   set --local root (git rev-parse --show-toplevel)
   set --local visited_dirs
-  for file in (git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/')
+  git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/' | while read --line --local file
     set --local dir $file
     set --local found 0
     while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && ! contains $dir $visited_dirs && set --append visited_dirs $dir
@@ -63,4 +100,82 @@ function changes --argument-names from --description "print list of changed serv
     test -n "$v" && set v -$v
     echo $name$v $group_order $group $stack_order
   end | sort --key=2,2n --key=3,3 --key=4,4n | sed -E 's/ .+//'
+end
+
+function _change_mappings --argument-names from to --description "print elasticsearch index mapping changes"
+  test -z "$from" && set from 'merge-base'
+  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test -z "$to" && set to 'index'
+  if test "$to" = 'index'
+    set --function range $from
+  else
+    set --function range $from...$to
+  end
+
+  set --local manifests
+  set --local root (git rev-parse --show-toplevel)
+  set --local visited_dirs
+  set --local printed 0
+
+  git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read --local state file
+    string match --quiet --regex '(?<index>[^/]+)-index-mappings.json' -- $file
+    switch $state
+    case 'D'
+      test "$printed" -eq 1 && echo
+      echo (red DELETE) (cyan /(bold $index))
+      set printed 1
+    case 'A'
+      test "$printed" -eq 1 && echo
+      echo (red PUT) (cyan /(bold $index))
+      cat $root/$file | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+      set printed 1
+    case 'M'
+      set --local diff (node -e "
+const fs = require('fs');
+
+let a = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
+let b = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+console.log(JSON.stringify(diff(a.mappings, b.mappings)));
+
+function diff(a, b) {
+  let d = {};
+  for (let k in b) {
+    if (typeof a[k] != typeof b[k]) {
+      d[k] = b[k];
+    } else if(typeof a[k] != 'object') {
+      if (a[k] != b[k]) {
+        d[k] = b[k];
+      }
+    } else if (Array.isArray(a[k]) && Array.isArray(b[k])) {
+      if (a.length != b.length || a[k].some((v, i) => v != b[k][i])) {
+        d[k] = b[k];
+      }
+    } else {
+      d[k] = diff(a[k], b[k]);
+    }
+  }
+  //sanitize undefined values
+  d = JSON.parse(JSON.stringify(d));
+  if (Object.keys(d).length == 0) return undefined;
+  return d;
+}
+" (git show $from:$file | psub) $root/$file)
+      if test "$diff" != "undefined"
+        test "$printed" -eq 1 && echo
+        echo (red PUT) (cyan /(bold $index))/_mapping
+        echo $diff | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+        set printed 1
+      end
+    end
+  end
+end
+
+function _change_translations --argument-names from to --description "print list of new translation keys"
+  test -z "$from" && set from origin/master
+  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test -z "$to" && set to 'index'
+  test "$to" = 'index' && set to ''
+  comm -13 \
+    (git show $from:web/locales/en-GB.json | jq --raw-output 'paths(scalars) as $path | ( $path | join(".") )' | sort | psub) \
+    (git show $to:web/locales/en-GB.json | jq --raw-output 'paths(scalars) as $path | ( $path | join(".") )' | sort | psub)
 end
