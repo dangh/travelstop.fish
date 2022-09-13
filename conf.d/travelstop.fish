@@ -39,7 +39,7 @@ function _ts_aws_creds --on-event clipboard_change --argument-names creds --desc
 end
 
 function _ts_log
-  echo '('(set_color yellow)sls(set_color normal)')' $argv
+  echo '('(yellow sls)')' $argv
 end
 
 function _ts_env
@@ -65,18 +65,25 @@ end
 
 status is-interactive || exit
 
-set --query ts_color_profile || set --global ts_color_profile \--bold magenta
-set --query ts_color_stage || set --global ts_color_stage \--bold magenta
-set --query ts_color_sep || set --global ts_color_sep \--dim magenta
-set --query ts_sep || set --global ts_sep @
+set --query ts_color_profile || set --global ts_color_profile bold magenta
+set --query ts_color_stage   || set --global ts_color_stage   bold magenta
+set --query ts_color_sep     || set --global ts_color_sep     dim magenta
+set --query ts_sep           || set --global ts_sep @
 
 for color in ts_color_{profile,stage,sep}
+  # function to refresh prompt color when aws config change
   function $color --inherit-variable color
-    set colors
+    # find the most specific variable that has value
+    # example of variables specialty
+    #   ts_color_profile_ServerlessDeployNonProd_DEV
+    #   ts_color_profile_ServerlessDeployNonProd
+    #   ts_color_profile_DEV
+    #   ts_color_profile
     for color_ in {$color}_{$_ts_profile}_{$_ts_stage} {$color}_{$_ts_profile} {$color}_{$_ts_stage} $color
       set --query $color_ && set _color $color_ && break
     end
-    set --global _$color (set_color $$_color)
+    # store color in global variable
+    set --global _$color $$_color
   end
 end
 
@@ -122,7 +129,9 @@ function _ts_prompt_setup
       if test -n "$TMUX"
         command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
       else
-        string unescape "$_ts_color_profile$_ts_profile\x1b[0m$_ts_color_sep$ts_sep\x1b[0m$_ts_color_stage$_ts_stage\x1b[0m"
+        ansi-escape '--'$_ts_color_profile $_ts_profile
+        ansi-escape '--'$_ts_color_sep     $ts_sep
+        ansi-escape '--'$_ts_color_stage   $_ts_stage
       end
     else
       functions --query fish_right_prompt_original && fish_right_prompt_original
@@ -192,16 +201,16 @@ function _ts_validate_path --argument-names path --description "validate path ex
 
   set --erase path
   for p in $corrects
-    set path "$path"(set_color green --dim)/(set_color normal)(set_color green)$p(set_color normal)
+    set path "$path"(green (dim /)$p)
   end
   if test -d "$dir"
-    set path "$path"(set_color green --dim)/(set_color normal)
+    set path "$path"(green (dim /))
   end
   if test -n "$wrongs"
-    set path "$path"(set_color red)$wrongs[1](set_color normal)
+    set path "$path"(red $wrongs[1])
     set --erase wrongs[1]
     for p in $wrongs
-      set path "$path"(set_color red --dim)/(set_color normal)(set_color red)$p(set_color normal)
+      set path "$path"(red (dim /)$p)
     end
   end
   echo $path

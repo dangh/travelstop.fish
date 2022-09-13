@@ -80,10 +80,10 @@ function push --description "deploy CF stack/lambda function"
       test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
     end
     test "$type" = function \
-      && _ts_log deploying function: (set_color magenta)$name_ver(set_color normal) \
-      || _ts_log deploying stack: (set_color magenta)$name_ver(set_color normal)
-    _ts_log working directory: (set_color blue)$working_dir(set_color normal)
-    _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $deploy_cmd)(set_color normal)
+      && _ts_log deploying function: (magenta $name_ver) \
+      || _ts_log deploying stack: (magenta $name_ver)
+    _ts_log working directory: (blue $working_dir)
+    _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $deploy_cmd))
 
     test "$type" = module && string match --quiet --regex libs $name && build_libs --force
     withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod;" (_ts_env --mode=env) "command $deploy_cmd"
@@ -134,28 +134,28 @@ end
 
 function _ts_progress
   set --local count (count $argv)
-  set --local color_pending (set_color normal)
-  set --local color_running (set_color magenta)
-  set --local color_success (set_color green)
-  set --local color_failure (set_color red)
+  set --local color_pending ansi-escape
+  set --local color_running magenta
+  set --local color_success green
+  set --local color_failure red
   set --local caret_pending ' '
-  set --local caret_running (set_color magenta)'▶︎'(set_color normal)
+  set --local caret_running (magenta '▶︎')
   set --local caret_success ' '
   set --local caret_failure ' '
   set --local indent (test $count -gt 9 && echo 2 || echo 1)
   echo $argv[-1] | read --delimiter=: --local _ _ _ _ state
   if test "$state" = success -o "$state" = failure
-    _ts_log (set_color yellow)$count(set_color normal) stacks/functions deployed
+    _ts_log (yellow $count) stacks/functions deployed
   else
-    _ts_log deploying (set_color yellow)$count(set_color normal) stacks/functions
+    _ts_log deploying (yellow $count) stacks/functions
   end
   for i in (seq $count)
     echo $argv[$i] | read --delimiter=: --local _ name ver _ state
     set --local index (string sub --start=-$indent " $i")
     set --local caret caret_$state
     set --local color color_$state
-    test -n "$ver" && set ver (set_color --dim)-(set_color normal)(set_color yellow)$ver(set_color normal)
-    echo $$caret (set_color --dim)$index.(set_color normal) {$$color}$name(set_color normal)$ver
+    test -n "$ver" && set ver (dim '-')(yellow $ver)
+    echo $$caret (dim $index.) ($$color $name)$ver
   end
 end
 

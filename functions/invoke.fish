@@ -43,7 +43,7 @@ function invoke --description "invoke lambda function"
   end
 
   if string match --quiet -- '-*' "$function"
-    _ts_log invalid function: (set_color red)$function(set_color normal)
+    _ts_log invalid function: (red $function)
     return 1
   end
 

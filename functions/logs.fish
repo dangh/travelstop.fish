@@ -36,7 +36,7 @@ function logs --description "watch lambda function logs"
   end
 
   if string match --quiet -- '-*' "$function"
-    _ts_log invalid function: (set_color red)$function(set_color normal)
+    _ts_log invalid function: (red $function)
     return 1
   end
 
@@ -55,6 +55,6 @@ function logs --description "watch lambda function logs"
 
   set --local awk_cmd LC_CTYPE=C awk -f (string escape -- $__fish_config_dir/functions/logs.awk)
 
-  _ts_log execute command: (set_color green)(string join ' ' -- (_ts_env --mode=env) $logs_cmd \| $awk_cmd)(set_color normal)
+  _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $logs_cmd \| $awk_cmd))
   eval (_ts_env --mode=env) (string escape -- command $logs_cmd) \| $awk_cmd
 end
