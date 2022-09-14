@@ -30,11 +30,11 @@ function vpn-docker --argument-names action
     case stop
       command $colima stop
     case update
-      command $colima status 2>&1 | string match --quiet '*already running*' ||
+      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
     case \*
-      command $colima status 2>&1 | string match --quiet '*already running*' ||
+      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl images --quiet $image | test -n - ||
         command $ctl pull $image
@@ -63,11 +63,11 @@ function vpn-containerd --argument-names action
     case stop
       command $colima stop
     case update
-      command $colima status 2>&1 | string match --quiet '*already running*' ||
+      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
     case \*
-      command $colima status 2>&1 | string match --quiet '*already running*' ||
+      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl images --quiet $image | test -n - ||
         command $ctl pull $image
