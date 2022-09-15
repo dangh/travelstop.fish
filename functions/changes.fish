@@ -1,42 +1,53 @@
 function changes --argument-names type --description "print list of changes"
-  argparse --ignore-unknown f/from= t/to= -- $argv
+  set --local args $argv
+  argparse --ignore-unknown f/from= -- $argv
+  test -z "$_flag_from" -o "$_flag_from" = merge-base &&
+    set --append args --merge-base (git merge-base origin/master HEAD)
   switch "$type"
     case 'stacks'
-      _change_stacks "$_flag_from" "$_flag_to"
+      _change_stacks $args[2..]
     case 'mappings'
-      _change_mappings "$_flag_from" "$flag_to"
+      _change_mappings $args[2..]
     case 'translations'
-      _change_translations "$_flag_from" "$_flag_to"
-    case 'all' '*'
-      _change_stacks "$_flag_from" "$_flag_to" | read --null --list --local changes
+      _change_translations $args[2..]
+    case '*'
+      _change_stacks $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
       if test -n "$changes"
-        echo (magenta (dim '**')(bold 'Packages')(dim '**'))
-        echo (magenta (dim '-'))
-        echo \n'- '$changes
-        set --function changed
-      end
-      _change_mappings "$_flag_from" "$flag_to" | read --null --local changes
-      if test -n "$changes"
-        set --query --function changed && echo
-        echo (magenta (dim '**')(bold 'Mappings')(dim '**'))
+        echo (magenta (reverse (dim '**')(bold 'Packages')(dim '**')))
         echo (magenta (dim '-'))
         echo
-        echo $changes
+        string join \n -- $changes
         set --function changed
       end
-      _change_translations "$_flag_from" "$_flag_to" | read --null --array --local changes
+      _change_mappings $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
       if test -n "$changes"
         set --query --function changed && echo
-        echo (magenta (dim '**')(bold 'Translations')(dim '**'))
+        echo (magenta (reverse (dim '**')(bold 'Mappings')(dim '**')))
         echo (magenta (dim '-'))
-        echo \n$changes
+        echo
+        echo (magenta (dim '```http'))
+        string join \n -- $changes
+        echo (magenta (dim '```'))
+        set --function changed
+      end
+      _change_translations $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
+      if test -n "$changes"
+        set --query --function changed && echo
+        echo (magenta (reverse (dim '**')(bold 'Translations')(dim '**')))
+        echo (magenta (dim '-'))
+        echo
+        string join \n -- $changes
       end
   end
 end
 
-function _change_stacks --argument-names from to --description "print list of changed services and modules"
+function _change_stacks --description "print list of changed services and modules"
+  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
+  set --local from $_flag_from
+  set --local to $_flag_to
+
   test -z "$from" && set from 'merge-base'
-  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   if test "$to" = 'index'
     set --function range $from
@@ -99,12 +110,16 @@ function _change_stacks --argument-names from to --description "print list of ch
     end
     test -n "$v" && set v -$v
     echo $name$v $group_order $group $stack_order
-  end | sort --key=2,2n --key=3,3 --key=4,4n | sed -E 's/ .+//'
+  end | sort --key=2,2n --key=3,3 --key=4,4n | string replace --regex '^([^\s]+).*' -- (magenta (dim '-'))' $1'
 end
 
-function _change_mappings --argument-names from to --description "print elasticsearch index mapping changes"
+function _change_mappings --description "print elasticsearch index mapping changes"
+  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
+  set --local from $_flag_from
+  set --local to $_flag_to
+
   test -z "$from" && set from 'merge-base'
-  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   if test "$to" = 'index'
     set --function range $from
@@ -170,12 +185,26 @@ function diff(a, b) {
   end
 end
 
-function _change_translations --argument-names from to --description "print list of new translation keys"
+function _change_translations --description "print list of new translation keys"
+  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
+  set --local from $_flag_from
+  set --local to $_flag_to
+
   test -z "$from" && set from origin/master
-  test "$from" = 'merge-base' && set from (git merge-base origin/master HEAD)
+  test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   test "$to" = 'index' && set to ''
+
+  set --local jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
+  set --local placeholder (ansi-escape --yellow --bold --reverse '$1')
   comm -13 \
-    (git show $from:web/locales/en-GB.json | jq --raw-output 'paths(scalars) as $path | ( $path | join(".") )' | sort | psub) \
-    (git show $to:web/locales/en-GB.json | jq --raw-output 'paths(scalars) as $path | ( $path | join(".") )' | sort | psub)
+    (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
+    (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) |
+    while read --delimiter ' = ' --local key value
+      if test -n "$value"
+        echo (green $key) (dim '=') (string replace --regex '({\w+})' $placeholder -- $value)
+      else
+        echo (green $key)
+      end
+    end
 end
