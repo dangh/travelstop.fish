@@ -59,6 +59,15 @@ function format(style_str, s, force, on, off, style_arr, count) {
       if (style ~ /^fg=blue$/) on = on ";34"
       if (style ~ /^fg=magenta$/) on = on ";35"
       if (style ~ /^fg=cyan$/) on = on ";36"
+      if (style ~ /^fg=white$/) on = on ";37"
+      if (style ~ /^fg=brightblack$/) on = on ";90"
+      if (style ~ /^fg=brightred$/) on = on ";91"
+      if (style ~ /^fg=brightgreen$/) on = on ";92"
+      if (style ~ /^fg=brightyellow$/) on = on ";93"
+      if (style ~ /^fg=brightblue$/) on = on ";94"
+      if (style ~ /^fg=brightmagenta$/) on = on ";95"
+      if (style ~ /^fg=brightcyan$/) on = on ";96"
+      if (style ~ /^fg=brightwhite$/) on = on ";97"
       if (style ~ /^fg=[0-9]+$/) on = on ";38;5;" substr(style, 4)
       if (style ~ /^fg=#[A-Fa-f0-9]{6}$/) on = on ";38;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
       if (style ~ /^fg=none$/) {
@@ -75,6 +84,15 @@ function format(style_str, s, force, on, off, style_arr, count) {
       if (style ~ /^bg=blue$/) on = on ";44"
       if (style ~ /^bg=magenta$/) on = on ";45"
       if (style ~ /^bg=cyan$/) on = on ";46"
+      if (style ~ /^bg=white$/) on = on ";47"
+      if (style ~ /^bg=brightblack$/) on = on ";100"
+      if (style ~ /^bg=brightred$/) on = on ";101"
+      if (style ~ /^bg=brightgreen$/) on = on ";102"
+      if (style ~ /^bg=brightyellow$/) on = on ";103"
+      if (style ~ /^bg=brightblue$/) on = on ";104"
+      if (style ~ /^bg=brightmagenta$/) on = on ";105"
+      if (style ~ /^bg=brightcyan$/) on = on ";106"
+      if (style ~ /^bg=brightwhite$/) on = on ";107"
       if (style ~ /^bg=[0-9]+$/) on = on ";48;5;" substr(style, 4)
       if (style ~ /^bg=#[A-Fa-f0-9]{6}$/) on = on ";48;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
       if (style ~ /^bg=none$/) {
