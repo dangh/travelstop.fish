@@ -55,15 +55,43 @@ function _change_stacks --description "print list of changed services and module
     set --function range $from...$to
   end
 
+  set --local root # root dir
+  set --local files_at_to # list of files at `to' to validate manifest existence
+
+  function file-exists --no-scope-shadowing --argument-names file --description "check file existence at `to'"
+    switch "$to"
+    case 'index'
+      test -n "$root" || set root (git rev-parse --show-toplevel)
+      test -f $root/$file
+    case '*'
+      test -n "$files_at_to" || git ls-tree -r --name-only $to | read --null --list --delimiter \n files_at_to
+      contains $file $files_at_to
+    end
+  end
+
+  function parse-manifest --no-scope-shadowing --argument-names file patterns --description "parse manifest file at `to'"
+    switch "$to"
+    case 'index'
+      for pattern in $patterns
+        string match --quiet --regex $pattern < $root/$file
+      end
+    case '*'
+      git show $to:$file | read --null --local file_content
+      for pattern in $patterns
+        string match --quiet --regex $pattern -- $file_content
+      end
+    end
+  end
+
+  # collect manifest files
   set --local manifests
-  set --local root (git rev-parse --show-toplevel)
   set --local visited_dirs
   git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/' | while read --line --local file
     set --local dir $file
     set --local found 0
-    while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && ! contains $dir $visited_dirs && set --append visited_dirs $dir
-      for manifest in $root/$dir/package.json $root/$dir/nodejs/package.json $root/$dir/serverless.yml
-        if test -f $manifest
+    while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set --append visited_dirs $dir
+      for manifest in $dir/package.json $dir/nodejs/package.json $dir/serverless.yml
+        if file-exists $manifest
           set found 1
           if not contains $manifest $manifests
             set --append manifests $manifest
@@ -73,26 +101,30 @@ function _change_stacks --description "print list of changed services and module
       end
     end
   end
+
+  # extract names and versions
   set --local stack_names
   set --local stack_versions
   for manifest in $manifests
+    set --local name
     set --local v
     switch $manifest
     case '*/package.json'
-      string match --quiet --regex '"name": "(travelstop-)?(?<name>[^"]+)"' < $manifest
-      string match --quiet --regex '"version": "(?<v>[^"]+)"' < $manifest
+      parse-manifest $manifest '"name": "(travelstop-)?(?<name>[^"]+)"' '"version": "(?<v>[^"]+)"'
     case '*/serverless.yml'
-      string match --quiet --regex '^service:\s*(?<name>module-\w+|\S+)\S*\s*$' < $manifest
+      parse-manifest $manifest '^service:\s*(?<name>module-\w+|\S+)\S*\s*$'
     end
     if test -z "$v"
-      set --local changelog (string replace --regex '[^/]+$' 'CHANGELOG.md' $manifest)
-      if test -f $changelog
-        string match --quiet --regex '# (?<v>\d+(\.\d+)+)' < $changelog
+      set --local changelog (path dirname $manifest)/CHANGELOG.md
+      if file-exists $changelog
+        parse-manifest $changelog '# (?<v>\d+(\.\d+)+)'
       end
     end
     set --append stack_names $name
     set --append stack_versions "$v"
   end
+
+  # sort
   for name in $stack_names
     set --local v $stack_versions[(contains --index -- $name $stack_names)]
     set --local group (string match --regex '^\w+' $name | string replace --regex 's$' '')
