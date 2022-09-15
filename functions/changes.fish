@@ -133,6 +133,12 @@ function _change_mappings --description "print elasticsearch index mapping chang
   set --local printed 0
 
   git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read --local state file
+    set --local --export ts_indent_size 2
+    set --local --export ts_json_bracket_style
+    set --local --export ts_json_colon_style
+    set --local --export ts_json_quote_style fg=brightblue,dim
+    set --local --export ts_json_string_style fg=brightblue,dim
+    set --local --export ts_json_key_style fg=brightblue
     string match --quiet --regex '(?<index>[^/]+)-index-mappings.json' -- $file
     switch $state
     case 'D'
@@ -142,7 +148,7 @@ function _change_mappings --description "print elasticsearch index mapping chang
     case 'A'
       test "$printed" -eq 1 && echo
       echo (red PUT) (cyan /(bold $index))
-      cat $root/$file | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+      cat $root/$file | awk -f ~/.config/fish/functions/logs.awk
       set printed 1
     case 'M'
       set --local diff (node -e "
@@ -168,6 +174,13 @@ function diff(a, b) {
     } else {
       d[k] = diff(a[k], b[k]);
     }
+    if (d[k] && (k == 'properties') && (typeof b.type == 'string')) {
+      //re-write properties after type
+      let properties = d.properties;
+      delete d.properties;
+      d.type = b.type;
+      d.properties = properties;
+    }
   }
   //sanitize undefined values
   d = JSON.parse(JSON.stringify(d));
@@ -178,7 +191,7 @@ function diff(a, b) {
       if test "$diff" != "undefined"
         test "$printed" -eq 1 && echo
         echo (red PUT) (cyan /(bold $index))/_mapping
-        echo $diff | ts_indent_size=2 ts_json_quote_style= ts_json_bracket_style= ts_json_colon_style= awk -f ~/.config/fish/functions/logs.awk
+        echo $diff | awk -f ~/.config/fish/functions/logs.awk
         set printed 1
       end
     end

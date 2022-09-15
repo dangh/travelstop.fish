@@ -247,7 +247,7 @@ function format_json(s, indent, key, value, comma) {
 BEGIN {
   INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
   BLANK_PAGE = default(env("blank_page"), format("blank_page") repeat("\x1b[2K", default(env("blank_page_height"), 1), "\n"))
-  NO_COLOR = "NO_COLOR" in ENVIRON ? 1 : system("test -t 1")
+  NO_COLOR = "NO_COLOR" in ENVIRON ? 1 : 0
 }
 {
   is_cloudwatch_log = 0
