@@ -1,14 +1,14 @@
-function push --description "deploy CF stack/lambda function"
-  set --local profile $AWS_PROFILE
-  set --local stage (string lower -- (string replace --regex '.*@' '' -- $AWS_PROFILE))
-  set --local region $AWS_DEFAULT_REGION
-  set --local targets
-  set --local config #config when pushing functions
-  set --local modules
-  set --local services
-  set --local functions
+function push -d "deploy CF stack/lambda function"
+  set -l profile $AWS_PROFILE
+  set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
+  set -l region $AWS_DEFAULT_REGION
+  set -l targets
+  set -l config #config when pushing functions
+  set -l modules
+  set -l services
+  set -l functions
 
-  argparse --name='sls deploy' \
+  argparse -n 'sls deploy' \
     'conceal' \
     'profile=?' \
     's/stage=?' \
@@ -25,59 +25,59 @@ function push --description "deploy CF stack/lambda function"
     -- $ts_default_argv_push $argv
   or return 1
 
-  set --query _flag_profile && set profile $_flag_profile
-  set --query _flag_stage && set stage $_flag_stage
-  set --query _flag_region && set region $_flag_region
-  set --query _flag_config && set config $_flag_config
-  set --append targets $argv
+  set -q _flag_profile && set profile $_flag_profile
+  set -q _flag_stage && set stage $_flag_stage
+  set -q _flag_region && set region $_flag_region
+  set -q _flag_config && set config $_flag_config
+  set -a targets $argv
 
   #push without any target/config/function
-  test -z "$argv" -a -z "$function" && set --append targets .
+  test -z "$argv" -a -z "$function" && set -a targets .
 
   for target in $targets
-    _ts_resolve_config "$target" "$config" | read --delimiter=: --local type name ver yml
-    set --append {$type}s "$type:$name:$ver:$yml:pending"
+    _ts_resolve_config "$target" "$config" | read -l -d : type name ver yml
+    set -a {$type}s "$type:$name:$ver:$yml:pending"
   end
 
   #re-order targets
   set targets $modules $services $functions
 
-  set --local success_count 0
-  set --local failure_count 0
+  set -l success_count 0
+  set -l failure_count 0
 
   #deploy
   for i in (seq (count $targets))
-    echo $targets[$i] | read --delimiter=: --local type name ver yml state
+    echo $targets[$i] | read -l -d : type name ver yml state
     test "$type" != function && test -n "$ver" \
-      && set --local name_ver $name-$ver \
-      || set --local name_ver $name
+      && set -l name_ver $name-$ver \
+      || set -l name_ver $name
 
     #update progress
     set targets[$i] "$type:$name:$ver:$yml:running"
     test (count $targets) -gt 1 && _ts_progress $targets
 
-    set --local working_dir (dirname $yml)
-    set --local deploy_cmd sls deploy
+    set -l working_dir (dirname $yml)
+    set -l deploy_cmd sls deploy
     switch $type
     case function
-      set --append deploy_cmd function --function=(string escape -- $name)
-      test -n "$profile" && set --append deploy_cmd --profile=(string escape -- $profile)
-      test -n "$stage" && set --append deploy_cmd --stage=(string escape -- $stage)
-      test -n "$region" && set --append deploy_cmd --region=(string escape -- $region)
-      set --query _flag_force && set --append deploy_cmd --force
-      set --query _flag_update_config && set --append deploy_cmd --update-config
+      set -a deploy_cmd function --function=(string escape -- $name)
+      test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
+      test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
+      test -n "$region" && set -a deploy_cmd --region=(string escape -- $region)
+      set -q _flag_force && set -a deploy_cmd --force
+      set -q _flag_update_config && set -a deploy_cmd --update-config
     case \*
-      set --query _flag_conceal && set --append deploy_cmd --conceal
-      test -n "$profile" && set --append deploy_cmd --profile=(string escape -- $profile)
-      test -n "$stage" && set --append deploy_cmd --stage=(string escape -- $stage)
-      test -n "$region" && set --append deploy_cmd --region=(string escape -- $region)
-      test -n "$_flag_package" && set --append deploy_cmd --package=(string escape -- $_flag_package)
-      set --query _flag_verbose && set --append deploy_cmd --verbose
-      set --query _flag_force && set --append deploy_cmd --force
-      set --query _flag_aws_s3_accelerate && set --append deploy_cmd --aws-s3-accelerate
-      test -n "$_flag_app" && set --append deploy_cmd --app=(string escape -- $_flag_app)
-      test -n "$_flag_org" && set --append deploy_cmd --org=(string escape -- $_flag_org)
-      test (basename $yml) != serverless.yml && set --append deploy_cmd --config=(basename $yml)
+      set -q _flag_conceal && set -a deploy_cmd --conceal
+      test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
+      test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
+      test -n "$region" && set -a deploy_cmd --region=(string escape -- $region)
+      test -n "$_flag_package" && set -a deploy_cmd --package=(string escape -- $_flag_package)
+      set -q _flag_verbose && set -a deploy_cmd --verbose
+      set -q _flag_force && set -a deploy_cmd --force
+      set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
+      test -n "$_flag_app" && set -a deploy_cmd --app=(string escape -- $_flag_app)
+      test -n "$_flag_org" && set -a deploy_cmd --org=(string escape -- $_flag_org)
+      test (basename $yml) != serverless.yml && set -a deploy_cmd --config=(basename $yml)
     end
     test "$type" = function \
       && _ts_log deploying function: (magenta $name_ver) \
@@ -85,10 +85,10 @@ function push --description "deploy CF stack/lambda function"
     _ts_log working directory: (blue $working_dir)
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $deploy_cmd))
 
-    test "$type" = module && string match --quiet --regex libs $name && build_libs --force
+    test "$type" = module && string match -q -r libs $name && build_libs --force
     withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod;" (_ts_env --mode=env) "command $deploy_cmd"
 
-    set --local result $status
+    set -l result $status
 
     #update counters
     test $result -eq 0 \
@@ -101,17 +101,17 @@ function push --description "deploy CF stack/lambda function"
       || set targets[$i] "$type:$name:$ver:$yml:failure"
 
     #show notification
-    set --local notif_message
-    set --local notif_stage (string upper $stage)
-    set --local notif_name $name_ver
-    functions --query fontface \
+    set -l notif_message
+    set -l notif_stage (string upper $stage)
+    set -l notif_name $name_ver
+    functions -q fontface \
       && set notif_stage (fontface math_monospace $notif_stage) \
       && set notif_name (fontface math_monospace $notif_name)
     test "$type" = function \
       && set notif_message "env: $notif_stage\nfunc: $notif_name" \
       || set notif_message "env: $notif_stage\nstack: $notif_name"
-    set --query sls_success_icon || set --local sls_success_icon 🎉
-    set --query sls_failure_icon || set --local sls_failure_icon 🤡
+    set -q sls_success_icon || set -l sls_success_icon 🎉
+    set -q sls_failure_icon || set -l sls_failure_icon 🤡
     test $result -eq 0 \
       && _ts_notify "$sls_success_icon deployed" "$notif_message" tink \
       || _ts_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
@@ -122,50 +122,50 @@ function push --description "deploy CF stack/lambda function"
   #summary
   if test (count $targets) -gt 1
     _ts_progress $targets
-    set --local notif_title (math $success_count + $failure_count) stacks/functions deployed
-    functions --query fontface \
+    set -l notif_title (math $success_count + $failure_count) stacks/functions deployed
+    functions -q fontface \
       && set success_count (fontface math_monospace $success_count) \
       && set failure_count (fontface math_monospace $failure_count)
-    set --local notif_message success: $success_count\nfailure: $failure_count
+    set -l notif_message success: $success_count\nfailure: $failure_count
     _ts_notify "$notif_title" "$notif_message"
     _ts_pushover "$notif_title" "$notif_message"
   end
 end
 
 function _ts_progress
-  set --local count (count $argv)
-  set --local color_pending ansi-escape
-  set --local color_running magenta
-  set --local color_success green
-  set --local color_failure red
-  set --local caret_pending ' '
-  set --local caret_running (magenta '▶︎')
-  set --local caret_success ' '
-  set --local caret_failure ' '
-  set --local indent (test $count -gt 9 && echo 2 || echo 1)
-  echo $argv[-1] | read --delimiter=: --local _ _ _ _ state
+  set -l count (count $argv)
+  set -l color_pending ansi-escape
+  set -l color_running magenta
+  set -l color_success green
+  set -l color_failure red
+  set -l caret_pending ' '
+  set -l caret_running (magenta '▶︎')
+  set -l caret_success ' '
+  set -l caret_failure ' '
+  set -l indent (test $count -gt 9 && echo 2 || echo 1)
+  echo $argv[-1] | read -l -d : _ _ _ _ state
   if test "$state" = success -o "$state" = failure
     _ts_log (yellow $count) stacks/functions deployed
   else
     _ts_log deploying (yellow $count) stacks/functions
   end
   for i in (seq $count)
-    echo $argv[$i] | read --delimiter=: --local _ name ver _ state
-    set --local index (string sub --start=-$indent " $i")
-    set --local caret caret_$state
-    set --local color color_$state
+    echo $argv[$i] | read -l -d : _ name ver _ state
+    set -l index (string sub -s -$indent " $i")
+    set -l caret caret_$state
+    set -l color color_$state
     test -n "$ver" && set ver (dim '-')(yellow $ver)
     echo $$caret (dim $index.) ($$color $name)$ver
   end
 end
 
-function _ts_resolve_config --argument-names target config --description "type:name:version:yml"
-  set --local type
-  set --local name
-  set --local ver
-  set --local yml
-  set --local json
-  set --local changelog
+function _ts_resolve_config -a target config -d "type:name:version:yml"
+  set -l type
+  set -l name
+  set -l ver
+  set -l yml
+  set -l json
+  set -l changelog
 
   if test -n "$config"
     set yml (realpath "$config")
@@ -191,14 +191,14 @@ function _ts_resolve_config --argument-names target config --description "type:n
     set type function
     set name $target
   else
-    string match --quiet --regex '/modules/' "$yml" \
+    string match -q -r '/modules/' "$yml" \
       && set type module \
       || set type service
-    string match --quiet --regex '^service:\s*(?<name>[^\s]*)' < $yml
+    string match -q -r '^service:\s*(?<name>[^\s]*)' < $yml
     if test -n "$json"
-      string match --quiet --regex '^\s*"version":\s*"(?<ver>[^"]*)"' < $json
+      string match -q -r '^\s*"version":\s*"(?<ver>[^"]*)"' < $json
     else if test -n "$changelog"
-      string match --quiet --regex '# (?<ver>\d+(\.\d+)+)' < $changelog
+      string match -q -r '# (?<ver>\d+(\.\d+)+)' < $changelog
     end
   end
 

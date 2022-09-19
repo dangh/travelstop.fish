@@ -1,17 +1,17 @@
-set --local types all stacks mappings translations
+set -l types all stacks mappings translations
 
 function _git_refs
   git for-each-ref --format='%(refname:strip=2)' refs 2>/dev/null
 end
 
-complete --command changes --condition "not __fish_seen_subcommand_from $types" --arguments all --description "Print all changes"
-complete --command changes --condition "not __fish_seen_subcommand_from $types" --arguments stacks --description "Print changed stacks"
-complete --command changes --condition "not __fish_seen_subcommand_from $types" --arguments mappings --description "Print changed index mappings"
-complete --command changes --condition "not __fish_seen_subcommand_from $types" --arguments translations --description "Print changed translation keys"
-complete --command changes --require-parameter --no-files --long from --short f --description "Change from ref"
-complete --command changes --require-parameter --no-files --long from --short f --arguments merge-base --description "Change from merge base"
-complete --command changes --require-parameter --no-files --long from --short f --arguments "(_git_refs)"
-complete --command changes --require-parameter --no-files --long to --short t --description "Change to ref"
-complete --command changes --require-parameter --no-files --long to --short t --arguments "index" --description "Change compare to index"
-complete --command changes --require-parameter --no-files --long to --short t --arguments "(_git_refs)"
-complete --no-files --command changes
+complete -c changes -n "not __fish_seen_subcommand_from $types" -a all -d "Print all changes"
+complete -c changes -n "not __fish_seen_subcommand_from $types" -a stacks -d "Print changed stacks"
+complete -c changes -n "not __fish_seen_subcommand_from $types" -a mappings -d "Print changed index mappings"
+complete -c changes -n "not __fish_seen_subcommand_from $types" -a translations -d "Print changed translation keys"
+complete -c changes -r -f -l from -s f -d "Change from ref"
+complete -c changes -r -f -l from -s f -a merge-base -d "Change from merge base"
+complete -c changes -r -f -l from -s f -a "(_git_refs)"
+complete -c changes -r -f -l to -s t -d "Change to ref"
+complete -c changes -r -f -l to -s t -a "index" -d "Change compare to index"
+complete -c changes -r -f -l to -s t -a "(_git_refs)"
+complete -f -c changes

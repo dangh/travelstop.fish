@@ -1,6 +1,6 @@
-complete --command push --arguments "(_ts_uniq_completions (_ts_modules))" --description "module"
-complete --command push --arguments "(_ts_uniq_completions (_ts_functions))" --description "function"
-complete --command push --arguments "(_ts_uniq_completions (_ts_substacks))" --description "service"
+complete -c push -a "(_ts_uniq_completions (_ts_modules))" -d "module"
+complete -c push -a "(_ts_uniq_completions (_ts_functions))" -d "function"
+complete -c push -a "(_ts_uniq_completions (_ts_substacks))" -d "service"
 
 # enforce no-files when all completions are selected
-complete --no-files --command push
+complete -f -c push

@@ -1,8 +1,8 @@
-function changes --argument-names type --description "print list of changes"
-  set --local args $argv
-  argparse --ignore-unknown f/from= -- $argv
+function changes -a type -d "print list of changes"
+  set -l args $argv
+  argparse -i f/from= -- $argv
   test -z "$_flag_from" -o "$_flag_from" = merge-base &&
-    set --append args --merge-base (git merge-base origin/master HEAD)
+    set -a args --merge-base (git merge-base origin/master HEAD)
   switch "$type"
     case 'stacks'
       _change_stacks $args[2..]
@@ -11,28 +11,28 @@ function changes --argument-names type --description "print list of changes"
     case 'translations'
       _change_translations $args[2..]
     case '*'
-      _change_stacks $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
+      _change_stacks $args | read -l -z -a -d \n changes && set -e changes[-1]
       if test -n "$changes"
         echo (magenta (reverse (dim '**')(bold 'Packages')(dim '**')))
         echo (magenta (dim '-'))
         echo
         string join \n -- $changes
-        set --function changed
+        set -f changed
       end
-      _change_mappings $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
+      _change_mappings $args | read -l -z -a -d \n changes && set -e changes[-1]
       if test -n "$changes"
-        set --query --function changed && echo
+        set -q -f changed && echo
         echo (magenta (reverse (dim '**')(bold 'Mappings')(dim '**')))
         echo (magenta (dim '-'))
         echo
         echo (magenta (dim '```http'))
         string join \n -- $changes
         echo (magenta (dim '```'))
-        set --function changed
+        set -f changed
       end
-      _change_translations $args | read --null --list --delimiter \n --local changes && set --erase changes[-1]
+      _change_translations $args | read -l -z -a -d \n changes && set -e changes[-1]
       if test -n "$changes"
-        set --query --function changed && echo
+        set -q -f changed && echo
         echo (magenta (reverse (dim '**')(bold 'Translations')(dim '**')))
         echo (magenta (dim '-'))
         echo
@@ -41,60 +41,60 @@ function changes --argument-names type --description "print list of changes"
   end
 end
 
-function _change_stacks --description "print list of changed services and modules"
-  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
-  set --local from $_flag_from
-  set --local to $_flag_to
+function _change_stacks -d "print list of changed services and modules"
+  argparse -i f/from= t/to= merge-base= -- $argv
+  set -l from $_flag_from
+  set -l to $_flag_to
 
   test -z "$from" && set from 'merge-base'
   test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   if test "$to" = 'index'
-    set --function range $from
+    set -f range $from
   else
-    set --function range $from...$to
+    set -f range $from...$to
   end
 
-  set --local root # root dir
-  set --local files_at_to # list of files at `to' to validate manifest existence
+  set -l root # root dir
+  set -l files_at_to # list of files at `to' to validate manifest existence
 
-  function file-exists --no-scope-shadowing --argument-names file --description "check file existence at `to'"
+  function file-exists -S -a file -d "check file existence at `to'"
     switch "$to"
     case 'index'
       test -n "$root" || set root (git rev-parse --show-toplevel)
       test -f $root/$file
     case '*'
-      test -n "$files_at_to" || git ls-tree -r --name-only $to | read --null --list --delimiter \n files_at_to
+      test -n "$files_at_to" || git ls-tree -r --name-only $to | read -z -a -d \n files_at_to
       contains $file $files_at_to
     end
   end
 
-  function parse-manifest --no-scope-shadowing --argument-names file patterns --description "parse manifest file at `to'"
+  function parse-manifest -S -a file patterns -d "parse manifest file at `to'"
     switch "$to"
     case 'index'
       for pattern in $patterns
-        string match --quiet --regex $pattern < $root/$file
+        string match -q -r $pattern < $root/$file
       end
     case '*'
-      git show $to:$file | read --null --local file_content
+      git show $to:$file | read -l -z file_content
       for pattern in $patterns
-        string match --quiet --regex $pattern -- $file_content
+        string match -q -r $pattern -- $file_content
       end
     end
   end
 
   # collect manifest files
-  set --local manifests
-  set --local visited_dirs
-  git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/' | while read --line --local file
-    set --local dir $file
-    set --local found 0
-    while test $found -eq 0 && set dir (string replace --regex '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set --append visited_dirs $dir
+  set -l manifests
+  set -l visited_dirs
+  git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/' | while read -l -L file
+    set -l dir $file
+    set -l found 0
+    while test $found -eq 0 && set dir (string replace -r '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set -a visited_dirs $dir
       for manifest in $dir/package.json $dir/nodejs/package.json $dir/serverless.yml
         if file-exists $manifest
           set found 1
           if not contains $manifest $manifests
-            set --append manifests $manifest
+            set -a manifests $manifest
           end
           break
         end
@@ -103,11 +103,11 @@ function _change_stacks --description "print list of changed services and module
   end
 
   # extract names and versions
-  set --local stack_names
-  set --local stack_versions
+  set -l stack_names
+  set -l stack_versions
   for manifest in $manifests
-    set --local name
-    set --local v
+    set -l name
+    set -l v
     switch $manifest
     case '*/package.json'
       parse-manifest $manifest '"name": "(travelstop-)?(?<name>[^"]+)"' '"version": "(?<v>[^"]+)"'
@@ -115,21 +115,21 @@ function _change_stacks --description "print list of changed services and module
       parse-manifest $manifest '^service:\s*(?<name>module-\w+|\S+)\S*\s*$'
     end
     if test -z "$v"
-      set --local changelog (path dirname $manifest)/CHANGELOG.md
+      set -l changelog (path dirname $manifest)/CHANGELOG.md
       if file-exists $changelog
         parse-manifest $changelog '# (?<v>\d+(\.\d+)+)'
       end
     end
-    set --append stack_names $name
-    set --append stack_versions "$v"
+    set -a stack_names $name
+    set -a stack_versions "$v"
   end
 
   # sort
   for name in $stack_names
-    set --local v $stack_versions[(contains --index -- $name $stack_names)]
-    set --local group (string match --regex '^\w+' $name | string replace --regex 's$' '')
-    set --local group_order 1
-    set --local stack_order 1
+    set -l v $stack_versions[(contains -i -- $name $stack_names)]
+    set -l group (string match -r '^\w+' $name | string replace -r 's$' '')
+    set -l group_order 1
+    set -l stack_order 1
     switch $name
     case 'module-*'
       set group_order 0
@@ -142,36 +142,36 @@ function _change_stacks --description "print list of changed services and module
     end
     test -n "$v" && set v -$v
     echo $name$v $group_order $group $stack_order
-  end | sort --key=2,2n --key=3,3 --key=4,4n | string replace --regex '^([^\s]+).*' -- (magenta (dim '-'))' $1'
+  end | sort --key=2,2n --key=3,3 --key=4,4n | string replace -r '^([^\s]+).*' -- (magenta (dim '-'))' $1'
 end
 
-function _change_mappings --description "print elasticsearch index mapping changes"
-  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
-  set --local from $_flag_from
-  set --local to $_flag_to
+function _change_mappings -d "print elasticsearch index mapping changes"
+  argparse -i f/from= t/to= merge-base= -- $argv
+  set -l from $_flag_from
+  set -l to $_flag_to
 
   test -z "$from" && set from 'merge-base'
   test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   if test "$to" = 'index'
-    set --function range $from
+    set -f range $from
   else
-    set --function range $from...$to
+    set -f range $from...$to
   end
 
-  set --local manifests
-  set --local root (git rev-parse --show-toplevel)
-  set --local visited_dirs
-  set --local printed 0
+  set -l manifests
+  set -l root (git rev-parse --show-toplevel)
+  set -l visited_dirs
+  set -l printed 0
 
-  git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read --local state file
-    set --local --export ts_indent_size 2
-    set --local --export ts_json_bracket_style
-    set --local --export ts_json_colon_style
-    set --local --export ts_json_quote_style fg=brightblue,dim
-    set --local --export ts_json_string_style fg=brightblue,dim
-    set --local --export ts_json_key_style fg=brightblue
-    string match --quiet --regex '(?<index>[^/]+)-index-mappings.json' -- $file
+  git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read -l state file
+    set -l -x ts_indent_size 2
+    set -l -x ts_json_bracket_style
+    set -l -x ts_json_colon_style
+    set -l -x ts_json_quote_style fg=brightblue,dim
+    set -l -x ts_json_string_style fg=brightblue,dim
+    set -l -x ts_json_key_style fg=brightblue
+    string match -q -r '(?<index>[^/]+)-index-mappings.json' -- $file
     switch $state
     case 'D'
       test "$printed" -eq 1 && echo
@@ -183,7 +183,7 @@ function _change_mappings --description "print elasticsearch index mapping chang
       cat $root/$file | awk -f ~/.config/fish/functions/logs.awk
       set printed 1
     case 'M'
-      set --local diff (node -e "
+      set -l diff (node -e "
 const fs = require('fs');
 
 let a = JSON.parse(fs.readFileSync(process.argv[1], 'utf8'));
@@ -230,24 +230,24 @@ function diff(a, b) {
   end
 end
 
-function _change_translations --description "print list of new translation keys"
-  argparse --ignore-unknown f/from= t/to= merge-base= -- $argv
-  set --local from $_flag_from
-  set --local to $_flag_to
+function _change_translations -d "print list of new translation keys"
+  argparse -i f/from= t/to= merge-base= -- $argv
+  set -l from $_flag_from
+  set -l to $_flag_to
 
   test -z "$from" && set from origin/master
   test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   test "$to" = 'index' && set to ''
 
-  set --local jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
-  set --local placeholder (ansi-escape --yellow --bold --reverse '$1')
+  set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
+  set -l placeholder (ansi-escape --yellow --bold --reverse '$1')
   comm -13 \
     (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
     (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) |
-    while read --delimiter ' = ' --local key value
+    while read -l -d ' = ' key value
       if test -n "$value"
-        echo (green $key) (dim '=') (string replace --regex '({\w+})' $placeholder -- $value)
+        echo (green $key) (dim '=') (string replace -r '({\w+})' $placeholder -- $value)
       else
         echo (green $key)
       end

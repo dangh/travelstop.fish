@@ -1,2 +1,2 @@
-complete --command logs --condition "not __fish_seen_subcommand_from (_ts_functions)" --arguments "(_ts_uniq_completions (_ts_functions))" --description "function"
-complete --no-files --command logs
+complete -c logs -n "not __fish_seen_subcommand_from (_ts_functions)" -a "(_ts_uniq_completions (_ts_functions))" -d "function"
+complete -f -c logs

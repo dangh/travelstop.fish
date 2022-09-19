@@ -1,18 +1,18 @@
 function vpn-native
-  set --local pidfile {$TMPDIR}travelstop-vpn.pid
+  set -l pidfile {$TMPDIR}travelstop-vpn.pid
   sudo pkill -9 -F $pidfile >/dev/null 2>&1
   if not test -f ~/.config/vpn/config
     echo Please put your VPN config in $HOME/.config/vpn/config
     return 1
   end
-  function vpn-up --on-event openvpn-up --argument-names payload
+  function vpn-up -e openvpn-up -a payload
     pkill -9 -U (id -u) tinyproxy >/dev/null 2>&1
-    echo $payload | read --delimiter ' ' --local tun_mtu link_mtu ifconfig_local ifconfig_netmask script_context
+    echo $payload | read -l -d ' ' tun_mtu link_mtu ifconfig_local ifconfig_netmask script_context
     tinyproxy --port 8888 --bind $ifconfig_local --disable-via-header --log-level Connect --syslog On
-    functions --erase (status function)
-    set --local notif_title 'VPN connected!'
-    set --local notif_message 'Proxy: localhost:8888'
-    functions --query fontface &&
+    functions -e (status function)
+    set -l notif_title 'VPN connected!'
+    set -l notif_message 'Proxy: localhost:8888'
+    functions -q fontface &&
       set notif_title (fontface math_monospace "$notif_title") &&
       set notif_message (fontface math_monospace "$notif_message")
     _ts_notify "$notif_title" "$notif_message"
@@ -20,21 +20,21 @@ function vpn-native
   openvpn --config ~/.config/vpn/config --askpass ~/.config/vpn/passwd --auth-nocache --daemon travelstop-vpn --fast-io --writepid $pidfile
 end
 
-function vpn-docker --argument-names action
-  set --local runtime docker
-  set --local image huynhminhdang/openvpn-tinyproxy:latest
-  set --local container travelstop-vpn
-  set --local colima colima --profile $container-$runtime
-  set --local ctl docker
+function vpn-docker -a action
+  set -l runtime docker
+  set -l image huynhminhdang/openvpn-tinyproxy:latest
+  set -l container travelstop-vpn
+  set -l colima colima --profile $container-$runtime
+  set -l ctl docker
   switch "$action"
     case stop
       command $colima stop
     case update
-      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
+      command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
     case \*
-      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
+      command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl images --quiet $image | test -n - ||
         command $ctl pull $image
@@ -53,21 +53,21 @@ function vpn-docker --argument-names action
   end
 end
 
-function vpn-containerd --argument-names action
-  set --local runtime containerd
-  set --local image huynhminhdang/openvpn-tinyproxy:latest
-  set --local container travelstop-vpn
-  set --local colima colima --profile $container-$runtime
-  set --local ctl $colima nerdctl --
+function vpn-containerd -a action
+  set -l runtime containerd
+  set -l image huynhminhdang/openvpn-tinyproxy:latest
+  set -l container travelstop-vpn
+  set -l colima colima --profile $container-$runtime
+  set -l ctl $colima nerdctl --
   switch "$action"
     case stop
       command $colima stop
     case update
-      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
+      command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
     case \*
-      command $colima status 2>&1 | string collect | string match --quiet '*is running*' ||
+      command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl images --quiet $image | test -n - ||
         command $ctl pull $image
