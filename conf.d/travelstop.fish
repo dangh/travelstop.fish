@@ -63,30 +63,6 @@ function _ts_env
   echo -n (string join ' ' -- $result)
 end
 
-status is-interactive || exit
-
-set -q ts_color_profile || set -g ts_color_profile bold magenta
-set -q ts_color_stage   || set -g ts_color_stage   bold magenta
-set -q ts_color_sep     || set -g ts_color_sep     dim magenta
-set -q ts_sep           || set -g ts_sep @
-
-for color in ts_color_{profile,stage,sep}
-  # function to refresh prompt color when aws config change
-  function $color -V color
-    # find the most specific variable that has value
-    # example of variables specialty
-    #   ts_color_profile_ServerlessDeployNonProd_DEV
-    #   ts_color_profile_ServerlessDeployNonProd
-    #   ts_color_profile_DEV
-    #   ts_color_profile
-    for color_ in {$color}_{$_ts_profile}_{$_ts_stage} {$color}_{$_ts_profile} {$color}_{$_ts_stage} $color
-      set -q $color_ && set _color $color_ && break
-    end
-    # store color in global variable
-    set -g _$color $$_color
-  end
-end
-
 function _ts_project_dir_setup
   set -g _ts_project_dir _ts_project_dir_$fish_pid
 
@@ -102,50 +78,9 @@ function _ts_project_dir_setup
       set -e $_ts_project_dir
     end
   end
+
+  status is-interactive || $_ts_project_dir
 end && _ts_project_dir_setup && functions -e _ts_project_dir_setup
-
-function _ts_prompt_setup
-  functions -q fish_right_prompt && functions -c fish_right_prompt fish_right_prompt_original
-
-  function _ts_prompt_repaint -v AWS_PROFILE
-    set -g _ts_profile (string replace -r '@.*' '' "$AWS_PROFILE")
-    set -g _ts_stage (string replace -r '.*@' '' "$AWS_PROFILE")
-    ts_color_profile
-    ts_color_stage
-    ts_color_sep
-    commandline -f repaint-mode
-  end && _ts_prompt_repaint
-
-  function _ts_prompt_enable -v PWD
-    if string match -q "*WhiteLabs/Travelstop.git" (git config --get remote.origin.url 2>/dev/null)
-      set -g _ts_prompt_enable
-    else
-      set -e _ts_prompt_enable
-    end
-  end && _ts_prompt_enable
-
-  function fish_right_prompt
-    if set -q _ts_prompt_enable
-      if test -n "$TMUX"
-        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
-      else
-        ansi-escape '--'$_ts_color_profile $_ts_profile
-        ansi-escape '--'$_ts_color_sep     $ts_sep
-        ansi-escape '--'$_ts_color_stage   $_ts_stage
-      end
-    else
-      functions -q fish_right_prompt_original && fish_right_prompt_original
-    end
-  end
-
-  function _ts_prompt_newline_postexec -e fish_postexec -d "new line between commands"
-    set -q ts_newline && test -n "$argv" && echo
-  end
-
-  function _ts_prompt_newline_cancel -e fish_cancel -d "new line after cancel current commandline"
-    set -q ts_newline && echo
-  end
-end && _ts_prompt_setup && functions -e _ts_prompt_setup
 
 function _ts_modules -d "list all modules"
   set -q $_ts_project_dir || return
@@ -215,6 +150,73 @@ function _ts_validate_path -a path -d "validate path existence and print it with
   end
   echo $path
 end
+
+status is-interactive || exit
+
+set -q ts_color_profile || set -g ts_color_profile bold magenta
+set -q ts_color_stage   || set -g ts_color_stage   bold magenta
+set -q ts_color_sep     || set -g ts_color_sep     dim magenta
+set -q ts_sep           || set -g ts_sep @
+
+for color in ts_color_{profile,stage,sep}
+  # function to refresh prompt color when aws config change
+  function $color -V color
+    # find the most specific variable that has value
+    # example of variables specialty
+    #   ts_color_profile_ServerlessDeployNonProd_DEV
+    #   ts_color_profile_ServerlessDeployNonProd
+    #   ts_color_profile_DEV
+    #   ts_color_profile
+    for color_ in {$color}_{$_ts_profile}_{$_ts_stage} {$color}_{$_ts_profile} {$color}_{$_ts_stage} $color
+      set -q $color_ && set _color $color_ && break
+    end
+    # store color in global variable
+    set -g _$color $$_color
+  end
+end
+
+function _ts_prompt_setup
+  functions -q fish_right_prompt && functions -c fish_right_prompt fish_right_prompt_original
+
+  function _ts_prompt_repaint -v AWS_PROFILE
+    set -g _ts_profile (string replace -r '@.*' '' "$AWS_PROFILE")
+    set -g _ts_stage (string replace -r '.*@' '' "$AWS_PROFILE")
+    ts_color_profile
+    ts_color_stage
+    ts_color_sep
+    commandline -f repaint-mode
+  end && _ts_prompt_repaint
+
+  function _ts_prompt_enable -v PWD
+    if string match -q "*WhiteLabs/Travelstop.git" (git config --get remote.origin.url 2>/dev/null)
+      set -g _ts_prompt_enable
+    else
+      set -e _ts_prompt_enable
+    end
+  end && _ts_prompt_enable
+
+  function fish_right_prompt
+    if set -q _ts_prompt_enable
+      if test -n "$TMUX"
+        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
+      else
+        ansi-escape '--'$_ts_color_profile $_ts_profile
+        ansi-escape '--'$_ts_color_sep     $ts_sep
+        ansi-escape '--'$_ts_color_stage   $_ts_stage
+      end
+    else
+      functions -q fish_right_prompt_original && fish_right_prompt_original
+    end
+  end
+
+  function _ts_prompt_newline_postexec -e fish_postexec -d "new line between commands"
+    set -q ts_newline && test -n "$argv" && echo
+  end
+
+  function _ts_prompt_newline_cancel -e fish_cancel -d "new line after cancel current commandline"
+    set -q ts_newline && echo
+  end
+end && _ts_prompt_setup && functions -e _ts_prompt_setup
 
 function _ts_uniq_completions
   set -l cmd (commandline -p -o -c)
