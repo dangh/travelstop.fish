@@ -69,7 +69,8 @@ function _change_stacks -d "print list of changed services and modules"
     end
   end
 
-  function parse-manifest -S -a file patterns -d "parse manifest file at `to'"
+  function parse-manifest -S -a file -d "parse manifest file at `to'"
+    set -l patterns $argv[2..]
     switch "$to"
     case 'index'
       for pattern in $patterns
