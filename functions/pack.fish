@@ -41,7 +41,7 @@ function pack -d "package a serverless service"
   test -n "$_flag_package" && set -a package_cmd --package=(string escape "$_flag_package")
   test -n "$_flag_app" && set -a package_cmd --app=(string escape "$_flag_app")
   test -n "$_flag_org" && set -a package_cmd --org=(string escape "$_flag_org")
-  test (basename $yml) != serverless.yml && set -a package_cmd --config (basename $yml)
+  test (path basename $yml) != serverless.yml && set -a package_cmd --config (path basename $yml)
 
   _ts_log packaging stack: (magenta $name_ver)
   _ts_log config: (blue $yml)

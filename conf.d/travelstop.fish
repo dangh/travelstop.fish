@@ -84,12 +84,7 @@ end && _ts_project_dir_setup && functions -e _ts_project_dir_setup
 
 function _ts_modules -d "list all modules"
   set -q $_ts_project_dir || return
-  if type -q fd
-    fd serverless.yml --strip-cwd-prefix --base-directory $$_ts_project_dir/modules | string replace /serverless.yml '' | string replace -r '^' modules/
-  else
-    set files $$_ts_project_dir/modules/*/serverless.yml
-    printf -- '%s\n' $files | string replace /serverless.yml '' | string replace $$_ts_project_dir ''
-  end
+  printf '%s\n' $$_ts_project_dir/modules/*/serverless.yml | string replace -r '.*/modules/(\w+)/serverless.yml' 'module-$1'
 end
 
 function _ts_substacks -d "list all sub directories contains serverless.yml"
@@ -98,7 +93,7 @@ function _ts_substacks -d "list all sub directories contains serverless.yml"
     fd --strip-cwd-prefix serverless.yml | string replace /serverless.yml ''
   else
     set files */serverless.yml */*/serverless.yml
-    printf -- '%s\n' $files | string replace /serverless.yml ''
+    printf '%s\n' $files | string replace /serverless.yml ''
   end
 end
 

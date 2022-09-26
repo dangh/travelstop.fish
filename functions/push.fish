@@ -77,7 +77,7 @@ function push -d "deploy CF stack/lambda function"
       set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
       test -n "$_flag_app" && set -a deploy_cmd --app=(string escape -- $_flag_app)
       test -n "$_flag_org" && set -a deploy_cmd --org=(string escape -- $_flag_org)
-      test (basename $yml) != serverless.yml && set -a deploy_cmd --config=(basename $yml)
+      test (path basename $yml) != serverless.yml && set -a deploy_cmd --config=(path basename $yml)
     end
     test "$type" = function \
       && _ts_log deploying function: (magenta $name_ver) \
