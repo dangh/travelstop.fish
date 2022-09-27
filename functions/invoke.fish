@@ -56,7 +56,7 @@ function invoke -d "invoke lambda function"
   test -n "$_flag_qualifier" && set -a invoke_cmd --qualifier=(string escape -- $_flag_qualifier)
   test -n "$_flag_path" && set -a invoke_cmd --path=(string escape -- $_flag_path)
   set -q _flag_log && set -a invoke_cmd --log
-  test -n "$_flag_data" && set -a invoke_cmd --data=(string escape -- $_flag_data)
+  test -n "$_flag_data" && set -a invoke_cmd --data=(string replace -r -a '\s*\n\s*' ' ' $_flag_data | string collect | string escape)
   set -q _flag_raw && set -a invoke_cmd --raw
   test -n "$_flag_context" && set -a invoke_cmd --context=(string escape -- $_flag_context)
   test -n "$_flag_contextPath" && set -a invoke_cmd --contextPath=(string escape -- $_flag_contextPath)
