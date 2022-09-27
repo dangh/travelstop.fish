@@ -6,17 +6,17 @@ function logs -d "watch lambda function logs"
   set -l startTime 2m
 
   argparse -n 'sls logs' \
-    'f/function=?' \
-    'profile=?' \
-    's/stage=?' \
-    'r/region=?' \
+    'f/function=' \
+    'profile=' \
+    's/stage=' \
+    'r/region=' \
     't/tail' \
-    'startTime=?' \
-    'filter=?' \
-    'i/interval=?' \
-    'app=?' \
-    'org=?' \
-    'c/config=?' \
+    'startTime=' \
+    'filter=' \
+    'i/interval=' \
+    'app=' \
+    'org=' \
+    'c/config=' \
     -- $ts_default_argv_logs $argv
   or return 1
 

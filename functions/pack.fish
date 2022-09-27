@@ -5,12 +5,12 @@ function pack -d "package a serverless service"
   set -l yml ./serverless.yml
 
   argparse -n 'sls package' \
-    'profile=?' \
-    's/stage=?' \
-    'r/region=?' \
-    'app=?' \
-    'org=?' \
-    'c/config=?' \
+    'profile=' \
+    's/stage=' \
+    'r/region=' \
+    'app=' \
+    'org=' \
+    'c/config=' \
     -- $ts_default_argv_pack $argv
   or return 1
 

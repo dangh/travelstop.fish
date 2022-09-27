@@ -4,9 +4,9 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
   set -l region $AWS_DEFAULT_REGION
 
   argparse -i \
-    'profile=?' \
-    's/stage=?' \
-    'r/region=?' \
+    'profile=' \
+    's/stage=' \
+    'r/region=' \
     -- $argv
   or return 1
 

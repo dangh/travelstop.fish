@@ -6,25 +6,25 @@ function invoke -d "invoke lambda function"
   set -l region $AWS_DEFAULT_REGION
 
   argparse -n 'sls invoke' \
-    'profile=?' \
-    'f/function=?' \
-    's/stage=?' \
-    'r/region=?' \
-    'q/qualifier=?' \
-    'p/path=?' \
-    't/type=?' \
+    'profile=' \
+    'f/function=' \
+    's/stage=' \
+    'r/region=' \
+    'q/qualifier=' \
+    'p/path=' \
+    't/type=' \
     'l/log' \
-    'd/data=?' \
+    'd/data=' \
     'raw' \
-    'context=?' \
-    'contextPath=?' \
-    'app=?' \
-    'org=?' \
-    'c/config=?' \
+    'context=' \
+    'contextPath=' \
+    'app=' \
+    'org=' \
+    'c/config=' \
     'tail' \
-    'startTime=?' \
-    'filter=?' \
-    'i/interval=?' \
+    'startTime=' \
+    'filter=' \
+    'i/interval=' \
     -- $ts_default_argv_invoke $argv
   or return 1
 

@@ -10,18 +10,18 @@ function push -d "deploy CF stack/lambda function"
 
   argparse -n 'sls deploy' \
     'conceal' \
-    'profile=?' \
-    's/stage=?' \
-    'r/region=?' \
-    'p/package=?' \
+    'profile=' \
+    's/stage=' \
+    'r/region=' \
+    'p/package=' \
     'v/verbose' \
     'force' \
-    'f/function=?' \
+    'f/function=' \
     'u/update-config' \
     'aws-s3-accelerate' \
-    'app=?' \
-    'org=?' \
-    'c/config=?' \
+    'app=' \
+    'org=' \
+    'c/config=' \
     -- $ts_default_argv_push $argv
   or return 1
 
