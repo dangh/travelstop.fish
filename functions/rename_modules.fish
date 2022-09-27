@@ -1,4 +1,4 @@
-function rename_modules
+function rename_modules -a action
   # ensure we're inside workspace
   test -d $$_ts_project_dir || exit 1
 
@@ -21,15 +21,18 @@ function rename_modules
     end
   end
 
-  # if any module already has suffix
-  if not string match -q -r 'module-('(string join '|' $modules)')-\$' -- < $$_ts_project_dir/services/serverless-layers.yml
-    # toggle off suffix
-    set suffix ''
-  else
-    # use git branch as suffix
-    set -l branch (git branch --show-current)
-    if test "$branch" != 'master'
-      set suffix (string replace -a -r '\W+' '-' -- $branch)
+  switch "$action"
+  case off
+    set suffix
+  case on
+    set suffix (_ts_module_get_suffix)
+  case toggle \*
+    # if any module already has suffix
+    if _ts_module_has_suffix $modules
+      # toggle off suffix
+      set suffix
+    else
+      set suffix (_ts_module_get_suffix)
     end
   end
 
@@ -40,4 +43,16 @@ function rename_modules
     $$_ts_project_dir/modules/templates/serverless.yml \
     $$_ts_project_dir/services/serverless-layers.yml \
     $$_ts_project_dir/admin/services/serverless-layers.yml
+end
+
+function _ts_module_has_suffix -d 'check if any module already has suffix'
+  set -l modules $argv
+  not string match -q -r 'module-('(string join '|' $modules)')-\$' -- < $$_ts_project_dir/services/serverless-layers.yml
+end
+
+function _ts_module_get_suffix -d 'get module suffix from current git branch'
+  set -l branch (git branch --show-current)
+  if test "$branch" != 'master'
+    string replace -a -r '\W+' '-' -- $branch
+  end
 end

@@ -6,7 +6,7 @@ end
 
 function _ts_pushover -a title message
   test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN" || return
-  wait #queue pushover api calls
+  wait # queue pushover api calls
   curl -s \
     --form-string "token=$PUSHOVER_APP_TOKEN" \
     --form-string "user=$PUSHOVER_USER_KEY" \

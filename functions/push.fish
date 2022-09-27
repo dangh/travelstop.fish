@@ -3,7 +3,7 @@ function push -d "deploy CF stack/lambda function"
   set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
   set -l region $AWS_DEFAULT_REGION
   set -l targets
-  set -l config #config when pushing functions
+  set -l config # config when pushing functions
   set -l modules
   set -l services
   set -l functions
@@ -31,7 +31,7 @@ function push -d "deploy CF stack/lambda function"
   set -q _flag_config && set config $_flag_config
   set -a targets $argv
 
-  #push without any target/config/function
+  # push without any target/config/function
   test -z "$argv" -a -z "$function" && set -a targets .
 
   for target in $targets
@@ -39,20 +39,23 @@ function push -d "deploy CF stack/lambda function"
     set -a {$type}s "$type:$name:$ver:$yml:pending"
   end
 
-  #re-order targets
+  # re-order targets
   set targets $modules $services $functions
 
   set -l success_count 0
   set -l failure_count 0
 
-  #deploy
+  # rename modules before deploy
+  rename_modules on
+
+  # deploy
   for i in (seq (count $targets))
     echo $targets[$i] | read -l -d : type name ver yml state
     test "$type" != function && test -n "$ver" \
       && set -l name_ver $name-$ver \
       || set -l name_ver $name
 
-    #update progress
+    # update progress
     set targets[$i] "$type:$name:$ver:$yml:running"
     test (count $targets) -gt 1 && _ts_progress $targets
 
@@ -90,17 +93,17 @@ function push -d "deploy CF stack/lambda function"
 
     set -l result $status
 
-    #update counters
+    # update counters
     test $result -eq 0 \
       && set success_count (math $success_count + 1) \
       || set failure_count (math $failure_count + 1)
 
-    #update progress
+    # update progress
     test $result -eq 0 \
       && set targets[$i] "$type:$name:$ver:$yml:success" \
       || set targets[$i] "$type:$name:$ver:$yml:failure"
 
-    #show notification
+    # show notification
     set -l notif_message
     set -l notif_stage (string upper $stage)
     set -l notif_name $name_ver
@@ -119,7 +122,7 @@ function push -d "deploy CF stack/lambda function"
     test $result -eq 0 || break
   end
 
-  #summary
+  # summary
   if test (count $targets) -gt 1
     _ts_progress $targets
     set -l notif_title (math $success_count + $failure_count) stacks/functions deployed

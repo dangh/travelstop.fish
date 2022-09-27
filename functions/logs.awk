@@ -277,7 +277,7 @@ BEGIN {
     level = ""
 
     if ($0 ~ /^START RequestId/) {
-      #blank lines before each request
+      # blank lines before each request
       print format("none", "", 1)
       if (env("blank_page_cmd")) {
         system(env("blank_page_cmd"))
@@ -286,7 +286,7 @@ BEGIN {
       }
       print format("none", "", 1)
     } else if ($0 ~ /^END RequestId/) {
-      #blank line before end request
+      # blank line before end request
       printf "%s", "\n"
     }
 
@@ -302,11 +302,11 @@ BEGIN {
     }
     $0 = s0 s
 
-    #dim aws messages
+    # dim aws messages
     $0 = format("dim", $0)
   } else {
     if (is_cloudwatch_log) {
-      #collapse consecutive spaces
+      # collapse consecutive spaces
       s0 = ""
       s = $0
       while (match(s, /[^[:blank:]"][[:blank:]]{2,}/)) {
@@ -315,10 +315,10 @@ BEGIN {
       }
       $0 = s0 s
 
-      #remove aws timestamp, log id, log level
+      # remove aws timestamp, log id, log level
       gsub(/^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(ERROR|WARN|INFO|DEBUG)\t/, "")
 
-      #highlight metadata
+      # highlight metadata
       if (match($0, /^\[[[:upper:]-]+\]\[[[:digit:]TZ:.-]{24}\]\[[[:lower:].-]+:[[:digit:]]+\](\[[[:alpha:]. ]+\])?\[[[:upper:]]+\]: /)) {
         rest = substr($0, RLENGTH+1)
         split(substr($0, 2, RLENGTH-3), tokens, /[[\]]+/)
@@ -372,7 +372,7 @@ BEGIN {
       }
     }
 
-    #highlight uuid
+    # highlight uuid
     s0 = ""
     s = $0
     while (match(s, /[^[:alnum:]-][[:alnum:]]{8}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{4}-[[:alnum:]]{12}[^[:alnum:]-]/)) {
@@ -383,7 +383,7 @@ BEGIN {
     $0 = s0 s
 
     if (is_cloudwatch_log) {
-      #blank line before each log entry
+      # blank line before each log entry
       $0 = "\n" $0
     }
   }
