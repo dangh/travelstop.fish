@@ -1,8 +1,9 @@
-function rename_modules -a suffix
+function rename_modules
   # ensure we're inside workspace
   test -d $$_ts_project_dir || exit 1
 
   set -l modules
+  set -l suffix
 
   # find changed modules
   git diff --name-only master | while read -l -L file
@@ -20,17 +21,15 @@ function rename_modules -a suffix
     end
   end
 
-  if test -z "$suffix"
-    # if any module already has suffix
-    if not string match -q -r 'module-('(string join '|' $modules)')-\$' -- < $$_ts_project_dir/services/serverless-layers.yml
-      # toggle off suffix
-      set suffix ''
-    else
-      # use git branch as suffix
-      set -l branch (git branch --show-current)
-      if test "$branch" != 'master'
-        set suffix (string replace -a -r '\W+' '-' -- $branch)
-      end
+  # if any module already has suffix
+  if not string match -q -r 'module-('(string join '|' $modules)')-\$' -- < $$_ts_project_dir/services/serverless-layers.yml
+    # toggle off suffix
+    set suffix ''
+  else
+    # use git branch as suffix
+    set -l branch (git branch --show-current)
+    if test "$branch" != 'master'
+      set suffix (string replace -a -r '\W+' '-' -- $branch)
     end
   end
 
