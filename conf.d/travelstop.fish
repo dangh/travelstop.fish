@@ -84,7 +84,7 @@ end && _ts_project_dir_setup && functions -e _ts_project_dir_setup
 
 function _ts_modules -d "list all modules"
   set -q $_ts_project_dir || return
-  printf '%s\n' $$_ts_project_dir/modules/*/serverless.yml | string replace -r '.*/modules/(\w+)/serverless.yml' 'module-$1'
+  printf '%s\n' $$_ts_project_dir/modules/*/serverless.yml | string replace -r '.*/modules/(\w+)/serverless.yml' 'modules/$1'
 end
 
 function _ts_substacks -d "list all sub directories contains serverless.yml"
