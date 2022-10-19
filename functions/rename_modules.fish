@@ -26,7 +26,7 @@ function rename_modules -a action
     set suffix
   case on
     set suffix (_ts_module_get_suffix)
-  case toggle \*
+  case toggle
     # if any module already has suffix
     if _ts_module_has_suffix $modules
       # toggle off suffix
@@ -34,6 +34,8 @@ function rename_modules -a action
     else
       set suffix (_ts_module_get_suffix)
     end
+  case \*
+    set suffix (_ts_module_get_suffix $action)
   end
 
   # rename modules
@@ -50,9 +52,12 @@ function _ts_module_has_suffix -d 'check if any module already has suffix'
   not string match -q -r 'module-('(string join '|' $modules)')-\$' -- < $$_ts_project_dir/services/serverless-layers.yml
 end
 
-function _ts_module_get_suffix -d 'get module suffix from current git branch'
-  set -l branch (git branch --show-current)
-  if test "$branch" != 'master'
-    string replace -a -r '\W+' '-' -- $branch
+function _ts_module_get_suffix -a name -d 'get module name suffix'
+  if test -z "$name"
+    set -l branch (git branch --show-current)
+    if test "$branch" != 'master'
+      set name $branch
+    end
   end
+  string replace -a -r '\W+' '-' -- $name
 end
