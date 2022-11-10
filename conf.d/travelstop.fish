@@ -174,7 +174,7 @@ function _ts_prompt_setup
   functions -q fish_right_prompt && functions -c fish_right_prompt fish_right_prompt_original
 
   function _ts_prompt_repaint -v AWS_PROFILE
-    set -g _ts_profile (string replace -r '@.*' '' "$AWS_PROFILE")
+    set -g _ts_profile (string replace -r '(Non)?Prod@.*' '' "$AWS_PROFILE")
     set -g _ts_stage (string replace -r '.*@' '' "$AWS_PROFILE")
     ts_color_profile
     ts_color_stage
