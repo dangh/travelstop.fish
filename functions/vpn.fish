@@ -33,6 +33,8 @@ function vpn-docker -a action
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
+    case delete
+      command $colima delete $container-$runtime
     case \*
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
@@ -66,6 +68,8 @@ function vpn-containerd -a action
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
       command $ctl pull $image
+    case delete
+      command $colima delete $container-$runtime
     case \*
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
