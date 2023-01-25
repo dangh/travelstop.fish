@@ -90,6 +90,7 @@ List of supported variables:
 
 | Key                         | Default value     | Description                                                                         |
 | ---                         | ---               | ---                                                                                 |
+| `ts_proxy_port`             | 8888              |                                                                                     |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |
