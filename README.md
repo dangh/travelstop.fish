@@ -134,3 +134,9 @@ abbr -aU -- l10 'logs --startTime=10m'
 abbr -aU -- l15 'logs --startTime=15m'
 abbr -aU -- l30 'logs --startTime=30m'
 ```
+### Random rainbow cowsay fortune before each request log:
+
+```sh
+brew install cowsay fortune lolcat
+set -Ux ts_blank_page_cmd fortune \| cowsay -f \$\( ls /opt/homebrew/share/cows/*.cow \| sort -R \| head -1 \) \| lolcat -F 0.01
+```
