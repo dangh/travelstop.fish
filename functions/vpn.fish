@@ -106,7 +106,7 @@ function _vpn_connected -e vpn_connected
   set -l notif_title 'VPN connected!'
   set -l notif_message 'Proxy: http://localhost:'$ts_proxy_port
   functions -q fontface &&
-    set notif_title (fontface math_monospace "$notif_title") &&
-    set notif_message (fontface math_monospace "$notif_message")
+    set notif_title (fontface -s monospace "$notif_title") &&
+    set notif_message (fontface -s monospace "$notif_message")
   _ts_notify "$notif_title" "$notif_message"
 end

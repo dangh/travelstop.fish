@@ -108,8 +108,8 @@ function push -d "deploy CF stack/lambda function"
     set -l notif_stage (string upper $stage)
     set -l notif_name $name_ver
     functions -q fontface \
-      && set notif_stage (fontface math_monospace $notif_stage) \
-      && set notif_name (fontface math_monospace $notif_name)
+      && set notif_stage (fontface -s monospace $notif_stage) \
+      && set notif_name (fontface -s monospace $notif_name)
     test "$type" = function \
       && set notif_message "env: $notif_stage\nfunc: $notif_name" \
       || set notif_message "env: $notif_stage\nstack: $notif_name"
@@ -127,8 +127,8 @@ function push -d "deploy CF stack/lambda function"
     _ts_progress $targets
     set -l notif_title (math $success_count + $failure_count) stacks/functions deployed
     functions -q fontface \
-      && set success_count (fontface math_monospace $success_count) \
-      && set failure_count (fontface math_monospace $failure_count)
+      && set success_count (fontface -s monospace $success_count) \
+      && set failure_count (fontface -s monospace $failure_count)
     set -l notif_message success: $success_count\nfailure: $failure_count
     _ts_notify "$notif_title" "$notif_message"
     _ts_pushover "$notif_title" "$notif_message"

@@ -31,8 +31,8 @@ function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AW
       set -l notif_region $region
       set -l title 📮 AWS profile updated
       functions -q fontface &&
-        set notif_profile (fontface math_monospace "$notif_profile") &&
-        set notif_region (fontface math_monospace "$notif_region")
+        set notif_profile (fontface -s monospace "$notif_profile") &&
+        set notif_region (fontface -s monospace "$notif_region")
       _ts_notify "$title" "$notif_profile\n$notif_region"
     end
   end
