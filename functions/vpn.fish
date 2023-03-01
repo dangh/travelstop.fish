@@ -25,7 +25,7 @@ function vpn-docker -a action
   set -l ctl docker
   switch "$action"
     case stop
-      command $colima stop
+      command $colima stop --force
     case update
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
@@ -62,7 +62,7 @@ function vpn-containerd -a action
   set -l ctl $colima nerdctl --
   switch "$action"
     case stop
-      command $colima stop
+      command $colima stop --force
     case update
       command $colima status 2>&1 | string collect | string match -q '*is running*' ||
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose
