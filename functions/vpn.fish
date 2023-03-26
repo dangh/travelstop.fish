@@ -74,7 +74,7 @@ function vpn-containerd -a action
         command $colima start --runtime $runtime --cpu 1 --memory 1 --disk 1 --verbose --vm-type vz
       command $ctl images --quiet $image | test -n - ||
         command $ctl pull $image
-      command $ctl ps --all | grep $image | read container_id _ 2>/dev/null
+      command $ctl ps --all | grep $image | read container_id _0 2>/dev/null
       test -n "$container_id" &&
         command $ctl rm --force $container_id
       command $ctl run \

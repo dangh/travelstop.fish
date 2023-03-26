@@ -146,14 +146,14 @@ function _ts_progress
   set -l caret_success ' '
   set -l caret_failure ' '
   set -l indent (test $count -gt 9 && echo 2 || echo 1)
-  echo $argv[-1] | read -l -d : _ _ _ _ state
+  echo $argv[-1] | read -l -d : _0 _0 _0 _0 state
   if test "$state" = success -o "$state" = failure
     _ts_log (yellow $count) stacks/functions deployed
   else
     _ts_log deploying (yellow $count) stacks/functions
   end
   for i in (seq $count)
-    echo $argv[$i] | read -l -d : _ name ver _ state
+    echo $argv[$i] | read -l -d : _0 name ver _0 state
     set -l index (string sub -s -$indent " $i")
     set -l caret caret_$state
     set -l color color_$state

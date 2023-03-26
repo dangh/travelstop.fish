@@ -2,7 +2,7 @@ function add_account -d "add new AWS account from clipboard"
   pbpaste | read -l -z creds
   if string match -q -r '^\[[[:alnum:]_]+\](\naws_[[:alpha:]_]+=.*)+$' "$creds"
     printf $creds | read -l -L profile aws_access_key_id aws_secret_access_key aws_session_token
-    string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _ account_id role
+    string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _0 account_id role
     set -l account_exist 0
     for stage_config in $ts_aws_creds
       echo $stage_config | read -l -d , _account_id stage region

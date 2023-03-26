@@ -19,7 +19,7 @@ function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AW
   set -q ts_aws_creds || return
   if string match -q -r '^\[[[:alnum:]_]+\](\naws_[[:alpha:]_]+=.*)+$' "$creds"
     printf $creds | read -l -L profile aws_access_key_id aws_secret_access_key aws_session_token
-    string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _ account_id role
+    string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _0 account_id role
     for stage_config in $ts_aws_creds
       echo $stage_config | read -l -d , _account_id stage region
       test "$account_id" = "$_account_id" || continue
