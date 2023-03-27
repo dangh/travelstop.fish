@@ -35,7 +35,7 @@ function build_libs -d "rebuild libs module"
   end
 
   if test -n "$tgzs"
-    set -l cmd npm install --no-proxy --loglevel=error --prefix=(string escape -- $nodejs_dir)
+    set -l cmd npm install --no-proxy --loglevel=error --prefix=(string escape -- $nodejs_dir) --no-optional
     _ts_log (dim ...) (yellow $cmd \\\n'  '$tgzs | string collect)
     withd "$nodejs_dir" (string escape -- command $cmd $tgzs) ">/dev/null"
   end
