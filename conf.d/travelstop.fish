@@ -224,29 +224,25 @@ function _ts_uniq_completions
 end
 
 function _ts_install -e travelstop_install -e travelstop_update
-  abbr -aU -- c changes
-  abbr -aU -- p push
-  abbr -aU -- l logs
-  abbr -aU -- i invoke
-  abbr -aU -- b build_libs
-  abbr -aU -- r rename_modules
-  abbr -aU -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
-  abbr -aU -- l5 'logs --startTime=5m'
-  abbr -aU -- l10 'logs --startTime=10m'
-  abbr -aU -- l15 'logs --startTime=15m'
-  abbr -aU -- l30 'logs --startTime=30m'
+  if not set -qU ts_enable_abbr
+    set -U ts_enable_abbr true
+  end
 end
 
 function _ts_uninstall -e travelstop_uninstall
-  abbr -e c
-  abbr -e p
-  abbr -e l
-  abbr -e i
-  abbr -e b
-  abbr -e r
-  abbr -e l0
-  abbr -e l5
-  abbr -e l10
-  abbr -e l15
-  abbr -e l30
+  set -e ( set -n | string match -r '^_?ts_.*' )
+end
+
+if test -n ts_enable_abbr
+  abbr -a -- c changes
+  abbr -a -- p push
+  abbr -a -- l logs
+  abbr -a -- i invoke
+  abbr -a -- b build_libs
+  abbr -a -- r rename_modules
+  abbr -a -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
+  abbr -a -- l5 'logs --startTime=5m'
+  abbr -a -- l10 'logs --startTime=10m'
+  abbr -a -- l15 'logs --startTime=15m'
+  abbr -a -- l30 'logs --startTime=30m'
 end

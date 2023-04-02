@@ -91,6 +91,7 @@ List of supported variables:
 | Key                         | Default value     | Description                                                                         |
 | ---                         | ---               | ---                                                                                 |
 | `ts_proxy_port`             | 8888              |                                                                                     |
+| `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |
@@ -119,20 +120,20 @@ List of supported variables:
 | `ts_blank_page_height`      |                   | Number of blank lines to show before each request if `ts_blank_page` is not defined |
 | `ts_blank_page_style`       |                   | Style of blank lines to show before each request if `ts_blank_page` is not defined  |
 
-### Useful abbreviations:
+### Default abbreviations:
 
 ```sh
-abbr -aU -- c changes
-abbr -aU -- p push
-abbr -aU -- l logs
-abbr -aU -- i invoke
-abbr -aU -- b build_libs
-abbr -aU -- r rename_modules
-abbr -aU -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
-abbr -aU -- l5 'logs --startTime=5m'
-abbr -aU -- l10 'logs --startTime=10m'
-abbr -aU -- l15 'logs --startTime=15m'
-abbr -aU -- l30 'logs --startTime=30m'
+abbr -a -- c changes
+abbr -a -- p push
+abbr -a -- l logs
+abbr -a -- i invoke
+abbr -a -- b build_libs
+abbr -a -- r rename_modules
+abbr -a -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
+abbr -a -- l5 'logs --startTime=5m'
+abbr -a -- l10 'logs --startTime=10m'
+abbr -a -- l15 'logs --startTime=15m'
+abbr -a -- l30 'logs --startTime=30m'
 ```
 ### Random rainbow cowsay fortune before each request log:
 
