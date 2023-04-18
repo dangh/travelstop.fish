@@ -88,9 +88,28 @@ function push -d "deploy CF stack/lambda function"
     _ts_log working directory: (blue $working_dir)
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $deploy_cmd))
 
-    test "$type" = module && string match -q -r libs $name && build_libs --force
-    withd "$working_dir" "test -e package.json && npm i --no-proxy --only=prod;" (_ts_env --mode=env) "command $deploy_cmd"
-
+    if test "$type" = module && string match -q -r libs $name
+      build_libs --force
+    else
+      fish --private --command "
+        for d in \"$working_dir\" \"$working_dir\"/nodejs \"$working_dir\"/nodejs*/nodejs
+          if test -e \"\$d\"/package.json
+            cd \"\$d\"
+            type -q nvm && nvm use > /dev/null
+            if test (path basename \"\$d\") = web
+              npm i --no-proxy --no-optional \$ts_npm_install_options
+            else
+              npm i --no-proxy --only=prod --no-optional \$ts_npm_install_options
+            end
+          end
+        end
+      "
+    end
+    fish --private --command "
+      cd \"$working_dir\"
+      type -q nvm && nvm use > /dev/null
+      "\ (_ts_env --mode=env)\ "command $deploy_cmd
+    "
     set -l result $status
 
     # update counters

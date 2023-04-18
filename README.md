@@ -9,7 +9,6 @@ brew install \
   dangh/formulae/pbmonitor
 fisher install \
   dangh/ansi-escape.fish \
-  dangh/withd.fish \
   dangh/pbmonitor.fish \
   dangh/travelstop.fish
 ```
@@ -92,6 +91,7 @@ List of supported variables:
 | ---                         | ---               | ---                                                                                 |
 | `ts_proxy_port`             | 8888              |                                                                                     |
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
+| `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |

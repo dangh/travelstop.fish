@@ -35,9 +35,13 @@ function build_libs -d "rebuild libs module"
   end
 
   if test -n "$tgzs"
-    set -l cmd npm install --no-proxy --loglevel=error --prefix=(string escape -- $nodejs_dir) --no-optional
+    set -l cmd npm install --no-proxy --prefix=(string escape -- $nodejs_dir) --only=prod --no-optional $ts_npm_install_options
     _ts_log (dim ...) (yellow $cmd \\\n'  '$tgzs | string collect)
-    withd "$nodejs_dir" (string escape -- command $cmd $tgzs) ">/dev/null"
+    fish --private --command "
+      cd $nodejs_dir
+      type -q nvm && nvm use > /dev/null
+      command $cmd $tgzs
+    " >/dev/null
   end
 end
 

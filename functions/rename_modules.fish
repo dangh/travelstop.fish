@@ -41,8 +41,7 @@ function rename_modules -a action
   # rename modules
   test -n "$suffix" && set suffix "-$suffix"
   sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
-    $$_ts_project_dir/modules/libs/serverless.yml \
-    $$_ts_project_dir/modules/templates/serverless.yml \
+    $$_ts_project_dir/modules/*/serverless.yml \
     $$_ts_project_dir/services/serverless-layers.yml \
     $$_ts_project_dir/admin/services/serverless-layers.yml
 end
