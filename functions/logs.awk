@@ -104,7 +104,8 @@ function format(style_str, s, force, on, off, style_arr, count) {
   }
   if (on) on = "\x1b[" substr(on, 2) "m"
   if (off) off = "\x1b[" substr(off, 2) "m"
-  if (s || force) return on s off
+  if (s) return on s off
+  if (force) return on
 }
 function indent_guide(level) { if (level) return format("none", "", 1) repeat(INDENT_GUIDE, level) format("none", "", 1) }
 function format_inline_json(s, base_indent, key, value, indent_level, quote, open_bracket, close_bracket, close_quote, m, n, colon, inline_object) {
@@ -265,7 +266,7 @@ function format_json(s, indent, key, value, comma) {
 BEGIN {
   NO_COLOR = "NO_COLOR" in ENVIRON ? 1 : 0
   INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
-  BLANK_PAGE = default(env("blank_page"), format("blank_page") repeat("\x1b[2K", default(env("blank_page_height"), 1), "\n"))
+  BLANK_PAGE = default(env("blank_page"), repeat(format("blank_page", "", 1) "\x1b[K", default(env("blank_page_height"), 1), "\n") format("none", "", 1))
 }
 {
   is_cloudwatch_log = 0
