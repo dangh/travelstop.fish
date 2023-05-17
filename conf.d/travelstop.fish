@@ -193,7 +193,7 @@ function _ts_prompt_setup
   function fish_right_prompt
     if set -q _ts_prompt_enable
       if test -n "$TMUX"
-        command tmux set-option -g @user_content_x $_ts_profile \; set-option -g @user_content_z $_ts_stage \; refresh-client -S 2>/dev/null
+        command tmux set-option -g @status_right_x_content $_ts_profile \; set-option -g @status_right_z_content $_ts_stage \; refresh-client -S 2>/dev/null
       else
         ansi-escape '--'$_ts_color_profile $_ts_profile
         ansi-escape '--'$_ts_color_sep     $ts_sep
