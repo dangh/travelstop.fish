@@ -176,10 +176,14 @@ function _ts_prompt_setup
   function _ts_prompt_repaint -v AWS_PROFILE
     set -g _ts_profile (string replace -r '(Non)?Prod@.*' '' "$AWS_PROFILE")
     set -g _ts_stage (string replace -r '.*@' '' "$AWS_PROFILE")
-    ts_color_profile
-    ts_color_stage
-    ts_color_sep
-    commandline -f repaint-mode
+    if test -n "$TMUX"
+      command tmux set-option -g @status_right_x_content $_ts_profile \; set-option -g @status_right_z_content $_ts_stage \; refresh-client -S 2>/dev/null
+    else
+      ts_color_profile
+      ts_color_stage
+      ts_color_sep
+      commandline -f repaint-mode
+    end
   end && _ts_prompt_repaint
 
   function _ts_prompt_enable -v PWD
@@ -192,9 +196,7 @@ function _ts_prompt_setup
 
   function fish_right_prompt
     if set -q _ts_prompt_enable
-      if test -n "$TMUX"
-        command tmux set-option -g @status_right_x_content $_ts_profile \; set-option -g @status_right_z_content $_ts_stage \; refresh-client -S 2>/dev/null
-      else
+      if test -z "$TMUX"
         ansi-escape '--'$_ts_color_profile $_ts_profile
         ansi-escape '--'$_ts_color_sep     $ts_sep
         ansi-escape '--'$_ts_color_stage   $_ts_stage
