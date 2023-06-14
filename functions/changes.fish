@@ -42,7 +42,7 @@ function changes -a type -d "print list of changes"
 end
 
 function _change_stacks -d "print list of changed services and modules"
-  argparse -i f/from= t/to= merge-base= -- $argv
+  argparse -i f/from= t/to= merge-base= v/verbose -- $argv
   set -l from $_flag_from
   set -l to $_flag_to
 
@@ -84,10 +84,18 @@ function _change_stacks -d "print list of changed services and modules"
     end
   end
 
+  set -l git_cmd "git diff --name-only --no-renames $range | grep -E '^(admin/)?(modules|services|web)/'"
+
+  if set -q _flag_verbose
+    echo (yellow \$ $git_cmd)
+    eval $git_cmd
+    echo
+  end
+
   # collect manifest files
   set -l manifests
   set -l visited_dirs
-  git diff --name-only $range | grep -E '^(admin/)?(modules|services|web)/' | while read -l -L file
+  eval $git_cmd | while read -l -L file
     set -l dir $file
     set -l found 0
     while test $found -eq 0 && set dir (string replace -r '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set -a visited_dirs $dir
@@ -147,7 +155,7 @@ function _change_stacks -d "print list of changed services and modules"
 end
 
 function _change_mappings -d "print elasticsearch index mapping changes"
-  argparse -i f/from= t/to= merge-base= -- $argv
+  argparse -i f/from= t/to= merge-base= v/verbose -- $argv
   set -l from $_flag_from
   set -l to $_flag_to
 
@@ -165,7 +173,15 @@ function _change_mappings -d "print elasticsearch index mapping changes"
   set -l visited_dirs
   set -l printed 0
 
-  git diff --name-status $range $root/schema | grep -F 'index-mappings.json' | while read -l state file
+  set -l git_cmd "git diff --name-status --no-renames $range $root/schema | grep -F 'index-mappings.json'"
+
+  if set -q _flag_verbose
+    echo (yellow \$ $git_cmd)
+    eval $git_cmd
+    echo
+  end
+
+  eval $git_cmd | while read -l state file
     set -l -x ts_indent_size 2
     set -l -x ts_json_bracket_style
     set -l -x ts_json_colon_style
@@ -232,7 +248,7 @@ function diff(a, b) {
 end
 
 function _change_translations -d "print list of new translation keys"
-  argparse -i f/from= t/to= merge-base= -- $argv
+  argparse -i f/from= t/to= merge-base= v/verbose -- $argv
   set -l from $_flag_from
   set -l to $_flag_to
 
@@ -240,6 +256,12 @@ function _change_translations -d "print list of new translation keys"
   test "$from" = 'merge-base' && set from $_flag_merge_base
   test -z "$to" && set to 'index'
   test "$to" = 'index' && set to ''
+
+  if set -q _flag_verbose
+    echo (yellow \$ git show $from:web/locales/en-GB.json)
+    echo (yellow \$ git show $to:web/locales/en-GB.json)
+    echo
+  end
 
   set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
   set -l placeholder (ansi-escape --yellow --bold --reverse '$1')
