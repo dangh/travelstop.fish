@@ -3,13 +3,9 @@
 ## Installation
 
 ```sh
-brew install \
-  fd \
-  jq \
-  dangh/formulae/pbmonitor
+brew install fd jq
 fisher install \
   dangh/ansi-escape.fish \
-  dangh/pbmonitor.fish \
   dangh/travelstop.fish
 ```
 
@@ -49,6 +45,8 @@ set -a ts_env SLS_DEPRECATION_DISABLE='*'
 ### To update AWS config automatically when copied to clipboard:
 
 ```sh
+brew install dangh/formulae/pbmonitor
+fisher install dangh/flock.fish dangh/pbmonitor.fish
 set -U ts_aws_creds <account_id_1>,<stage_1>,<region_1> <account_id_2>,<stage_2>,<region_2>
 ```
 
