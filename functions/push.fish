@@ -141,6 +141,10 @@ function push -d "deploy CF stack/lambda function"
     test $result -eq 0 || break
   end
 
+  if test $success_count -gt 0 -a $failure_count -eq 0
+    open raycast://confetti >/dev/null 2>&1
+  end
+
   # summary
   if test (count $targets) -gt 1
     _ts_progress $targets
