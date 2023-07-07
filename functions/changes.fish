@@ -264,15 +264,18 @@ function _change_translations -d "print list of new translation keys"
   end
 
   set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
-  set -l placeholder (ansi-escape --yellow --bold --reverse '$1')
+  set -l placeholder (dim `)(yellow --bold --reverse '$1')(dim `)
+  set -l pipe (dim '**\|**')
+  echo (yellow --bold Key) (dim \|) (yellow --bold en-GB)
+  echo (dim ':--- | :---')
   comm -13 \
     (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
     (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) |
     while read -l -d ' = ' key value
       if test -n "$value"
-        echo (green $key) (dim '=') (string replace -r '({\w+})' $placeholder -- $value)
+        echo (dim `)(green $key)(dim `) (dim \|) (string replace -a \| $pipe -- (string replace -ar '({\w+})' $placeholder -- $value))
       else
-        echo (green $key)
+        echo (dim `)(green $key)(dim `)
       end
     end
 end
