@@ -93,20 +93,18 @@ function _change_stacks -d "print list of changed services and modules"
   end
 
   # collect manifest files
-  set -l manifests
+  set -l package_dirs
   set -l visited_dirs
   eval $git_cmd | while read -l -L file
     set -l dir $file
     set -l found 0
     while test $found -eq 0 && set dir (string replace -r '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set -a visited_dirs $dir
-      for manifest in $dir/package.json $dir/nodejs/package.json $dir/serverless.yml
-        if file-exists $manifest
-          set found 1
-          if not contains $manifest $manifests
-            set -a manifests $manifest
-          end
-          break
+      if file-exists $dir/serverless.yml
+        set found 1
+        if not contains $dir $package_dirs
+          set -a package_dirs $dir
         end
+        break
       end
     end
   end
@@ -114,19 +112,17 @@ function _change_stacks -d "print list of changed services and modules"
   # extract names and versions
   set -l stack_names
   set -l stack_versions
-  for manifest in $manifests
+  for dir in $package_dirs
     set -l name
     set -l v
-    switch $manifest
-    case '*/package.json'
-      parse-manifest $manifest '"name": "(travelstop-)?(?<name>[^"]+)"' '"version": "(?<v>[^"]+)"'
-    case '*/serverless.yml'
-      parse-manifest $manifest '^service:\s*(?<name>module-\w+|\S+)\S*\s*$'
-    end
-    if test -z "$v"
-      set -l changelog (path dirname $manifest)/CHANGELOG.md
-      if file-exists $changelog
-        parse-manifest $changelog '# (?<v>\d+(\.\d+)+)'
+    if file-exists $dir/package.json
+      parse-manifest $dir/package.json '"name": "(travelstop-)?(?<name>[^"]+)"' '"version": "(?<v>[^"]+)"'
+    else if file-exists $dir/nodejs/package.json
+      parse-manifest $dir/nodejs/package.json '"name": "(travelstop-)?(?<name>[^"]+)"' '"version": "(?<v>[^"]+)"'
+    else
+      parse-manifest $dir/serverless.yml '^service:\s*(?<name>module-\w+|\S+)\S*\s*$'
+      if file-exists $dir/CHANGELOG.md
+        parse-manifest $dir/CHANGELOG.md '# (?<v>\d+(\.\d+)+)'
       end
     end
     set -a stack_names $name
