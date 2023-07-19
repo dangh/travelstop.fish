@@ -257,25 +257,29 @@ function _change_translations -d "print list of new translation keys"
   test -z "$to" && set to 'index'
   test "$to" = 'index' && set to ''
 
+  set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
+  set -l placeholder (dim `)(yellow --bold --reverse '$1')(dim `)
+  set -l pipe (dim '**\|**')
+  comm -13 \
+    (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
+    (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) | read -l -z diff
+
   if set -q _flag_verbose
     echo (yellow \$ git show $from:web/locales/en-GB.json)
     echo (yellow \$ git show $to:web/locales/en-GB.json)
     echo
+    echo $diff
   end
 
-  set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
-  set -l placeholder (dim `)(yellow --bold --reverse '$1')(dim `)
-  set -l pipe (dim '**\|**')
-  echo (yellow --bold Key) (dim \|) (yellow --bold en-GB)
-  echo (dim ':--- | :---')
-  comm -13 \
-    (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
-    (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) |
-    while read -l -d ' = ' key value
+  if test -n "$diff"
+    echo (yellow --bold Key) (dim \|) (yellow --bold en-GB)
+    echo (dim ':--- | :---')
+    echo $diff | while read -l -d ' = ' key value
       if test -n "$value"
         echo (dim `)(green $key)(dim `) (dim \|) (string replace -a \| $pipe -- (string replace -ar '({\w+})' $placeholder -- $value))
       else
         echo (dim `)(green $key)(dim `)
       end
     end
+  end
 end
