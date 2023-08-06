@@ -11,21 +11,6 @@ fisher install \
 
 ## Usage
 
-### To connect to VPN and expose as a proxy
-
-Put VPN config in $HOME/.config/vpn/config
-Put VPN password in $HOME/.config/vpn/passwd
-
-```sh
-# Install required packages
-brew install docker colima
-
-# Launch VPN and proxy server
-vpn-docker
-
-# Proxy now exposed at localhost:8888
-```
-
 ### To show blank line between prompts:
 
 ```sh
@@ -87,7 +72,6 @@ List of supported variables:
 
 | Key                         | Default value     | Description                                                                         |
 | ---                         | ---               | ---                                                                                 |
-| `ts_proxy_port`             | 8888              |                                                                                     |
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
