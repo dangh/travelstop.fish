@@ -43,7 +43,10 @@ function _ts_log
 end
 
 function _ts_env
-  test -n "$ts_env" || return 1
+  test -n "$ts_env" || begin
+    echo
+    return 0
+  end
 
   argparse 'mode=?' -- $argv
   set -l result
