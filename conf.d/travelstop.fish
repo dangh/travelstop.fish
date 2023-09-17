@@ -238,7 +238,7 @@ function _ts_uninstall -e travelstop_uninstall
   set -e ( set -n | string match -r '^_?ts_.*' )
 end
 
-if test -n ts_enable_abbr
+if test -n "$ts_enable_abbr"
   abbr -a -- c changes
   abbr -a -- p push
   abbr -a -- l logs
