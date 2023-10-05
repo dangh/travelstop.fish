@@ -256,26 +256,39 @@ function _change_translations -d "print list of new translation keys"
   set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
   set -l placeholder (dim `)(yellow --bold --reverse '$1')(dim `)
   set -l pipe (dim '**\|**')
-  comm -13 \
-    (git show $from:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) \
-    (git show $to:web/locales/en-GB.json | jq --raw-output "$jq_transform" | sort | psub) | read -l -z diff
+  set -l printed 0
 
-  if set -q _flag_verbose
-    echo (yellow \$ git show $from:web/locales/en-GB.json)
-    echo (yellow \$ git show $to:web/locales/en-GB.json)
-    echo
-    echo $diff
-  end
+  set -l json_names Services Web
+  set -l jsons modules/templates/translations/en-GB.json web/locales/en-GB.json
 
-  if test -n "$diff"
-    echo (yellow --bold Key) (dim \|) (yellow --bold en-GB)
-    echo (dim ':--- | :---')
-    echo $diff | while read -l -d ' = ' key value
-      if test -n "$value"
-        echo (dim `)(green $key)(dim `) (dim \|) (string replace -a \| $pipe -- (string replace -ar '({\w+})' $placeholder -- $value))
-      else
-        echo (dim `)(green $key)(dim `)
+  for i in (seq (count $jsons))
+    set -l json_name $json_names[$i]
+    set -l json $jsons[$i]
+    comm -13 \
+      (git show $from:$json | jq --raw-output "$jq_transform" | sort | psub) \
+      (git show $to:$json | jq --raw-output "$jq_transform" | sort | psub) | read -l -z diff
+
+    if set -q _flag_verbose
+      echo (yellow \$ git show $from:$json)
+      echo (yellow \$ git show $to:$json)
+      echo
+      echo $diff
+    end
+
+    if test -n "$diff"
+      test "$printed" -eq 1 && echo
+      echo (green (reverse (dim '**')(bold $json_name)(dim '**')))
+      echo
+      echo (yellow --bold Key) (dim \|) (yellow --bold en-GB)
+      echo (dim ':--- | :---')
+      echo -n $diff | while read -l -d ' = ' key value
+        if test -n "$value"
+          echo (dim `)(green $key)(dim `) (dim \|) (string replace -a \| $pipe -- (string replace -ar '({\w+})' $placeholder -- $value))
+        else
+          echo (dim `)(green $key)(dim `)
+        end
       end
+      set printed 1
     end
   end
 end
