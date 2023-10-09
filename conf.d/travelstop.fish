@@ -16,7 +16,7 @@ function _ts_pushover -a title message
 end
 
 function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AWS credentials and store it"
-  set -q ts_aws_creds || return
+  set -q ts_aws_creds || return 1
   if string match -q -r '^\[[[:alnum:]_]+\](\naws_[[:alpha:]_]+=.*)+$' "$creds"
     printf $creds | read -l -L profile aws_access_key_id aws_secret_access_key aws_session_token
     string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _0 account_id role
@@ -34,8 +34,10 @@ function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AW
         set notif_profile (fontface -s monospace "$notif_profile") &&
         set notif_region (fontface -s monospace "$notif_region")
       _ts_notify "$title" "$notif_profile\n$notif_region"
+      return 0
     end
   end
+  return 1
 end
 
 function _ts_log
