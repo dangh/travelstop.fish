@@ -40,10 +40,39 @@ function rename_modules -a action
 
   # rename modules
   test -n "$suffix" && set suffix "-$suffix"
-  sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
-    $$_ts_project_dir/modules/*/serverless.yml \
-    $$_ts_project_dir/services/serverless-layers.yml \
-    $$_ts_project_dir/admin/services/serverless-layers.yml
+
+  if test -z "$suffix"
+    # clean all suffix
+    sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
+      $$_ts_project_dir/modules/*/serverless.yml \
+      $$_ts_project_dir/services/serverless-layers.yml \
+      $$_ts_project_dir/admin/services/serverless-layers.yml
+  else
+    # add suffix to changed modules
+    set -l modules
+    set -l yml_files
+    set -l merge_base (git merge-base origin/master HEAD)
+
+    if _ts_module_has_changes --from $merge_base $$_ts_project_dir/{libs,schema}
+      set -a modules libs
+      set -a yml_files $$_ts_project_dir/modules/libs/serverless.yml
+    end
+
+    for module in $$_ts_project_dir/modules/*
+      test "$module" != "$_ts_project_dir/modules/libs" || continue
+      if _ts_module_has_changes --from $merge_base $module
+        set -a modules (path basename $module)
+        set -a yml_files $module/serverless.yml
+      end
+    end
+
+    _ts_module_has_changes --from $merge_base $$_ts_project_dir/services && set -a yml_files $$_ts_project_dir/services/serverless-layers.yml
+    _ts_module_has_changes --from $merge_base $$_ts_project_dir/admin/services && set -a yml_files $$_ts_project_dir/admin/services/serverless-layers.yml
+
+    if test -n "$yml_files"
+      sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
+    end
+  end
 end
 
 function _ts_module_has_suffix -d 'check if any module already has suffix'
@@ -59,4 +88,9 @@ function _ts_module_get_suffix -a name -d 'get module name suffix'
     end
   end
   string replace -a -r '\W+' '-' -- $name
+end
+
+function _ts_module_has_changes -d 'check if path has changes inside'
+  argparse -i f/from= -- $argv
+  not git diff --quiet $_flag_from -- $argv
 end
