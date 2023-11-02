@@ -25,6 +25,9 @@ function push -d "deploy CF stack/lambda function"
     -- $ts_default_argv_push $argv
   or return 1
 
+  # rename modules before deploy
+  rename_modules on
+
   set -q _flag_profile && set profile $_flag_profile
   set -q _flag_stage && set stage $_flag_stage
   set -q _flag_region && set region $_flag_region
@@ -44,9 +47,6 @@ function push -d "deploy CF stack/lambda function"
 
   set -l success_count 0
   set -l failure_count 0
-
-  # rename modules before deploy
-  rename_modules on
 
   # deploy
   for i in (seq (count $targets))
