@@ -1,9 +1,12 @@
-function rename_modules -a action
+function rename_modules
   # ensure we're inside workspace
   test -d $$_ts_project_dir || exit 1
 
+  argparse -i f/force -- $argv
+
   set -l modules
   set -l suffix
+  set -l action $argv[1]
 
   # find changed modules
   git diff --name-only master | while read -l -L file
@@ -43,34 +46,41 @@ function rename_modules -a action
 
   if test -z "$suffix"
     # clean all suffix
-    sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
+    sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1\3/g' \
       $$_ts_project_dir/modules/*/serverless.yml \
       $$_ts_project_dir/services/serverless-layers.yml \
       $$_ts_project_dir/admin/services/serverless-layers.yml
   else
-    # add suffix to changed modules
-    set -l modules
-    set -l yml_files
-    set -l merge_base (git merge-base origin/master HEAD)
+    if set -q _flag_force
+      sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
+        $$_ts_project_dir/modules/*/serverless.yml \
+        $$_ts_project_dir/services/serverless-layers.yml \
+        $$_ts_project_dir/admin/services/serverless-layers.yml
+    else
+      # add suffix to changed modules
+      set -l modules
+      set -l yml_files
+      set -l merge_base (git merge-base origin/master HEAD)
 
-    if _ts_module_has_changes --from $merge_base $$_ts_project_dir/{libs,schema}
-      set -a modules libs
-      set -a yml_files $$_ts_project_dir/modules/libs/serverless.yml
-    end
-
-    for module in $$_ts_project_dir/modules/*
-      test "$module" != "$_ts_project_dir/modules/libs" || continue
-      if _ts_module_has_changes --from $merge_base $module
-        set -a modules (path basename $module)
-        set -a yml_files $module/serverless.yml
+      if _ts_module_has_changes --from $merge_base $$_ts_project_dir/{libs,schema}
+        set -a modules libs
+        set -a yml_files $$_ts_project_dir/modules/libs/serverless.yml
       end
-    end
 
-    _ts_module_has_changes --from $merge_base $$_ts_project_dir/services && set -a yml_files $$_ts_project_dir/services/serverless-layers.yml
-    _ts_module_has_changes --from $merge_base $$_ts_project_dir/admin/services && set -a yml_files $$_ts_project_dir/admin/services/serverless-layers.yml
+      for module in $$_ts_project_dir/modules/*
+        test "$module" != "$_ts_project_dir/modules/libs" || continue
+        if _ts_module_has_changes --from $merge_base $module
+          set -a modules (path basename $module)
+          set -a yml_files $module/serverless.yml
+        end
+      end
 
-    if test -n "$yml_files"
-      sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
+      _ts_module_has_changes --from $merge_base $$_ts_project_dir/services && set -a yml_files $$_ts_project_dir/services/serverless-layers.yml
+      _ts_module_has_changes --from $merge_base $$_ts_project_dir/admin/services && set -a yml_files $$_ts_project_dir/admin/services/serverless-layers.yml
+
+      if test -n "$yml_files"
+        sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
+      end
     end
   end
 end
