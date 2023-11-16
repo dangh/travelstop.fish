@@ -75,11 +75,16 @@ function rename_modules
         end
       end
 
+      if test -n "$yml_files"
+        sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
+      end
+
+      set yml_files
       _ts_module_has_changes --from $merge_base $$_ts_project_dir/services && set -a yml_files $$_ts_project_dir/services/serverless-layers.yml
       _ts_module_has_changes --from $merge_base $$_ts_project_dir/admin/services && set -a yml_files $$_ts_project_dir/admin/services/serverless-layers.yml
 
       if test -n "$yml_files"
-        sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
+        sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
       end
     end
   end
