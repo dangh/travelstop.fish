@@ -80,8 +80,11 @@ function rename_modules
       end
 
       set yml_files
-      _ts_module_has_changes --from $merge_base $$_ts_project_dir/services && set -a yml_files $$_ts_project_dir/services/serverless-layers.yml
-      _ts_module_has_changes --from $merge_base $$_ts_project_dir/admin/services && set -a yml_files $$_ts_project_dir/admin/services/serverless-layers.yml
+      for d in $$_ts_project_dir/services $$_ts_project_dir/admin/services
+        if _ts_module_has_changes --from $merge_base $d || string match -e -q "$d*" -- $PWD
+          set -a yml_files $d/serverless-layers.yml
+        end
+      end
 
       if test -n "$yml_files"
         sed -i '' -E 's/module-('(string join '|' $modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $yml_files
