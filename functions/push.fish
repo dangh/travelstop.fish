@@ -1,7 +1,7 @@
 function push -d "deploy CF stack/lambda function"
   set -l profile $AWS_PROFILE
   set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
-  set -l region $AWS_DEFAULT_REGION
+  set -l default_region $AWS_DEFAULT_REGION
   set -l targets
   set -l config # config when pushing functions
   set -l modules
@@ -30,7 +30,7 @@ function push -d "deploy CF stack/lambda function"
 
   set -q _flag_profile && set profile $_flag_profile
   set -q _flag_stage && set stage $_flag_stage
-  set -q _flag_region && set region $_flag_region
+  set -q _flag_region && set default_region $_flag_region
   set -q _flag_config && set config $_flag_config
   set -a targets $argv
 
@@ -38,8 +38,8 @@ function push -d "deploy CF stack/lambda function"
   test -z "$argv" -a -z "$function" && set -a targets .
 
   for target in $targets
-    _ts_resolve_config "$target" "$config" | read -l -d : type name ver yml
-    set -a {$type}s "$type:$name:$ver:$yml:pending"
+    _ts_resolve_config "$target" "$config" | read -l -d : type name ver region yml
+    set -a {$type}s "$type:$name:$ver:$region:$yml:pending"
   end
 
   # re-order targets
@@ -50,13 +50,13 @@ function push -d "deploy CF stack/lambda function"
 
   # deploy
   for i in (seq (count $targets))
-    echo $targets[$i] | read -l -d : type name ver yml state
+    echo $targets[$i] | read -l -d : type name ver region yml state
     test "$type" != function && test -n "$ver" \
       && set -l name_ver $name-$ver \
       || set -l name_ver $name
 
     # update progress
-    set targets[$i] "$type:$name:$ver:$yml:running"
+    set targets[$i] "$type:$name:$ver:$region:$yml:running"
     test (count $targets) -gt 1 && _ts_progress $targets
 
     set -l working_dir (dirname $yml)
@@ -66,14 +66,22 @@ function push -d "deploy CF stack/lambda function"
       set -a deploy_cmd function --function=(string escape -- $name)
       test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
       test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
-      test -n "$region" && set -a deploy_cmd --region=(string escape -- $region)
+      if test -n "$region"
+        set -a deploy_cmd --region=(string escape -- $region)
+      else if test -n "$default_region"
+        set -a deploy_cmd --region=(string escape -- $default_region)
+      end
       set -q _flag_force && set -a deploy_cmd --force
       set -q _flag_update_config && set -a deploy_cmd --update-config
     case \*
       set -q _flag_conceal && set -a deploy_cmd --conceal
       test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
       test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
-      test -n "$region" && set -a deploy_cmd --region=(string escape -- $region)
+      if test -n "$region"
+        set -a deploy_cmd --region=(string escape -- $region)
+      else if test -n "$default_region"
+        set -a deploy_cmd --region=(string escape -- $default_region)
+      end
       test -n "$_flag_package" && set -a deploy_cmd --package=(string escape -- $_flag_package)
       set -q _flag_verbose && set -a deploy_cmd --verbose
       set -q _flag_force && set -a deploy_cmd --force
@@ -119,8 +127,8 @@ function push -d "deploy CF stack/lambda function"
 
     # update progress
     test $result -eq 0 \
-      && set targets[$i] "$type:$name:$ver:$yml:success" \
-      || set targets[$i] "$type:$name:$ver:$yml:failure"
+      && set targets[$i] "$type:$name:$ver:$region:$yml:success" \
+      || set targets[$i] "$type:$name:$ver:$region:$yml:failure"
 
     # show notification
     set -l notif_message
@@ -188,6 +196,7 @@ function _ts_resolve_config -a target config -d "type:name:version:yml"
   set -l yml
   set -l json
   set -l changelog
+  set -l region
 
   if test -n "$config"
     set yml (realpath "$config")
@@ -200,6 +209,7 @@ function _ts_resolve_config -a target config -d "type:name:version:yml"
   end
 
   test -n "$yml" || return 1
+  string match -q -r '^\s*region:\s*\'(?<region>[a-z0-9-]+)\'' < $yml
 
   if test -f (dirname "$yml")/package.json
     set json (dirname "$yml")/package.json
@@ -224,5 +234,5 @@ function _ts_resolve_config -a target config -d "type:name:version:yml"
     end
   end
 
-  echo "$type:$name:$ver:$yml"
+  echo "$type:$name:$ver:$region:$yml"
 end
