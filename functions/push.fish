@@ -202,6 +202,8 @@ function _ts_resolve_config -a target config -d "type:name:version:yml"
     set yml (realpath "$config")
   else if test -f "$target/serverless.yml"
     set yml (realpath "$target/serverless.yml")
+  else if test -f "$target/serverless-waf.yml"
+    set yml (realpath "$target/serverless-waf.yml")
   else if test -f "$$_ts_project_dir/$target/serverless.yml"
     set yml (realpath "$$_ts_project_dir/$target/serverless.yml")
   else if test -f "$PWD/serverless.yml"
