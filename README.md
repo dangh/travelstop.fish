@@ -31,7 +31,7 @@ set -a ts_env SLS_DEPRECATION_DISABLE='*'
 
 ```sh
 brew install dangh/formulae/pbmonitor
-fisher install dangh/flock.fish dangh/pbmonitor.fish
+fisher install dangh/pbmonitor.fish
 set -U ts_aws_creds <account_id_1>,<stage_1>,<region_1> <account_id_2>,<stage_2>,<region_2>
 ```
 
