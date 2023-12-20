@@ -38,8 +38,8 @@ function push -d "deploy CF stack/lambda function"
   test -z "$argv" -a -z "$function" && set -a targets .
 
   for target in $targets
-    _ts_resolve_config "$target" "$config" | read -l -d : type name ver region yml
-    set -a {$type}s "$type:$name:$ver:$region:$yml:pending"
+    _ts_resolve_config "$target" "$config" | read -l -d : target_type __
+    set -a {$target_type}s "pending:$target_type:$__:$stage"
   end
 
   # re-order targets
@@ -50,20 +50,21 @@ function push -d "deploy CF stack/lambda function"
 
   # deploy
   for i in (seq (count $targets))
-    echo $targets[$i] | read -l -d : type name ver region yml state
-    test "$type" != function && test -n "$ver" \
-      && set -l name_ver $name-$ver \
-      || set -l name_ver $name
+    echo $targets[$i] | read -l -d : state __
+    echo $__ | read -l -d : target_type serverless_yml service_name function_name package_version region stage
+    test "$target_type" != function && test -n "$package_version" \
+      && set -l fullname $service_name-$_ts_stage-$package_version \
+      || set -l fullname $service_name-$_ts_stage-$function_name
 
     # update progress
-    set targets[$i] "$type:$name:$ver:$region:$yml:running"
+    set targets[$i] "running:$__"
     test (count $targets) -gt 1 && _ts_progress $targets
 
-    set -l working_dir (dirname $yml)
+    set -l working_dir (dirname $serverless_yml)
     set -l deploy_cmd sls deploy
-    switch $type
+    switch $target_type
     case function
-      set -a deploy_cmd function --function=(string escape -- $name)
+      set -a deploy_cmd function --function=(string escape -- $function_name)
       test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
       test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
       if test -n "$region"
@@ -88,15 +89,15 @@ function push -d "deploy CF stack/lambda function"
       set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
       test -n "$_flag_app" && set -a deploy_cmd --app=(string escape -- $_flag_app)
       test -n "$_flag_org" && set -a deploy_cmd --org=(string escape -- $_flag_org)
-      test (path basename $yml) != serverless.yml && set -a deploy_cmd --config=(path basename $yml)
+      test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd --config=(path basename $serverless_yml)
     end
-    test "$type" = function \
-      && _ts_log deploying function: (magenta $name_ver) \
-      || _ts_log deploying stack: (magenta $name_ver)
+    test "$target_type" = function \
+      && _ts_log deploying function: (magenta $fullname) \
+      || _ts_log deploying stack: (magenta $fullname)
     _ts_log working directory: (blue $working_dir)
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $deploy_cmd))
 
-    if test "$type" = module && string match -q -r libs $name
+    if test "$target_type" = module && string match -q -r module-libs $service_name
       build_libs --force
     else
       fish --private --command "
@@ -127,17 +128,17 @@ function push -d "deploy CF stack/lambda function"
 
     # update progress
     test $result -eq 0 \
-      && set targets[$i] "$type:$name:$ver:$region:$yml:success" \
-      || set targets[$i] "$type:$name:$ver:$region:$yml:failure"
+      && set targets[$i] "success:$__" \
+      || set targets[$i] "failure:$__"
 
     # show notification
     set -l notif_message
     set -l notif_stage (string upper $stage)
-    set -l notif_name $name_ver
+    set -l notif_name $fullname
     functions -q fontface \
       && set notif_stage (fontface -s monospace $notif_stage) \
       && set notif_name (fontface -s monospace $notif_name)
-    test "$type" = function \
+    test "$target_type" = function \
       && set notif_message "env: $notif_stage\nfunc: $notif_name" \
       || set notif_message "env: $notif_stage\nstack: $notif_name"
     set -q sls_success_icon || set -l sls_success_icon 🎉
@@ -173,68 +174,74 @@ function _ts_progress
   set -l caret_success ' '
   set -l caret_failure ' '
   set -l indent (test $count -gt 9 && echo 2 || echo 1)
-  echo $argv[-1] | read -l -d : _0 _0 _0 _0 _0 state
-  if test "$state" = success -o "$state" = failure
-    _ts_log (yellow $count) stacks/functions deployed
+  echo $argv[-1] | read -l -d : state __
+  if test "$state" = 'success' -o "$state" = 'failure'
+    _ts_log (yellow $count) 'stacks/functions deployed'
   else
-    _ts_log deploying (yellow $count) stacks/functions
+    _ts_log deploying (yellow $count) 'stacks/functions'
   end
   for i in (seq $count)
-    echo $argv[$i] | read -l -d : _0 name ver _0 _0 _0 state
+    echo $argv[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
     set -l index (string sub -s -$indent " $i")
     set -l caret caret_$state
     set -l color color_$state
-    test -n "$ver" && set ver (dim '-')(yellow $ver)
-    echo $$caret (dim $index.) ($$color $name)$ver
+    set -l fullname $service_name-$stage
+    test -n "$package_version" && set package_version (dim '-')(yellow $package_version)
+    if test "$target_type" = 'function'
+      echo $$caret (dim $index.) ($$color $fullname-$function_name)
+    else
+      echo $$caret (dim $index.) ($$color $fullname)$package_version
+    end
   end
 end
 
-function _ts_resolve_config -a target config -d "type:name:version:yml"
-  set -l type
-  set -l name
-  set -l ver
-  set -l yml
-  set -l json
-  set -l changelog
+function _ts_resolve_config -a target config_file -d "target_type:serverless_yml:service_name:function_name:package_version:region"
+  set -l target_type
+  set -l service_name
+  set -l function_name
+  set -l package_version
+  set -l serverless_yml
+  set -l package_json
+  set -l changelog_md
   set -l region
 
-  if test -n "$config"
-    set yml (realpath "$config")
+  if test -n "$config_file"
+    set serverless_yml (realpath "$config_file")
   else if test -f "$target/serverless.yml"
-    set yml (realpath "$target/serverless.yml")
+    set serverless_yml (realpath "$target/serverless.yml")
   else if test -f "$target/serverless-waf.yml"
-    set yml (realpath "$target/serverless-waf.yml")
+    set serverless_yml (realpath "$target/serverless-waf.yml")
   else if test -f "$$_ts_project_dir/$target/serverless.yml"
-    set yml (realpath "$$_ts_project_dir/$target/serverless.yml")
+    set serverless_yml (realpath "$$_ts_project_dir/$target/serverless.yml")
   else if test -f "$PWD/serverless.yml"
-    set yml "$PWD/serverless.yml"
+    set serverless_yml "$PWD/serverless.yml"
   end
 
-  test -n "$yml" || return 1
-  string match -q -r '^\s*region:\s*\'(?<region>[a-z0-9-]+)\'' < $yml
+  test -n "$serverless_yml" || return 1
+  string match -q -r '^\s*region:\s*\'(?<region>[a-z0-9-]+)\'' < $serverless_yml
 
-  if test -f (dirname "$yml")/package.json
-    set json (dirname "$yml")/package.json
+  if test -f (dirname "$serverless_yml")/package.json
+    set package_json (dirname "$serverless_yml")/package.json
   else if test -f "$$_ts_project_dir/modules/$target/nodejs/package.json"
-    set json (realpath "$$_ts_project_dir/modules/$target/nodejs/package.json")
-  else if test -f (dirname "$yml")/CHANGELOG.md
-    set changelog (dirname "$yml")/CHANGELOG.md
+    set package_json (realpath "$$_ts_project_dir/modules/$target/nodejs/package.json")
+  else if test -f (dirname "$serverless_yml")/CHANGELOG.md
+    set changelog_md (dirname "$serverless_yml")/CHANGELOG.md
   end
 
-  if contains $target (_ts_functions "$yml")
-    set type function
-    set name $target
+  if contains $target (_ts_functions "$serverless_yml")
+    set target_type function
+    set function_name $target
   else
-    string match -q -r '/modules/' "$yml" \
-      && set type module \
-      || set type service
-    string match -q -r '^service:\s*(?<name>[^\s]*)' < $yml
-    if test -n "$json"
-      string match -q -r '^\s*"version":\s*"(?<ver>[^"]*)"' < $json
-    else if test -n "$changelog"
-      string match -q -r '# (?<ver>\d+(\.\d+)+)' < $changelog
-    end
+    string match -q -r '/modules/' "$serverless_yml" \
+      && set target_type module \
+      || set target_type service
+  end
+  string match -q -r '^service:\s*(?<service_name>[^\s]*)' < $serverless_yml
+  if test -n "$package_json"
+    string match -q -r '^\s*"version":\s*"(?<package_version>[^"]*)"' < $package_json
+  else if test -n "$changelog_md"
+    string match -q -r '# (?<package_version>\d+(\.\d+)+)' < $changelog_md
   end
 
-  echo "$type:$name:$ver:$region:$yml"
+  echo "$target_type:$serverless_yml:$service_name:$function_name:$package_version:$region"
 end
