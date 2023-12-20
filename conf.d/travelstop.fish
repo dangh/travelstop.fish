@@ -94,12 +94,7 @@ end
 
 function _ts_substacks -d "list all sub directories contains serverless.yml"
   set -q $_ts_project_dir || return
-  if type -q fd
-    fd --strip-cwd-prefix serverless.yml | string replace /serverless.yml ''
-  else
-    set files */serverless.yml */*/serverless.yml
-    printf '%s\n' $files | string replace /serverless.yml ''
-  end
+  find . -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace /serverless.yml '' | string replace './' ''
 end
 
 function _ts_functions -a yml -d "list all lambda functions in serverless.yml"

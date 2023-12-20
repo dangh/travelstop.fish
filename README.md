@@ -3,7 +3,7 @@
 ## Installation
 
 ```sh
-brew install fd jq
+brew install jq
 fisher install \
   dangh/ansi-escape.fish \
   dangh/travelstop.fish
