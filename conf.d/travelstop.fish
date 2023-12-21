@@ -227,6 +227,7 @@ function _ts_install -e travelstop_install -e travelstop_update
   if not set -qU ts_enable_abbr
     set -U ts_enable_abbr true
   end
+  functions -q pbmonitor && pbmonitor restart
 end
 
 function _ts_uninstall -e travelstop_uninstall
