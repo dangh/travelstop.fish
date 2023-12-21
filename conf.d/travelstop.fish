@@ -17,14 +17,12 @@ end
 
 function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AWS credentials and store it"
   set -q ts_aws_creds || return 1
-  if string match -q -r '^\[[[:alnum:]_]+\](\naws_[[:alpha:]_]+=.*)+$' "$creds"
-    printf $creds | read -l -L profile aws_access_key_id aws_secret_access_key aws_session_token
-    string match -r '^\[([[:digit:]]+)_([[:alpha:]]+)\]' $profile | read -l -L _0 account_id role
+  set -n "$creds" || pbpaste | read -z creds
+  if string match -q -r '^\[(?<account_id>[[:digit:]]+)_(?<role>[[:alpha:]]+)\](?<config>(\naws_[[:alpha:]_]+=[^[:space:]]+)+)' -- $creds
     for stage_config in $ts_aws_creds
-      echo $stage_config | read -l -d , _account_id stage region
-      test "$account_id" = "$_account_id" || continue
+      string match -q -r $account_id',(?<stage>[^,]+),(?<region>.+)' -- $stage_config || continue
       mkdir -p ~/.aws
-      echo [$role@$stage]\n{$aws_access_key_id}\n{$aws_secret_access_key}\n{$aws_session_token} > ~/.aws/credentials
+      echo [$role@$stage]{$config} > ~/.aws/credentials
       set -U -x AWS_PROFILE $role@$stage
       set -U -x AWS_DEFAULT_REGION $region
       set -l notif_profile $AWS_PROFILE
