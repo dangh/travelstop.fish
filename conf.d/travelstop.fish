@@ -1,7 +1,11 @@
 function _ts_notify -a title message sound -d "send notification to system"
   osascript -e "display notification \"$message\" with title \"$title\"" &
+  disown
   set sound "/System/Library/Sounds/$sound.aiff"
-  test -f "$sound" && afplay $sound &
+  if test -f "$sound"
+    afplay $sound &
+    disown
+  end
 end
 
 function _ts_pushover -a title message
