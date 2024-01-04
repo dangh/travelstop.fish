@@ -62,10 +62,9 @@ function rename_modules
 
     if test -n "$changed_modules"
       sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $$_ts_project_dir/modules/$changed_modules/serverless.yml
-    end
-
-    if test -n "$services_dirs"
-      sed -i '' -E 's/module-('(string join '|' $changed_modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+      if test -n "$services_dirs"
+        sed -i '' -E 's/module-('(string join '|' $changed_modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+      end
     end
   end
 end
