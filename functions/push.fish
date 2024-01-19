@@ -22,6 +22,7 @@ function push -d "deploy CF stack/lambda function"
     'app=' \
     'org=' \
     'c/config=' \
+    'e/exclude=+' \
     -- $ts_default_argv_push $argv
   or return 1
 
@@ -36,6 +37,19 @@ function push -d "deploy CF stack/lambda function"
 
   # push without any target/config/function
   test -z "$argv" -a -z "$function" && set -a targets .
+
+  set -l patterns $targets
+  set targets
+
+  set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort)
+  for pattern in $patterns
+    string match -a "$pattern" $all_stacks | while read -l stack
+      set -a targets $stack
+    end
+  end
+  for pattern in $_flag_exclude
+    set targets (string match -v -a "$pattern" $targets)
+  end
 
   for target in $targets
     _ts_resolve_config "$target" "$config" | read -l -d : target_type __
