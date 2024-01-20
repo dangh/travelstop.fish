@@ -23,6 +23,7 @@ function push -d "deploy CF stack/lambda function"
     'org=' \
     'c/config=' \
     'e/exclude=+' \
+    'R/regex' \
     -- $ts_default_argv_push $argv
   or return 1
 
@@ -38,6 +39,8 @@ function push -d "deploy CF stack/lambda function"
   # push without any target/config/function
   test -z "$argv" -a -z "$function" && set -a targets .
 
+  set -l match_flags ''
+  set -q _flag_regex && set match_flags '-r'
   set -l patterns $targets
   set targets
 
@@ -47,12 +50,14 @@ function push -d "deploy CF stack/lambda function"
       set -a _flag_exclude (string sub -s 2 $pattern)
       continue
     end
-    string match -a "$pattern" $all_stacks | while read -l stack
-      set -a targets $stack
+    string match $match_flags -a "$pattern" $all_stacks | while read -l stack
+      if not contains $stack $targets
+        set -a targets $stack
+      end
     end
   end
   for pattern in $_flag_exclude
-    set targets (string match -v -a "$pattern" $targets)
+    set targets (string match $match_flags -v -a "$pattern" $targets)
   end
 
   for target in $targets
