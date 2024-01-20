@@ -43,6 +43,10 @@ function push -d "deploy CF stack/lambda function"
 
   set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort)
   for pattern in $patterns
+    if string match -q '!*' $pattern
+      set -a _flag_exclude (string sub -s 2 $pattern)
+      continue
+    end
     string match -a "$pattern" $all_stacks | while read -l stack
       set -a targets $stack
     end
