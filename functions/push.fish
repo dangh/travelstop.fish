@@ -39,12 +39,12 @@ function push -d "deploy CF stack/lambda function"
   # push without any target/config/function
   test -z "$argv" -a -z "$function" && set -a targets .
 
-  set -l match_flags ''
+  set -l match_flags
   set -q _flag_regex && set match_flags '-r'
   set -l patterns $targets
   set targets
 
-  set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort)
+  set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort) (_ts_functions | sort)
   for pattern in $patterns
     if string match -q '!*' $pattern
       set -a _flag_exclude (string sub -s 2 $pattern)
