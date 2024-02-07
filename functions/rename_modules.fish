@@ -47,7 +47,7 @@ function rename_modules
     set -l merge_base (git merge-base origin/master HEAD)
 
     # find changed modules
-    git diff --name-only $merge_base -- $$_ts_project_dir/{modules,services,admin/services} | while read -l -L file
+    git diff --name-only $merge_base -- $$_ts_project_dir/{modules,services,admin/services,lib,schema}/ | while read -l -L file
       switch $file
         case lib/\* schema/\*
           contains libs $changed_modules || set -a changed_modules libs
