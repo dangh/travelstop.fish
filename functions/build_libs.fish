@@ -13,7 +13,7 @@ function build_libs -d "rebuild libs module"
   _ts_libs | while read -l lib_dir
     set -l lib (string match -r '[^/]+$' $lib_dir)
     set -l lib_changed TRUE
-    set -l last_commit_id (command git rev-list --max-count=1 HEAD "$packages_dir/$lib")
+    set -l last_commit_id (command git log --max-count=1 --diff-filter=AM --pretty=format:"%h" HEAD "$packages_dir/$lib")
     if test -n "$last_commit_id"
       set -l changes (command git diff --name-only $last_commit_id "$nodejs_dir/$lib_dir")
       if test -z "$changes"
