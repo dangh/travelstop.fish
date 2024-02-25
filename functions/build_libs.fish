@@ -2,6 +2,7 @@ function build_libs -d "rebuild libs module"
   set -l nodejs_dir "$$_ts_project_dir/modules/libs/nodejs"
   set -l packages_dir "$$_ts_project_dir/packages"
   set -l force_install FALSE
+  set -l libs
   set -l tgzs
 
   argparse 'f/force' -- $argv
@@ -22,15 +23,45 @@ function build_libs -d "rebuild libs module"
     end
     if test "$lib_changed" = TRUE
       _ts_log (dim ...) (green (bold $lib): changed .. REBUILD)
-      set -l tgz (command npm run --prefix (string escape -- $nodejs_dir) --silent build-$lib)
-      set -a tgzs (string escape -- $packages_dir/$lib/$tgz)
-      rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
+      set -a libs $lib
     else if test "$force_install" = TRUE
-      _ts_log (dim ...) (magenta (bold $lib): FORCE REINSTALL)
-      rm -r "$nodejs_dir/node_modules/$lib" 2>/dev/null
-      set -a tgzs "$packages_dir/$lib/"(_ts_lib_tgz $lib)
+      _ts_log (dim ...) (magenta (bold $lib): FORCE REBUILD)
+      set -a libs $lib
     else
       _ts_log (dim ...) (dim (bold $lib))(dim : no changes .. SKIP)
+    end
+  end
+
+  if test -n "$libs"
+    # wrapper shell to await multiple background processes
+    fish --private --command "
+      for lib in $libs
+        set -l lib_dir
+        switch \$lib
+        case schema
+          set lib_dir $$_ts_project_dir/schema
+        case \\*
+          set lib_dir $$_ts_project_dir/lib/\$lib
+        end
+        mkdir -p $packages_dir/\$lib
+        # wrapper shell to cd separately
+        fish --private --command \"
+          cd $packages_dir/\$lib
+          command npm pack \$lib_dir --silent
+        \" &
+        rm -r \"$nodejs_dir/node_modules/\$lib\" 2>/dev/null &
+      end
+    " >/dev/null
+    for lib in $libs
+      set -l package_json
+      switch "$lib"
+      case schema
+        set package_json $$_ts_project_dir/schema/package.json
+      case \*
+        set package_json $$_ts_project_dir/lib/$lib/package.json
+      end
+      string match -q -r '^  "version": "(?<ver>[^"]+)"' < $package_json
+      set -a tgzs $packages_dir/$lib/$lib-$ver.tgz
     end
   end
 
@@ -49,9 +80,4 @@ function _ts_libs -a -d "get all libs"
   for line in (string match -r -a 'npm pack \S+' (read -z < $$_ts_project_dir/modules/libs/nodejs/package.json))
     string match -r '\S+$' $line
   end
-end
-
-function _ts_lib_tgz -a lib -d "get tgz"
-  test -n "$lib" || return 1
-  string match -r '/'$lib'-[[:digit:]]+.[[:digit:]]+.[[:digit:]]+.tgz' (read -z < $$_ts_project_dir/modules/libs/nodejs/package.json) | string sub -s 2
 end
