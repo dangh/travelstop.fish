@@ -87,12 +87,12 @@ function push -d "deploy CF stack/lambda function"
         set -l fullname
         switch "$target_type"
             case function
-                set fullname $service_name-$_ts_stage-$function_name
+                set fullname $service_name-(string upper $stage)-$function_name
             case service
                 if test -n "$package_version"
-                    set fullname $service_name-$_ts_stage-$package_version
+                    set fullname $service_name-(string upper $stage)-$package_version
                 else
-                    set fullname $service_name-$_ts_stage
+                    set fullname $service_name-(string upper $stage)
                 end
         end
 
@@ -225,7 +225,7 @@ function _ts_progress
         set -l index (string sub -s -$indent " $i")
         set -l caret caret_$state
         set -l color color_$state
-        set -l fullname $service_name-$stage
+        set -l fullname $service_name-(string upper $stage)
         test -n "$package_version" && set package_version (dim '-')(yellow $package_version)
         if test "$target_type" = function
             echo $$caret (dim $index.) ($$color $fullname-$function_name)
