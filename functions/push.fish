@@ -84,9 +84,17 @@ function push -d "deploy CF stack/lambda function"
     for i in (seq (count $targets))
         echo $targets[$i] | read -l -d : state __
         echo $__ | read -l -d : target_type serverless_yml service_name function_name package_version region stage
-        test "$target_type" != function && test -n "$package_version" \
-            && set -l fullname $service_name-$_ts_stage-$package_version \
-            || set -l fullname $service_name-$_ts_stage-$function_name
+        set -l fullname
+        switch "$target_type"
+            case function
+                set fullname $service_name-$_ts_stage-$function_name
+            case service
+                if test -n "$package_version"
+                    set fullname $service_name-$_ts_stage-$package_version
+                else
+                    set fullname $service_name-$_ts_stage
+                end
+        end
 
         # update progress
         set targets[$i] "running:$__"
