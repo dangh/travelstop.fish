@@ -49,6 +49,8 @@ function rename_modules
         # find changed modules
         git diff --name-only $merge_base -- $$_ts_project_dir/{modules,services,admin/services,lib,schema}/ | while read -l -L file
             switch $file
+                case \*/package-lock.json
+                    # ignore it
                 case lib/\* schema/\*
                     contains libs $changed_modules || set -a changed_modules libs
                 case modules/\*
