@@ -22,7 +22,7 @@ end
 function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AWS credentials and store it"
     set -q ts_aws_creds || return 1
     set -n "$creds" || pbpaste | read -z creds
-    if string match -q -r '^\[(?<account_id>[[:digit:]]+)_(?<role>[[:alpha:]]+)\](?<config>(\naws_[[:alpha:]_]+=[^[:space:]]+)+)' -- $creds
+    if string match -q -r '^\[(?<account_id>[[:digit:]]+)_(?<role>[[:alpha:]]+)\](?<config>(\r?\naws_[[:alpha:]_]+=[^[:space:]]+)+)' -- $creds
         for stage_config in $ts_aws_creds
             string match -q -r $account_id',(?<stage>[^,]+),(?<region>.+)' -- $stage_config || continue
             mkdir -p ~/.aws
