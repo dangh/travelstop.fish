@@ -66,6 +66,7 @@ function build_libs -d "rebuild libs module"
     end
 
     if test -n "$tgzs"
+        rm -f $nodejs_dir/package-lock.json
         set -l cmd npm install --no-proxy --prefix=(string escape -- $nodejs_dir) --only=prod --no-optional $ts_npm_install_options
         _ts_log (dim ...) (yellow $cmd \\\n'  '$tgzs | string collect)
         fish --private --command "
