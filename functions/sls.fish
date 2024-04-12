@@ -6,18 +6,20 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
 
     set -l args $argv
 
-    argparse -i -s \
+    argparse -i -s -- $args
+    set -l sub_command $argv[1]
+
+    argparse -i \
         'profile=' \
         's/stage=' \
         'r/region=' \
         'd/data=' \
         'c/config=' \
-        -- $argv
+        -- $args
     or return 1
 
     set -l cmd
-    set -l sub_command $argv[1]
-    if test -n "$sub_command"
+    if test -z "$sub_command"
         set cmd sls $args
     else
         set -q _flag_profile && set profile $_flag_profile
@@ -29,8 +31,12 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         string match -q -r '^\s*region:\s*\'(?<yml_region>[a-z0-9-]+)\'' <$yml
         test -n "$yml_region" && set region $yml_region
 
-        set -l cmd sls $argv --profile=$profile --stage=$stage --region=$region
-        test -n "$_flag_data" && set -a cmd --data=(string replace -r -a '\s*\n\s*' ' ' -- $_flag_data | string collect | string escape)
+        set cmd sls $argv --profile=$profile --stage=$stage --region=$region
+        test -n "$_flag_data" && begin
+            set -l data_path (mktemp -t sls-data-)
+            echo $_flag_data >$data_path
+            set -a cmd --path=$data_path
+        end
 
         _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $cmd))
     end
