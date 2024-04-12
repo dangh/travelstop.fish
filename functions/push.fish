@@ -36,6 +36,18 @@ function push -d "deploy CF stack/lambda function"
     set -q _flag_config && set config $_flag_config
     set -a targets $argv
 
+    if test "$stage" = prod
+        while true
+            read -l -P 'Do you want to continue pushing to PROD? [y/N] ' confirm
+            switch $confirm
+                case Y y
+                    break
+                case '' N n
+                    return
+            end
+        end
+    end
+
     # push without any target/config/function
     test -z "$argv" -a -z "$function" && set -a targets .
 
