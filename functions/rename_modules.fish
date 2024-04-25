@@ -29,13 +29,13 @@ function rename_modules
 
     if test -z "$suffix"
         # clean all suffix
-        sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1\3/g' \
+        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' \
             $$_ts_project_dir/modules/*/serverless.yml \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
     else if set -q _flag_force
         # add suffix to all modules
-        sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' \
+        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' \
             $$_ts_project_dir/modules/*/serverless.yml \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
@@ -63,9 +63,9 @@ function rename_modules
         end
 
         if test -n "$changed_modules"
-            sed -i '' -E 's/module-([a-z]+)([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $$_ts_project_dir/modules/$changed_modules/serverless.yml
+            sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $$_ts_project_dir/modules/$changed_modules/serverless.yml
             if test -n "$services_dirs"
-                sed -i '' -E 's/module-('(string join '|' $changed_modules)')([^$]*)(-\$.*)?$/module-\1'"$suffix"'\3/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+                sed -i '' -E 's/module-('(string join '|' $changed_modules)')((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
             end
         end
     end
