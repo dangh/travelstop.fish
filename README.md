@@ -73,6 +73,8 @@ List of supported variables:
 | Key                         | Default value     | Description                                                                         |
 | ---                         | ---               | ---                                                                                 |
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
+| `ts_enable_prompt`          |                   | Enable custom prompt                                                                |
+| `ts_enable_right_prompt`    |                   | Enable custom right prompt                                                          |
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |

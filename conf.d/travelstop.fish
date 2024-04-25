@@ -196,15 +196,33 @@ function _ts_prompt_setup
         end
     end && _ts_prompt_enable
 
-    function fish_right_prompt
+    function _ts_prompt
         if set -q _ts_prompt_enable
+            ansi-escape '--'$_ts_color_profile $_ts_profile
+            ansi-escape '--'$_ts_color_sep $ts_sep
+            ansi-escape '--'$_ts_color_stage $_ts_stage
+        end
+    end
+
+    if set -q ts_enable_prompt
+        function fish_prompt
             if test -z "$TMUX"
-                ansi-escape '--'$_ts_color_profile $_ts_profile
-                ansi-escape '--'$_ts_color_sep $ts_sep
-                ansi-escape '--'$_ts_color_stage $_ts_stage
+                set -l prompt (_ts_prompt)
+                if test -n "$prompt"
+                    echo "$prompt "
+                    return
+                end
             end
-        else
-            functions -q fish_right_prompt_original && fish_right_prompt_original
+            set_color magenta
+            echo '# '
+        end
+    end
+
+    if set -q ts_enable_right_prompt
+        function fish_right_prompt
+            if test -z "$TMUX"
+                _ts_prompt
+            end
         end
     end
 
