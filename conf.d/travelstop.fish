@@ -19,29 +19,6 @@ function _ts_pushover -a title message
         https://api.pushover.net/1/messages.json >/dev/null 2>&1 &
 end
 
-function _ts_aws_creds -e clipboard_change -a creds -d "monitor clipboard for AWS credentials and store it"
-    set -q ts_aws_creds || return 1
-    set -n "$creds" || pbpaste | read -z creds
-    if string match -q -r '^\[(?<account_id>[[:digit:]]+)_(?<role>[[:alpha:]]+)\](?<config>(\r?\naws_[[:alpha:]_]+=[^[:space:]]+)+)' -- $creds
-        for stage_config in $ts_aws_creds
-            string match -q -r $account_id',(?<stage>[^,]+),(?<region>.+)' -- $stage_config || continue
-            mkdir -p ~/.aws
-            echo [$role@$stage]{$config} >~/.aws/credentials
-            set -U -x AWS_PROFILE $role@$stage
-            set -U -x AWS_DEFAULT_REGION $region
-            set -l notif_profile $AWS_PROFILE
-            set -l notif_region $region
-            set -l title 📮 AWS profile updated
-            functions -q fontface &&
-                set notif_profile (fontface -s monospace "$notif_profile") &&
-                set notif_region (fontface -s monospace "$notif_region")
-            _ts_notify "$title" "$notif_profile\n$notif_region"
-            return 0
-        end
-    end
-    return 1
-end
-
 function _ts_log
     echo '('(yellow sls)')' $argv
 end
@@ -164,7 +141,6 @@ function _ts_install -e travelstop_install -e travelstop_update
     if not set -qU ts_enable_abbr
         set -U ts_enable_abbr true
     end
-    functions -q pbmonitor && pbmonitor restart
 end
 
 function _ts_uninstall -e travelstop_uninstall
