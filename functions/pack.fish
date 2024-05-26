@@ -35,12 +35,12 @@ function pack -d "package a serverless service"
     test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*) "' < $json)[2]
 
     set -l package_cmd sls package
-    test -n "$aws_profile" && set -a package_cmd --aws-profile (string escape "$aws_profile")
-    test -n "$stage" && set -a package_cmd -s (string escape "$stage")
-    test -n "$region" && set -a package_cmd -r (string escape "$region")
-    test -n "$_flag_package" && set -a package_cmd -p (string escape "$_flag_package")
-    test -n "$_flag_app" && set -a package_cmd --app (string escape "$_flag_app")
-    test -n "$_flag_org" && set -a package_cmd --org (string escape "$_flag_org")
+    test -n "$aws_profile" && set -a package_cmd --aws-profile $aws_profile
+    test -n "$stage" && set -a package_cmd -s $stage
+    test -n "$region" && set -a package_cmd -r $region
+    test -n "$_flag_package" && set -a package_cmd -p $_flag_package
+    test -n "$_flag_app" && set -a package_cmd --app $_flag_app
+    test -n "$_flag_org" && set -a package_cmd --org $_flag_org
     test (path basename $yml) != serverless.yml && set -a package_cmd -c (path basename $yml)
 
     _ts_log packaging stack: (magenta $name_ver)

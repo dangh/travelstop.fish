@@ -41,22 +41,22 @@ function logs -d "watch lambda function logs"
     end
 
     set -l logs_cmd sls logs
-    test -n "$function" && set -a logs_cmd -f (string escape -- $function)
-    test -n "$aws_profile" && set -a logs_cmd --aws-profile (string escape -- $aws_profile)
-    test -n "$stage" && set -a logs_cmd -s (string escape -- $stage)
-    test -n "$region" && set -a logs_cmd -r (string escape -- $region)
+    test -n "$function" && set -a logs_cmd -f $function
+    test -n "$aws_profile" && set -a logs_cmd --aws-profile $aws_profile
+    test -n "$stage" && set -a logs_cmd -s $stage
+    test -n "$region" && set -a logs_cmd -r $region
     set -q _flag_tail && set -a logs_cmd -t
-    test -n "$startTime" && set -a logs_cmd --startTime (string escape -- $startTime)
-    test -n "$_flag_filter" && set -a logs_cmd --filter (string escape -- $_flag_filter)
-    test -n "$_flag_interval" && set -a logs_cmd -i (string escape -- $_flag_interval)
-    test -n "$_flag_app" && set -a logs_cmd --app (string escape -- $_flag_app)
-    test -n "$_flag_org" && set -a logs_cmd --org (string escape -- $_flag_org)
-    test -n "$_flag_config" && set -a logs_cmd -c (string escape -- $_flag_config)
+    test -n "$startTime" && set -a logs_cmd --startTime $startTime
+    test -n "$_flag_filter" && set -a logs_cmd --filter $_flag_filter
+    test -n "$_flag_interval" && set -a logs_cmd -i $_flag_interval
+    test -n "$_flag_app" && set -a logs_cmd --app $_flag_app
+    test -n "$_flag_org" && set -a logs_cmd --org $_flag_org
+    test -n "$_flag_config" && set -a logs_cmd -c $_flag_config
 
-    set -l awk_cmd LC_CTYPE=C awk -f (string escape -- $__fish_config_dir/functions/logs.awk)
+    set -l awk_cmd LC_CTYPE=C awk -f $__fish_config_dir/functions/logs.awk
 
     test function = (type -t ts_styles) && ts_styles
 
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $logs_cmd \| $awk_cmd))
-    eval (_ts_env --mode=env) (string escape -- command $logs_cmd) \| $awk_cmd
+    eval (_ts_env --mode=env) command $logs_cmd \| $awk_cmd
 end
