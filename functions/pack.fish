@@ -1,11 +1,11 @@
 function pack -d "package a serverless service"
-    set -l profile $AWS_PROFILE
+    set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l region $AWS_DEFAULT_REGION
     set -l yml ./serverless.yml
 
     argparse -n 'sls package' \
-        'profile=' \
+        'aws-profile=' \
         's/stage=' \
         'r/region=' \
         'app=' \
@@ -17,7 +17,7 @@ function pack -d "package a serverless service"
     # config is the first positional argument
     set -q argv[1] && set yml $argv[1]
 
-    set -q _flag_profile && set profile $_flag_profile
+    set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set region $_flag_region
     set -q _flag_config && set yml $_flag_config
@@ -32,10 +32,10 @@ function pack -d "package a serverless service"
     set -l name_ver (string match -r '^service:\s*([^\s]*)' < $yml)[2]
     set -l json (realpath $working_dir/package.json 2>/dev/null)
     test -f "$json" || set -l json (realpath $working_dir/nodejs/package.json 2>/dev/null)
-    test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*)"' < $json)[2]
+    test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*) "' < $json)[2]
 
     set -l package_cmd sls package
-    test -n "$profile" && set -a package_cmd --profile=(string escape "$profile")
+    test -n "$aws_profile" && set -a package_cmd --aws-profile=(string escape "$aws_profile")
     test -n "$stage" && set -a package_cmd --stage=(string escape "$stage")
     test -n "$region" && set -a package_cmd --region=(string escape "$region")
     test -n "$_flag_package" && set -a package_cmd --package=(string escape "$_flag_package")
@@ -48,8 +48,8 @@ function pack -d "package a serverless service"
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $package_cmd))
 
     fish --private --command "
-        cd $working_dir
-        type -q nvm && nvm use > /dev/null
-        "\ (_ts_env --mode=env)\ "command $package_cmd
+cd $working_dir
+type -q nvm && nvm use >/dev/null
+"\ (_ts_env --mode=env)\ "command $package_cmd
     "
 end

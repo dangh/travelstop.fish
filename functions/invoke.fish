@@ -1,12 +1,12 @@
 function invoke -d "invoke lambda function"
     set -l startTime (date -u "+%Y%m%dT%H%M%S")
     set -l function
-    set -l profile $AWS_PROFILE
+    set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l region $AWS_DEFAULT_REGION
 
     argparse -n 'sls invoke' \
-        'profile=' \
+        'aws-profile=' \
         'f/function=' \
         's/stage=' \
         'r/region=' \
@@ -32,7 +32,7 @@ function invoke -d "invoke lambda function"
     set -q argv[1] && set function $argv[1]
 
     set -q _flag_function && set function $_flag_function
-    set -q _flag_profile && set profile $_flag_profile
+    set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set region $_flag_region
     set -q _flag_startTime && set startTime $_flag_startTime
@@ -49,7 +49,7 @@ function invoke -d "invoke lambda function"
 
     set -l invoke_cmd sls invoke
     test -n "$function" && set -a invoke_cmd --function=(string escape -- $function)
-    test -n "$profile" && set -a invoke_cmd --profile=(string escape -- $profile)
+    test -n "$aws_profile" && set -a invoke_cmd --aws-profile=(string escape -- $aws_profile)
     test -n "$stage" && set -a invoke_cmd --stage=(string escape -- $stage)
     test -n "$region" && set -a invoke_cmd --region=(string escape -- $region)
     test -n "$_flag_type" && set -a invoke_cmd --type=(string escape -- $_flag_type)
@@ -70,7 +70,7 @@ function invoke -d "invoke lambda function"
 
     set -l logs_argv logs
     test -n "$function" && set -a logs_argv --function=(string escape -- $function)
-    test -n "$profile" && set -a logs_argv --profile=(string escape -- $profile)
+    test -n "$aws_profile" && set -a logs_argv --aws-profile=(string escape -- $aws_profile)
     test -n "$stage" && set -a logs_argv --stage=(string escape -- $stage)
     test -n "$region" && set -a logs_argv --region=(string escape -- $region)
     set -q _flag_tail && set -a logs_argv --tail

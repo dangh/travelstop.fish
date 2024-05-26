@@ -1,5 +1,5 @@
 function sls -d "wraps sls to provide stage/profile/region implicitly"
-    set -l profile $AWS_PROFILE
+    set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l region $AWS_DEFAULT_REGION
     set -l data
@@ -10,7 +10,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
     set -l sub_command $argv[1]
 
     argparse -i \
-        'profile=' \
+        'aws-profile=' \
         's/stage=' \
         'r/region=' \
         'd/data=' \
@@ -22,7 +22,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
     if test -z "$sub_command"
         set cmd sls $args
     else
-        set -q _flag_profile && set profile $_flag_profile
+        set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
         set -q _flag_stage && set stage $_flag_stage
         set -q _flag_region && set region $_flag_region
 
@@ -31,7 +31,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         string match -q -r '^\s*region:\s*\'(?<yml_region>[a-z0-9-]+)\'' <$yml
         test -n "$yml_region" && set region $yml_region
 
-        set cmd sls $argv --profile=$profile --stage=$stage --region=$region
+        set cmd sls $argv --aws-profile=$aws_profile --stage=$stage --region=$region
         test -n "$_flag_data" && begin
             set -l data_path (mktemp -t sls-data-)
             echo $_flag_data >$data_path

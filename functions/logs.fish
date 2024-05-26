@@ -1,13 +1,13 @@
 function logs -d "watch lambda function logs"
     set -l function
-    set -l profile $AWS_PROFILE
+    set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l region $AWS_DEFAULT_REGION
     set -l startTime 2m
 
     argparse -n 'sls logs' \
         'f/function=' \
-        'profile=' \
+        'aws-profile=' \
         's/stage=' \
         'r/region=' \
         t/tail \
@@ -24,7 +24,7 @@ function logs -d "watch lambda function logs"
     set -q argv[1] && set function $argv[1]
 
     set -q _flag_function && set function $_flag_function
-    set -q _flag_profile && set profile $_flag_profile
+    set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set region $_flag_region
     set -q _flag_type && set type $_flag_type
@@ -42,7 +42,7 @@ function logs -d "watch lambda function logs"
 
     set -l logs_cmd sls logs
     test -n "$function" && set -a logs_cmd --function=(string escape -- $function)
-    test -n "$profile" && set -a logs_cmd --profile=(string escape -- $profile)
+    test -n "$aws_profile" && set -a logs_cmd --aws-profile=(string escape -- $aws_profile)
     test -n "$stage" && set -a logs_cmd --stage=(string escape -- $stage)
     test -n "$region" && set -a logs_cmd --region=(string escape -- $region)
     set -q _flag_tail && set -a logs_cmd --tail

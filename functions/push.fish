@@ -1,5 +1,5 @@
 function push -d "deploy CF stack/lambda function"
-    set -l profile $AWS_PROFILE
+    set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l default_region $AWS_DEFAULT_REGION
     set -l targets
@@ -10,7 +10,7 @@ function push -d "deploy CF stack/lambda function"
 
     argparse -n 'sls deploy' \
         conceal \
-        'profile=' \
+        'aws-profile=' \
         's/stage=' \
         'r/region=' \
         'p/package=' \
@@ -30,7 +30,7 @@ function push -d "deploy CF stack/lambda function"
     # rename modules before deploy
     rename_modules on
 
-    set -q _flag_profile && set profile $_flag_profile
+    set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set default_region $_flag_region
     set -q _flag_config && set config $_flag_config
@@ -117,7 +117,7 @@ function push -d "deploy CF stack/lambda function"
         switch $target_type
             case function
                 set -a deploy_cmd function --function=(string escape -- $function_name)
-                test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
+                test -n "$aws_profile" && set -a deploy_cmd --aws-profile=(string escape -- $aws_profile)
                 test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
                 if test -n "$region"
                     set -a deploy_cmd --region=(string escape -- $region)
@@ -128,7 +128,7 @@ function push -d "deploy CF stack/lambda function"
                 set -q _flag_update_config && set -a deploy_cmd --update-config
             case \*
                 set -q _flag_conceal && set -a deploy_cmd --conceal
-                test -n "$profile" && set -a deploy_cmd --profile=(string escape -- $profile)
+                test -n "$aws_profile" && set -a deploy_cmd --aws-profile=(string escape -- $aws_profile)
                 test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
                 if test -n "$region"
                     set -a deploy_cmd --region=(string escape -- $region)
