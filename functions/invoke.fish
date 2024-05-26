@@ -48,38 +48,38 @@ function invoke -d "invoke lambda function"
     end
 
     set -l invoke_cmd sls invoke
-    test -n "$function" && set -a invoke_cmd --function=(string escape -- $function)
-    test -n "$aws_profile" && set -a invoke_cmd --aws-profile=(string escape -- $aws_profile)
-    test -n "$stage" && set -a invoke_cmd --stage=(string escape -- $stage)
-    test -n "$region" && set -a invoke_cmd --region=(string escape -- $region)
-    test -n "$_flag_type" && set -a invoke_cmd --type=(string escape -- $_flag_type)
-    test -n "$_flag_qualifier" && set -a invoke_cmd --qualifier=(string escape -- $_flag_qualifier)
-    test -n "$_flag_path" && set -a invoke_cmd --path=(string escape -- $_flag_path)
+    test -n "$function" && set -a invoke_cmd -f (string escape -- $function)
+    test -n "$aws_profile" && set -a invoke_cmd --aws-profile (string escape -- $aws_profile)
+    test -n "$stage" && set -a invoke_cmd -s (string escape -- $stage)
+    test -n "$region" && set -a invoke_cmd -r (string escape -- $region)
+    test -n "$_flag_type" && set -a invoke_cmd -t (string escape -- $_flag_type)
+    test -n "$_flag_qualifier" && set -a invoke_cmd -q (string escape -- $_flag_qualifier)
+    test -n "$_flag_path" && set -a invoke_cmd -p (string escape -- $_flag_path)
     set -q _flag_log && set -a invoke_cmd --log
     test -n "$_flag_data" && begin
         set -l data_path (mktemp -t sls-invoke-data-)
         echo $_flag_data >$data_path
-        set -a invoke_cmd --path=$data_path
+        set -a invoke_cmd -p $data_path
     end
     set -q _flag_raw && set -a invoke_cmd --raw
-    test -n "$_flag_context" && set -a invoke_cmd --context=(string escape -- $_flag_context)
-    test -n "$_flag_contextPath" && set -a invoke_cmd --contextPath=(string escape -- $_flag_contextPath)
-    test -n "$_flag_app" && set -a invoke_cmd --app=(string escape -- $_flag_app)
-    test -n "$_flag_org" && set -a invoke_cmd --org=(string escape -- $_flag_org)
-    test -n "$_flag_config" && set -a invoke_cmd --config=(string escape -- $_flag_config)
+    test -n "$_flag_context" && set -a invoke_cmd --context (string escape -- $_flag_context)
+    test -n "$_flag_contextPath" && set -a invoke_cmd --contextPath (string escape -- $_flag_contextPath)
+    test -n "$_flag_app" && set -a invoke_cmd --app (string escape -- $_flag_app)
+    test -n "$_flag_org" && set -a invoke_cmd --org (string escape -- $_flag_org)
+    test -n "$_flag_config" && set -a invoke_cmd -c (string escape -- $_flag_config)
 
     set -l logs_argv logs
-    test -n "$function" && set -a logs_argv --function=(string escape -- $function)
-    test -n "$aws_profile" && set -a logs_argv --aws-profile=(string escape -- $aws_profile)
-    test -n "$stage" && set -a logs_argv --stage=(string escape -- $stage)
-    test -n "$region" && set -a logs_argv --region=(string escape -- $region)
+    test -n "$function" && set -a logs_argv -f (string escape -- $function)
+    test -n "$aws_profile" && set -a logs_argv --aws-profile (string escape -- $aws_profile)
+    test -n "$stage" && set -a logs_argv -s (string escape -- $stage)
+    test -n "$region" && set -a logs_argv -r (string escape -- $region)
     set -q _flag_tail && set -a logs_argv --tail
-    test -n "$startTime" && set -a logs_argv --startTime=(string escape -- $startTime)
-    test -n "$_flag_filter" && set -a logs_argv --filter=(string escape -- $_flag_filter)
-    test -n "$_flag_interval" && set -a logs_argv --interval=(string escape -- $_flag_interval)
-    test -n "$_flag_app" && set -a logs_argv --app=(string escape -- $_flag_app)
-    test -n "$_flag_org" && set -a logs_argv --org=(string escape -- $_flag_org)
-    test -n "$_flag_config" && set -a logs_argv --config=(string escape -- $_flag_config)
+    test -n "$startTime" && set -a logs_argv --startTime (string escape -- $startTime)
+    test -n "$_flag_filter" && set -a logs_argv --filter (string escape -- $_flag_filter)
+    test -n "$_flag_interval" && set -a logs_argv -i (string escape -- $_flag_interval)
+    test -n "$_flag_app" && set -a logs_argv --app (string escape -- $_flag_app)
+    test -n "$_flag_org" && set -a logs_argv --org (string escape -- $_flag_org)
+    test -n "$_flag_config" && set -a logs_argv -c (string escape -- $_flag_config)
 
     eval (_ts_env --mode=env) (string escape -- $invoke_cmd)
 

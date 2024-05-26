@@ -41,17 +41,17 @@ function logs -d "watch lambda function logs"
     end
 
     set -l logs_cmd sls logs
-    test -n "$function" && set -a logs_cmd --function=(string escape -- $function)
-    test -n "$aws_profile" && set -a logs_cmd --aws-profile=(string escape -- $aws_profile)
-    test -n "$stage" && set -a logs_cmd --stage=(string escape -- $stage)
-    test -n "$region" && set -a logs_cmd --region=(string escape -- $region)
-    set -q _flag_tail && set -a logs_cmd --tail
-    test -n "$startTime" && set -a logs_cmd --startTime=(string escape -- $startTime)
-    test -n "$_flag_filter" && set -a logs_cmd --filter=(string escape -- $_flag_filter)
-    test -n "$_flag_interval" && set -a logs_cmd --interval=(string escape -- $_flag_interval)
-    test -n "$_flag_app" && set -a logs_cmd --app=(string escape -- $_flag_app)
-    test -n "$_flag_org" && set -a logs_cmd --org=(string escape -- $_flag_org)
-    test -n "$_flag_config" && set -a logs_cmd --config=(string escape -- $_flag_config)
+    test -n "$function" && set -a logs_cmd -f (string escape -- $function)
+    test -n "$aws_profile" && set -a logs_cmd --aws-profile (string escape -- $aws_profile)
+    test -n "$stage" && set -a logs_cmd -s (string escape -- $stage)
+    test -n "$region" && set -a logs_cmd -r (string escape -- $region)
+    set -q _flag_tail && set -a logs_cmd -t
+    test -n "$startTime" && set -a logs_cmd --startTime (string escape -- $startTime)
+    test -n "$_flag_filter" && set -a logs_cmd --filter (string escape -- $_flag_filter)
+    test -n "$_flag_interval" && set -a logs_cmd -i (string escape -- $_flag_interval)
+    test -n "$_flag_app" && set -a logs_cmd --app (string escape -- $_flag_app)
+    test -n "$_flag_org" && set -a logs_cmd --org (string escape -- $_flag_org)
+    test -n "$_flag_config" && set -a logs_cmd -c (string escape -- $_flag_config)
 
     set -l awk_cmd LC_CTYPE=C awk -f (string escape -- $__fish_config_dir/functions/logs.awk)
 

@@ -116,32 +116,32 @@ function push -d "deploy CF stack/lambda function"
         set -l deploy_cmd sls deploy
         switch $target_type
             case function
-                set -a deploy_cmd function --function=(string escape -- $function_name)
-                test -n "$aws_profile" && set -a deploy_cmd --aws-profile=(string escape -- $aws_profile)
-                test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
+                set -a deploy_cmd function -f (string escape -- $function_name)
+                test -n "$aws_profile" && set -a deploy_cmd --aws-profile (string escape -- $aws_profile)
+                test -n "$stage" && set -a deploy_cmd -s (string escape -- $stage)
                 if test -n "$region"
-                    set -a deploy_cmd --region=(string escape -- $region)
+                    set -a deploy_cmd -r (string escape -- $region)
                 else if test -n "$default_region"
-                    set -a deploy_cmd --region=(string escape -- $default_region)
+                    set -a deploy_cmd -r (string escape -- $default_region)
                 end
                 set -q _flag_force && set -a deploy_cmd --force
-                set -q _flag_update_config && set -a deploy_cmd --update-config
+                set -q _flag_update_config && set -a deploy_cmd -u
             case \*
                 set -q _flag_conceal && set -a deploy_cmd --conceal
-                test -n "$aws_profile" && set -a deploy_cmd --aws-profile=(string escape -- $aws_profile)
-                test -n "$stage" && set -a deploy_cmd --stage=(string escape -- $stage)
+                test -n "$aws_profile" && set -a deploy_cmd --aws-profile (string escape -- $aws_profile)
+                test -n "$stage" && set -a deploy_cmd -s (string escape -- $stage)
                 if test -n "$region"
-                    set -a deploy_cmd --region=(string escape -- $region)
+                    set -a deploy_cmd -r (string escape -- $region)
                 else if test -n "$default_region"
-                    set -a deploy_cmd --region=(string escape -- $default_region)
+                    set -a deploy_cmd -r (string escape -- $default_region)
                 end
-                test -n "$_flag_package" && set -a deploy_cmd --package=(string escape -- $_flag_package)
-                set -q _flag_verbose && set -a deploy_cmd --verbose
+                test -n "$_flag_package" && set -a deploy_cmd -p (string escape -- $_flag_package)
+                set -q _flag_verbose && set -a deploy_cmd -v
                 set -q _flag_force && set -a deploy_cmd --force
                 set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
-                test -n "$_flag_app" && set -a deploy_cmd --app=(string escape -- $_flag_app)
-                test -n "$_flag_org" && set -a deploy_cmd --org=(string escape -- $_flag_org)
-                test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd --config=(path basename $serverless_yml)
+                test -n "$_flag_app" && set -a deploy_cmd --app (string escape -- $_flag_app)
+                test -n "$_flag_org" && set -a deploy_cmd --org (string escape -- $_flag_org)
+                test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
         end
         test "$target_type" = function \
             && _ts_log deploying function: (magenta $fullname) \

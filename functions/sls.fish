@@ -31,11 +31,11 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         string match -q -r '^\s*region:\s*\'(?<yml_region>[a-z0-9-]+)\'' <$yml
         test -n "$yml_region" && set region $yml_region
 
-        set cmd sls $argv --aws-profile=$aws_profile --stage=$stage --region=$region
+        set cmd sls $argv --aws-profile $aws_profile -s $stage -r $region
         test -n "$_flag_data" && begin
             set -l data_path (mktemp -t sls-data-)
             echo $_flag_data >$data_path
-            set -a cmd --path=$data_path
+            set -a cmd -p $data_path
         end
 
         _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $cmd))
