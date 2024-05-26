@@ -15,11 +15,12 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         'r/region=' \
         'd/data=' \
         'c/config=' \
+        h/help \
         -- $args
     or return 1
 
     set -l cmd
-    if test -z "$sub_command"
+    if test -z "$sub_command" -o "$sub_command" = help || set -q _flag_help
         set cmd sls $args
     else
         set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
