@@ -28,6 +28,18 @@ function invoke -d "invoke lambda function"
         -- $ts_default_argv_invoke $argv
     or return 1
 
+    if test "$stage" = prod
+        while true
+            read -l -P 'Do you want to continue invoking function on PROD? [y/N] ' confirm
+            switch $confirm
+                case Y y
+                    break
+                case '' N n
+                    return
+            end
+        end
+    end
+
     # function is the first positional argument
     set -q argv[1] && set function $argv[1]
 
