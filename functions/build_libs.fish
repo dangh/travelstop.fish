@@ -35,6 +35,7 @@ function build_libs -d "rebuild libs module"
     if test -n "$libs"
         # wrapper shell to await multiple background processes
         fish --private --command "
+            set -b jobs
             for lib in $libs
                 set -l lib_dir
                 switch \$lib
@@ -56,7 +57,12 @@ function build_libs -d "rebuild libs module"
                     # re-write OS header to unknown
                     printf '\\\xff' | dd of=\\\$tgz bs=1 seek=9 count=1 conv=notrunc status=none
                 \" &
+                set -a jobs \$last_pid
                 rm -r \"$nodejs_dir/node_modules/\$lib\" 2>/dev/null &
+                set -a jobs \$last_pid
+            end
+            for pid in \$jobs
+                wait \$pid
             end
         " >/dev/null
         for lib in $libs
