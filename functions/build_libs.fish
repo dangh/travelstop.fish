@@ -35,7 +35,7 @@ function build_libs -d "rebuild libs module"
     if test -n "$libs"
         # wrapper shell to await multiple background processes
         fish --private --command "
-            set -b jobs
+            set -l jobs
             for lib in $libs
                 set -l lib_dir
                 switch \$lib
