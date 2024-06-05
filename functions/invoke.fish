@@ -21,10 +21,6 @@ function invoke -d "invoke lambda function"
         'app=' \
         'org=' \
         'c/config=' \
-        tail \
-        'startTime=' \
-        'filter=' \
-        'i/interval=' \
         -- $ts_default_argv_invoke $argv
     or return 1
 
@@ -80,20 +76,10 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_org" && set -a invoke_cmd --org $_flag_org
     test -n "$_flag_config" && set -a invoke_cmd -c $_flag_config
 
-    set -l logs_argv logs
-    test -n "$function" && set -a logs_argv -f $function
-    test -n "$aws_profile" && set -a logs_argv --aws-profile $aws_profile
-    test -n "$stage" && set -a logs_argv -s $stage
-    test -n "$region" && set -a logs_argv -r $region
-    set -q _flag_tail && set -a logs_argv --tail
-    test -n "$startTime" && set -a logs_argv --startTime $startTime
-    test -n "$_flag_filter" && set -a logs_argv --filter $_flag_filter
-    test -n "$_flag_interval" && set -a logs_argv -i $_flag_interval
-    test -n "$_flag_app" && set -a logs_argv --app $_flag_app
-    test -n "$_flag_org" && set -a logs_argv --org $_flag_org
-    test -n "$_flag_config" && set -a logs_argv -c $_flag_config
+    set -l awk_cmd LC_CTYPE=C awk -f $__fish_config_dir/functions/logs.awk
 
-    eval (_ts_env --mode=env) $invoke_cmd
+    test function = (type -t ts_styles) && ts_styles
 
-    logs $logs_argv
+    _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $invoke_cmd \| $awk_cmd))
+    eval (_ts_env --mode=env) command $invoke_cmd \| $awk_cmd
 end
