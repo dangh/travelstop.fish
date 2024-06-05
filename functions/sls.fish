@@ -39,6 +39,21 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
             set -a cmd -p $data_path
         end
 
+        switch $sub_command
+            case invoke deploy
+                if test "$stage" = prod
+                    while true
+                        read -l -P "Do you want to perform $sub_command on PROD? [y/N] " confirm
+                        switch $confirm
+                            case Y y
+                                break
+                            case '' N n
+                                return
+                        end
+                    end
+                end
+        end
+
         _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $cmd))
     end
     eval (_ts_env --mode=env) command $cmd
