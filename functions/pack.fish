@@ -1,7 +1,7 @@
 function pack -d "package a serverless service"
     set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
-    set -l region $AWS_DEFAULT_REGION
+    set -l region $AWS_REGION
     set -l yml ./serverless.yml
 
     argparse -n 'sls package' \

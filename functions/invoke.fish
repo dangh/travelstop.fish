@@ -3,7 +3,7 @@ function invoke -d "invoke lambda function"
     set -l function
     set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
-    set -l region $AWS_DEFAULT_REGION
+    set -l region $AWS_REGION
 
     argparse -n 'sls invoke' \
         'aws-profile=' \

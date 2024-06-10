@@ -1,7 +1,7 @@
 function push -d "deploy CF stack/lambda function"
     set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
-    set -l default_region $AWS_DEFAULT_REGION
+    set -l default_region $AWS_REGION
     set -l targets
     set -l config # config when pushing functions
     set -l modules

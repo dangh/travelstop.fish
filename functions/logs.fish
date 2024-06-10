@@ -2,7 +2,7 @@ function logs -d "watch lambda function logs"
     set -l function
     set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
-    set -l region $AWS_DEFAULT_REGION
+    set -l region $AWS_REGION
     set -l startTime 2m
 
     argparse -n 'sls logs' \
