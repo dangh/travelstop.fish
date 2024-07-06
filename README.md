@@ -109,3 +109,13 @@ abbr -a -- l30 'logs --startTime=30m'
 brew install cowsay fortune lolcat
 set -Ux ts_blank_page_cmd fortune \| cowsay -f \$\( ls /opt/homebrew/share/cows/*.cow \| sort -R \| head -1 \) \| lolcat -F 0.01
 ```
+
+### To open daily report function in Firefox container:
+
+```sh
+# we need ast-grep to grep error message from js file
+brew install ast-grep
+
+# this is the root dir of the project
+set -U ts_master_dir <path_to_project_dir>
+```
