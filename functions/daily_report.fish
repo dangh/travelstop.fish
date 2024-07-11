@@ -62,20 +62,14 @@ function _find_dir -a root -a stack
 end
 
 function _get_error_message -a js_file
-    set -l patterns \
-        'exports.handler = async ($$$_) => { $$$_ try { $$$_ } catch($$$_) { log.error(\'$MSG\', $$$_) } }' \
-        'exports.handler = async ($$$_) => { $$$_ try { $$$_ } catch($$$_) { log.error(\'$MSG\', $$$_); $$$_ } }' \
-        'exports.handler = async ($$$_) => { $$$_ try { $$$_ } catch($$$_) { log.error(\'$MSG\', $$$_) } finally { $$$_ } }'
-    for pattern in $patterns
-        ast-grep -p $pattern --strictness signature --json $js_file \
-            | jq -er '.[0].metaVariables.single.MSG.text | select( . != null )' \
-            | grep -E '\w+(\s+\w+)*' -m1 -o \
-            | head -1 \
-            | read -l msg
-        if test -n "$msg"
-            echo $msg
-            return 0
-        end
+    ast-grep -p 'log.error(\'$MSG\', $$$)' --strictness signature --json $js_file \
+        | jq -er '.[-1].metaVariables.single.MSG.text | select( . != null )' \
+        | grep -E '\w+(\s+\w+)*' -m1 -o \
+        | head -1 \
+        | read -l msg
+    if test -n "$msg"
+        echo $msg
+        return 0
     end
     return 1
 end
