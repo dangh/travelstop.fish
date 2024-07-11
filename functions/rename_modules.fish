@@ -25,7 +25,7 @@ function rename_modules
     end
 
     # rename modules
-    test -n "$suffix" && set suffix "-$suffix"
+    test -n "$suffix" && set suffix (string lower -- "-$suffix")
 
     if test -z "$suffix"
         # clean all suffix
