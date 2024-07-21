@@ -59,6 +59,22 @@ function invoke -d "invoke lambda function"
         return 1
     end
 
+    # auto push
+    set function_js 'functions/'(string replace -ar '[A-Z]' -- '-$0' $function)'.js'
+    if test -f $function_js
+        set last_function_js (string escape --style var -- $function_js)
+        if test "$$last_function_js" != (md5 -q $function_js)
+            set -g $last_function_js (md5 -q $function_js)
+            # push function
+            set -l push_argv
+            set -a push_argv -f $function_name
+            test -n "$aws_profile" && set -a push_argv --aws-profile $aws_profile
+            test -n "$stage" && set -a push_argv -s $stage
+            test -n "$region" && set -a push_argv -r $region
+            push $push_argv
+        end
+    end
+
     set -l invoke_cmd sls invoke
     test -n "$function" && set -a invoke_cmd -f $function
     test -n "$aws_profile" && set -a invoke_cmd --aws-profile $aws_profile
