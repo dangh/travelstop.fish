@@ -28,7 +28,15 @@ function daily_report -a lambda
 
     set url "ext+container:name=$container&url=https://$region.console.aws.amazon.com/cloudwatch/home?region=$region#logsV2:log-groups/log-group/\$252Faws\$252Flambda\$252F$lambda/log-events\$3FfilterPattern\$3D\$2522$query\$2522\$26start\$3D$start_time\$26end\$3D$end_time"
 
-    /Applications/Firefox\ Developer\ Edition.app/Contents/MacOS/firefox $url
+    if test -n "$AWS_BROWSER"
+        if test "$AWS_BROWSER_NEW_WINDOW" = 1
+            $AWS_BROWSER --new-window $url
+        else
+            $AWS_BROWSER $url
+        end
+    else
+        echo $url
+    end
 end
 
 function _pluralize -a word
