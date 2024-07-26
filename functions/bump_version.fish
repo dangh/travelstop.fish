@@ -45,15 +45,15 @@ function bump_version
 
     if test -n "$v"
         if test "$v" != "$last_version"
-            set dir $PWD
             for d in . nodejs
                 if test -f $d/package.json
-                    cd $d
-                    npm version --allow-same-version $v
-                    npm i --package-lock-only
+                    fish -P -c "
+                        cd $d
+                        npm version --allow-same-version $v
+                        npm i --package-lock-only
+                    "
                 end
             end
-            cd $dir
         end
     else
         set v "$last_version"
