@@ -153,7 +153,7 @@ function push -d "deploy CF stack/lambda function"
             build_libs --force
         else
             fish --private --command "
-                for d in \"$working_dir\" \"$working_dir\"/nodejs \"$working_dir\"/nodejs*/nodejs
+                for d in \"$working_dir\" \"$working_dir\"/nodejs \"$working_dir\"/nodejs*/nodejs \"$working_dir\"/nodejs/node*
                     if test -e \"\$d\"/package.json
                         cd \"\$d\"
                         type -q nvm && nvm use > /dev/null
