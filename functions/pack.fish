@@ -32,7 +32,7 @@ function pack -d "package a serverless service"
     set -l name_ver (string match -r '^service:\s*([^\s]*)' < $yml)[2]
     set -l json (realpath $working_dir/package.json 2>/dev/null)
     test -f "$json" || set -l json (realpath $working_dir/nodejs/package.json 2>/dev/null)
-    test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*) "' < $json)[2]
+    test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*)"' < $json)[2]
 
     set -l package_cmd sls package
     test -n "$aws_profile" && set -a package_cmd --aws-profile $aws_profile
