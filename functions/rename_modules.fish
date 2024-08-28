@@ -53,7 +53,7 @@ function rename_modules
                     # ignore it
                 case lib/\* schema/\*
                     contains libs $changed_modules || set -a changed_modules libs
-                case modules/\*
+                case modules/\*/\*
                     string match -q -r '^modules/(?<module_name>[^/]+)' $file
                     contains $module_name $changed_modules || set -a changed_modules $module_name
                 case services/\* admin/services/\*
@@ -63,9 +63,12 @@ function rename_modules
         end
 
         if test -n "$changed_modules"
-            sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $$_ts_project_dir/modules/$changed_modules/serverless.yml
-            if test -n "$services_dirs"
-                sed -i '' -E 's/module-('(string join '|' $changed_modules)')((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+            for d in $changed_modules
+                string match -q -r '^# Layer: (?<module_name>\S+)' <$$_ts_project_dir/modules/$d/serverless.yml
+                sed -i '' -E 's/^service:.*$/service: '$module_name$suffix'/g' $$_ts_project_dir/modules/$d/serverless.yml
+                if test -n "$services_dirs"
+                    sed -i '' -E 's/cf:'$module_name'[^$]*\$/cf:'$module_name$suffix'-$/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+                end
             end
         end
     end
