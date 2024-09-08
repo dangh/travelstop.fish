@@ -70,18 +70,27 @@ function _find_dir -a root -a stack
 end
 
 function _get_error_message -a js_file
-    set -l patterns \
-        'try { $$$ } catch($$$) { log.error($MSG, $$$); $$$ }' \
-        'try { $$$ } catch($$$) { log.error($MSG, $$$); $$$ } finally { }'
-    for pattern in $patterns
-        ast-grep -p $pattern --strictness signature --json $js_file \
-            | jq -er '. | if length == 1 then .[-1].metaVariables.single.MSG.text else empty end' \
-            | grep -E '\w+(\s+\w+)*' -m1 -o \
-            | head -1 \
-            | read -l msg
-        if test -n "$msg"
-            echo $msg
-            return 0
-        end
-    end
+    node -e "
+        const fs = require('fs');
+        let jsSource = fs.readFileSync('$js_file', 'utf-8');
+        let m;
+        let handlerFunctionRegex = /exports\.handler =(.|\n)*?\n\}/gm;
+        let handlerFunction = handlerFunctionRegex.exec(jsSource)[0];
+        let catchClauseRegex = /^ {2}\} catch\s*\([^\n]+\n(?<src>(.|\n)*?)\n {2}\}/gm;
+        let lastCatchClause;
+        while((m = catchClauseRegex.exec(handlerFunction))) lastCatchClause = m.groups.src;
+        let logStatementRegexes = [
+            /^ {4}log\.error\('(?<msg>[\w ]+)/m,
+            /^ {4}log\.info\('(?<msg>[\w ]+)/m,
+            /^ {6}log\.error\('(?<msg>[\w ]+)/m,
+            /^ {6}log\.info\('(?<msg>[\w ]+)/m,
+        ];
+        for(let regex of logStatementRegexes) {
+            m = regex.exec(lastCatchClause);
+            if(m) {
+                console.log(m.groups.msg);
+                break;
+            }//if
+        }//for
+    "
 end
