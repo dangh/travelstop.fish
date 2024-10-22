@@ -35,8 +35,9 @@ function rename_modules
             $$_ts_project_dir/admin/services/serverless-layers.yml
     else if set -q _flag_force
         # add suffix to all modules
+        sed -i '' -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' \
+            $$_ts_project_dir/modules/*/serverless.yml
         sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' \
-            $$_ts_project_dir/modules/*/serverless.yml \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
     else
