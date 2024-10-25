@@ -66,24 +66,71 @@ function _ts_project_dir_setup
     status is-interactive || $_ts_project_dir
 end && _ts_project_dir_setup && functions -e _ts_project_dir_setup
 
+function _ts_service_name -d "print service name"
+    argparse s/short l/long -- $argv
+    set -l ymls $argv
+    if not test -t 0
+        while read -l yml
+            set -a ymls $yml
+        end
+    end
+    test -n "$ymls" || set ymls ./serverless.yml
+    for yml in $ymls
+        string match -eq "*.yml" $yml || set yml $yml/serverless.yml
+        string match -qr '^service: (?<name>\S+)' <$yml
+        if set -q _flag_long
+            echo $name-(string lower $AWS_PROFILE)
+        else
+            echo $name
+        end
+    end
+end
+
 function _ts_modules -d "list all modules"
     set -q $_ts_project_dir || return
-    printf '%s\n' $$_ts_project_dir/modules/*/serverless.yml | string replace -r '.*/modules/([\w-]+)/serverless.yml' 'modules/$1'
+    argparse a/absolute r/relative -- $argv
+    if set -q _flag_absolute
+        path dirname $$_ts_project_dir/modules/*/serverless.yml
+        return
+    end
+    if set -q _flag_relative
+        set -l len (string length $$_ts_project_dir/)
+        set -l rel_path (string sub -s $len $PWD | string replace -ar '/[^/]+' '../')
+        test -n "$rel_path" || set rel_path './'
+        path dirname $$_ts_project_dir/modules/*/serverless.yml | string sub -s (math 1+$len) | string replace -r '^' $rel_path
+        return
+    end
+    set -l len (string length $$_ts_project_dir/)
+    path dirname $$_ts_project_dir/modules/*/serverless.yml | string sub -s (math 1+$len)
 end
 
 function _ts_substacks -d "list all sub directories contains serverless.yml"
     set -q $_ts_project_dir || return
-    find . -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace /serverless.yml '' | string replace './' ''
+    find . -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace /serverless.yml '' | string replace './' '' | path sort
 end
 
-function _ts_functions -a yml -d "list all lambda functions in serverless.yml"
-    test -n "$yml" || set -l yml ./serverless.yml
-    awk '{
-        if ((y == 1) && ($0 ~ /^[^#[:space:]]/)) exit;
-        if ($0 ~ /^[[:space:]]*#/) next;
-        if ($0 ~ /^functions:/) { y = 1; next; }
-        if ((y == 1) && match($0, /^[[:space:]]{2}[[:alpha:]]+:/)) print substr($0, RSTART+2, RLENGTH-2-1);
-    }' $yml 2>/dev/null
+function _ts_functions -d "list all lambda functions in serverless.yml"
+    argparse -i s/short l/long -- $argv
+    set -l ymls $argv
+    if not test -t 0
+        while read -L yml
+            set -a ymls $yml
+        end
+    end
+    test -n "$ymls" || set ymls ./serverless.yml
+    for yml in $ymls
+        string match -eq "*.yml" $yml || set yml $yml/serverless.yml
+        set -l prefix ''
+        if set -q _flag_long
+            set prefix (_ts_service_name -l $yml)-
+        end
+        awk '{
+            if ((y == 1) && ($0 ~ /^[^#[:space:]]/)) exit;
+            if ($0 ~ /^[[:space:]]*#/) next;
+            if ($0 ~ /^functions:/) { y = 1; next; }
+            if ((y == 1) && match($0, /^[[:space:]]{2}[[:alpha:]]+:/)) print "'$prefix'" substr($0, RSTART+2, RLENGTH-2-1);
+        }' $yml 2>/dev/null
+    end
 end
 
 function _ts_validate_path -a path -d "validate path existence and print it with colors"
@@ -123,6 +170,22 @@ function _ts_validate_path -a path -d "validate path existence and print it with
         end
     end
     echo $path
+end
+
+function _ts_delete_layer_version
+    set -e argv
+    set -l layer_name $argv[1]
+    set -l v $argv[2]
+    echo Deleting layer '$layer_name':$v
+    aws lambda delete-layer-version --layer-name '$layer_name' --version-number $v
+end
+
+function _ts_delete_function_version
+    set -e argv
+    set -l function_name $argv[1]
+    set -l v $argv[2]
+    echo Deleting function $function_name:$v
+    aws lambda delete-function --function-name $function_name --qualifier $v
 end
 
 status is-interactive || exit
