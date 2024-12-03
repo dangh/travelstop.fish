@@ -207,7 +207,7 @@ function _ts_install -e travelstop_install -e travelstop_update
 end
 
 function _ts_uninstall -e travelstop_uninstall
-    set -e ( set -n | string match -r '^_?ts_.*' )
+    set -e ( set -n | string match -r '^_ts_.*' )
 end
 
 if test -n "$ts_enable_abbr"
