@@ -200,26 +200,20 @@ function _ts_uniq_completions
     end
 end
 
-function _ts_install -e travelstop_install -e travelstop_update
-    if not set -qU ts_enable_abbr
-        set -U ts_enable_abbr true
+abbr -a -- c changes
+abbr -a -- p push
+abbr -a -- l logs
+abbr -a -- i invoke
+abbr -a -- b build_libs
+abbr -a -- r rename_modules
+
+function logs_minutes -a lm
+    string match -qr 'l(?<m>\d+)' $lm
+    if test "$m" -eq 0
+        echo 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
+    else
+        echo 'logs --startTime='$m'm'
     end
 end
 
-function _ts_uninstall -e travelstop_uninstall
-    set -e ( set -n | string match -r '^_ts_.*' )
-end
-
-if test -n "$ts_enable_abbr"
-    abbr -a -- c changes
-    abbr -a -- p push
-    abbr -a -- l logs
-    abbr -a -- i invoke
-    abbr -a -- b build_libs
-    abbr -a -- r rename_modules
-    abbr -a -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
-    abbr -a -- l5 'logs --startTime=5m'
-    abbr -a -- l10 'logs --startTime=10m'
-    abbr -a -- l15 'logs --startTime=15m'
-    abbr -a -- l30 'logs --startTime=30m'
-end
+abbr -a logs_minutes -r '^l\d+$' -f logs_minutes
