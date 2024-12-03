@@ -232,3 +232,26 @@ function ts_env_vpn -e vpn -a action -a proxy
             end
     end
 end
+
+if type -q assume
+    alias d='assume DEV'
+    alias di='assume DEV-IN'
+    alias t='assume TEST'
+    alias s='assume STAGE'
+
+    function a -a profile
+        test -n "$profile" || set profile $AWS_PROFILE
+        set args $argv[2..-1]
+        test -n "$args" || set args -s cloudwatch
+        assume $profile $args
+    end
+end
+
+function retain_aws_vars
+    function store_aws_vars -e fish_prompt -e fish_cancel
+        set -U LAST_AWS_PROFILE $AWS_PROFILE
+        set -U LAST_AWS_REGION $AWS_REGION
+    end
+    set -gx AWS_PROFILE $LAST_AWS_PROFILE
+    set -gx AWS_REGION $LAST_AWS_REGION
+end && retain_aws_vars && functions -e retain_aws_vars
