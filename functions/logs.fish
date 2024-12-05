@@ -57,6 +57,12 @@ function logs -d "watch lambda function logs"
 
     test function = (type -t ts_styles) && ts_styles
 
-    _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $logs_cmd \| $awk_cmd))
-    eval (_ts_env --mode=env) command $logs_cmd \| $awk_cmd
+    _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $logs_cmd))
+
+    set -p logs_cmd (_ts_env --mode=env) command
+    if functions -q parse_logs
+        fish -c "$logs_cmd" | fish -c parse_logs | eval $awk_cmd
+    else
+        fish -c "$logs_cmd" | eval $awk_cmd
+    end
 end
