@@ -90,7 +90,7 @@ function build_libs -d "rebuild libs module"
     end
 end
 
-function _ts_libs -a -d "get all libs"
+function _ts_libs -d "get all libs"
     for line in (string match -r -a 'npm pack \S+' (read -z < $$_ts_project_dir/modules/libs/nodejs/package.json))
         string match -r '\S+$' $line
     end
