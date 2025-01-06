@@ -60,14 +60,14 @@ function invoke -d "invoke lambda function"
     end
 
     # auto push
-    set function_js 'functions/'(string replace -ar '[A-Z]' -- '-$0' $function)'.js'
+    set function_js './functions/'(string replace -ar '[A-Z]' -- '-$0' $function)'.js'
     if test -f $function_js
-        set last_function_js (string escape --style var -- $function_js)
+        set last_function_js (string escape --style var -- $function)
         if test "$$last_function_js" != (md5 -q $function_js)
             set -g $last_function_js (md5 -q $function_js)
             # push function
             set -l push_argv
-            set -a push_argv -f $function_name
+            set -a push_argv $function
             test -n "$aws_profile" && set -a push_argv --aws-profile $aws_profile
             test -n "$stage" && set -a push_argv -s $stage
             test -n "$region" && set -a push_argv -r $region
