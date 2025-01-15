@@ -157,11 +157,7 @@ function push -d "deploy CF stack/lambda function"
                     if test -e \"\$d\"/package.json
                         cd \"\$d\"
                         type -q nvm && nvm use > /dev/null
-                        if test (path basename \"\$d\") = web
-                            npm i --no-proxy --omit=optional \$ts_npm_install_options
-                        else
-                            npm i --no-proxy --omit=dev --omit=optional \$ts_npm_install_options
-                        end
+                        npm i --no-proxy \$ts_npm_install_options
                     end
                 end
             "
