@@ -1,4 +1,4 @@
-function push -d "deploy CF stack/lambda function"
+function push -d 'deploy CF stack/lambda function'
     set -l aws_profile $AWS_PROFILE
     set -l stage (string lower -- (string replace -r '.*@' '' -- $AWS_PROFILE))
     set -l default_region $AWS_REGION
@@ -88,6 +88,14 @@ function push -d "deploy CF stack/lambda function"
 
     # re-order targets
     set targets $modules $services $functions
+
+    # rename modules again to apply renamed modules for deploying targets
+    set -l ymls
+    for target in $targets
+        echo $target | read -l -d : state target_type yml __
+        set -a ymls $yml
+    end
+    rename_modules on -s$ymls
 
     set -l success_count 0
     set -l failure_count 0

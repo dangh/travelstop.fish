@@ -2,7 +2,7 @@ function rename_modules
     # ensure we're inside workspace
     test -d $$_ts_project_dir || exit 1
 
-    argparse -i f/force -- $argv
+    argparse -i f/force s/service=+ -- $argv
 
     set -l action $argv[1]
     set -l suffix
@@ -48,7 +48,10 @@ function rename_modules
         set -l merge_base (git merge-base origin/master HEAD)
 
         # find changed modules
-        git diff --name-only $merge_base -- $$_ts_project_dir/{modules,services,admin/services,lib,schema}/ | while read -l -L file
+        begin
+            git diff --name-only $merge_base -- $$_ts_project_dir/{modules,services,admin/services,lib,schema}/
+            string replace $$_ts_project_dir/ '' -- $_flag_service
+        end | while read -l -L file
             switch $file
                 case \*/package-lock.json
                     # ignore it
