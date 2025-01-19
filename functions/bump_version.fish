@@ -50,7 +50,7 @@ function bump_version
                     fish -P -c "
                         cd $d
                         npm version --allow-same-version $v
-                        npm i --package-lock-only
+                        test -f package-lock.json && npm i --package-lock-only
                     "
                 end
             end
