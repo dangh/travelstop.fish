@@ -176,8 +176,8 @@ function _ts_delete_layer_version
     set -e argv
     set -l layer_name $argv[1]
     set -l v $argv[2]
-    echo Deleting layer '$layer_name':$v
-    aws lambda delete-layer-version --layer-name '$layer_name' --version-number $v
+    echo Deleting layer $layer_name:$v
+    aws lambda delete-layer-version --layer-name $layer_name --version-number $v
 end
 
 function _ts_delete_function_version

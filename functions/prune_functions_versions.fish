@@ -4,10 +4,10 @@ function _delete_function_versions -a function_name -a keep
     set -l batch_size 20
     aws lambda list-versions-by-function --function-name $function_name \
         | jq -r '.Versions.[].Version' \
-        | tail -n +2 \
-        | tail -r \
-        | tail -n +$keep \
-        | tail -r \
+        | command tail -n +2 \
+        | command tail -r \
+        | command tail -n +$keep \
+        | command tail -r \
         | xargs -n1 -P $batch_size -I {} (which fish) -c _ts_delete_function_version $function_name {}
 end
 
