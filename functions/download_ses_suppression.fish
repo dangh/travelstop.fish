@@ -1,4 +1,4 @@
-function download_suppression
+function download_ses_suppression
     set files
     set page 0
     set token
