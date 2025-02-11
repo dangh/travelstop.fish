@@ -218,12 +218,12 @@ end
 
 abbr -a logs_minutes -r '^l\d+$' -f logs_minutes
 
-function ts_env_vpn -e vpn -a action -a proxy
+function ts_env_vpn -e vpn -a action -a name -a proxy
     set -l var HTTPS_PROXY=$proxy
     switch "$action"
         case connect
             set -q ts_env || set -Ux ts_env
-            contains $var $ts_env || set -a ts_env $proxy
+            contains $var $ts_env || set -a ts_env $var
         case disconnect
             set -e ts_env
             contains --index $var $ts_env | read -l idx
