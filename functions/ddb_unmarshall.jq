@@ -1,6 +1,6 @@
 def unmarshall:
   walk(
-    if type == "object" then
+    if type == "object" and length == 1 then
       if   has("NULL") then null
       elif has("BOOL") then .BOOL
       elif has("S")    then .S
