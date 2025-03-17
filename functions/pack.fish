@@ -8,6 +8,8 @@ function pack -d "package a serverless service"
         'aws-profile=' \
         's/stage=' \
         'r/region=' \
+        'p/package=' \
+        v/verbose \
         'app=' \
         'org=' \
         'c/config=' \
@@ -39,6 +41,7 @@ function pack -d "package a serverless service"
     test -n "$stage" && set -a package_cmd -s $stage
     test -n "$region" && set -a package_cmd -r $region
     test -n "$_flag_package" && set -a package_cmd -p $_flag_package
+    test -n "$_flag_verbose" && set -a package_cmd --verbose
     test -n "$_flag_app" && set -a package_cmd --app $_flag_app
     test -n "$_flag_org" && set -a package_cmd --org $_flag_org
     test (path basename $yml) != serverless.yml && set -a package_cmd -c (path basename $yml)
