@@ -55,7 +55,7 @@ function logs -d "watch lambda function logs"
 
     set -l awk_cmd LC_CTYPE=C awk -f $__fish_config_dir/functions/logs.awk
 
-    test function = (type -t ts_styles) && ts_styles
+    functions -q ts_styles && ts_styles
 
     _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $logs_cmd))
 
