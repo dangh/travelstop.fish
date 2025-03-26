@@ -55,9 +55,8 @@ function bump_version
                 end
             end
         end
-    else
-        set v "$last_version"
     end
+    set v (jq -r .version package.json)
 
     if test "$release" != "$last_release"
         set changelog "# $v (Release: [$release](https://github.com/WhiteLabs/Travelstop/releases/tag/$release))\n- [TS-$ts](https://notion.so/TS-$ts): $msg\n\n"
