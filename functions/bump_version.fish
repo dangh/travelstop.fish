@@ -7,7 +7,7 @@ function bump_version
     set msg "$argv"
 
     if test -z "$ts"
-        string match -qri 'ts-(?<ts>\d+)' -- (git branch --show-current)
+        string match -qri '^(ts-)?(?<ts>\d{3,4})' -- (git branch --show-current)
     end
     if test -z "$ts"
         echo task number is required
