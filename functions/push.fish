@@ -165,7 +165,7 @@ function push -d 'deploy CF stack/lambda function'
                     if test -e \"\$d\"/package.json
                         cd \"\$d\"
                         type -q nvm && nvm use > /dev/null
-                        npm i --no-proxy \$ts_npm_install_options
+                        npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
                     end
                 end
             "
