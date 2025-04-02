@@ -49,13 +49,15 @@ function build_libs -d "rebuild libs module"
                 fish --private --command \"
                     cd $packages_dir/\$lib
                     command npm pack \$lib_dir 2>&1 | tail -1 | read -l tgz
-                    set -l tar (string replace .tgz .tar \\\$tgz)
-                    # re-compress without filename and timestamp
-                    gzip -d \\\$tgz
-                    gzip -9n \\\$tar
-                    mv \\\$tar.gz \\\$tgz
-                    # re-write OS header to unknown
-                    printf '\\\xff' | dd of=\\\$tgz bs=1 seek=9 count=1 conv=notrunc status=none
+                    if set -q ts_rewrite_tgz_header
+                        set -l tar (string replace .tgz .tar \\\$tgz)
+                        # re-compress without filename and timestamp
+                        gzip -d \\\$tgz
+                        gzip -9n \\\$tar
+                        mv \\\$tar.gz \\\$tgz
+                        # re-write OS header to unknown
+                        printf '\\\xff' | dd of=\\\$tgz bs=1 seek=9 count=1 conv=notrunc status=none
+                    end
                 \" &
                 set -a jobs \$last_pid
                 rm -r \"$nodejs_dir/node_modules/\$lib\" 2>/dev/null &
