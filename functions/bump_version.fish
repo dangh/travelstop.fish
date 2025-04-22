@@ -43,20 +43,22 @@ function bump_version
         end
     end
 
-    if test -n "$v"
-        if test "$v" != "$last_version"
-            for d in . nodejs
-                if test -f $d/package.json
-                    fish -P -c "
-                        cd $d
-                        npm version --allow-same-version $v
-                        test -f package-lock.json && npm i --package-lock-only
-                    "
-                end
-            end
+    set -l packageDir
+    for d in . nodejs
+        if test -f $d/package.json
+            set packageDir $d
         end
     end
-    set v (jq -r .version package.json)
+    if test -n "$v"
+        if test "$v" != "$last_version"
+            fish -P -c "
+                cd $packageDir
+                npm version --allow-same-version $v
+                test -f package-lock.json && npm i --package-lock-only
+            "
+        end
+    end
+    set v (jq -r .version $packageDir/package.json)
 
     if test "$release" != "$last_release"
         set changelog "# $v (Release: [$release](https://github.com/WhiteLabs/Travelstop/releases/tag/$release))\n- [TS-$ts](https://notion.so/TS-$ts): $msg\n\n"
