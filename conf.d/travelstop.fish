@@ -206,6 +206,7 @@ abbr -a -- l logs
 abbr -a -- i invoke
 abbr -a -- b build_libs
 abbr -a -- r rename_modules
+abbr -a -- v bump_version
 
 function logs_minutes -a lm
     string match -qr 'l(?<m>\d+)' $lm

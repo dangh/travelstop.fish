@@ -97,6 +97,7 @@ abbr -a -- l logs
 abbr -a -- i invoke
 abbr -a -- b build_libs
 abbr -a -- r rename_modules
+abbr -a -- v bump_version
 abbr -a -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
 abbr -a -- l5 'logs --startTime=5m'
 abbr -a -- l10 'logs --startTime=10m'
