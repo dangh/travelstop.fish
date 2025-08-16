@@ -88,14 +88,14 @@ function _change_stacks -d "print list of changed services and modules"
 
     if set -q _flag_verbose
         echo (yellow \$ $git_cmd)
-        eval $git_cmd
+        env $git_cmd
         echo
     end
 
     # collect manifest files
     set -l package_dirs
     set -l visited_dirs
-    eval $git_cmd | while read -l -L file
+    env $git_cmd | while read -l -L file
         set -l dir $file
         set -l found 0
         while test $found -eq 0 && set dir (string replace -r '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set -a visited_dirs $dir
@@ -173,11 +173,11 @@ function _change_mappings -d "print elasticsearch index mapping changes"
 
     if set -q _flag_verbose
         echo (yellow \$ $git_cmd)
-        eval $git_cmd
+        env $git_cmd
         echo
     end
 
-    eval $git_cmd | while read -l state file
+    env $git_cmd | while read -l state file
         set -l -x ts_indent_size 2
         set -l -x ts_json_bracket_style
         set -l -x ts_json_colon_style

@@ -109,7 +109,7 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_org" && set -a logs_argv --org $_flag_org
     test -n "$_flag_config" && set -a logs_argv -c $_flag_config
 
-    eval (_ts_env --mode=env) $invoke_cmd
+    env (_ts_env --mode=env) $invoke_cmd
 
     logs $logs_argv
 end

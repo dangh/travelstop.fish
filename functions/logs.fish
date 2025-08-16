@@ -61,8 +61,8 @@ function logs -d "watch lambda function logs"
 
     set -p logs_cmd (_ts_env --mode=env) command
     if functions -q parse_logs
-        fish -c "$logs_cmd" | fish -c parse_logs | eval $awk_cmd
+        fish -c "$logs_cmd" | fish -c parse_logs | env $awk_cmd
     else
-        fish -c "$logs_cmd" | eval $awk_cmd
+        fish -c "$logs_cmd" | env $awk_cmd
     end
 end

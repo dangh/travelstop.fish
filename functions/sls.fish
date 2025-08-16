@@ -56,5 +56,5 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
 
         _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $cmd))
     end
-    eval (_ts_env --mode=env) command $cmd
+    env (_ts_env --mode=env) command $cmd
 end
