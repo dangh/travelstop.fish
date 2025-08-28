@@ -29,17 +29,28 @@ function rename_modules
 
     if test -z "$suffix"
         # clean all suffix
-        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' \
+        set ymls
+        for f in \
             $$_ts_project_dir/modules/*/serverless.yml \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
+            test -f $f && set -a ymls $f
+        end
+        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' $ymls
     else if set -q _flag_force
         # add suffix to all modules
-        sed -i '' -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' \
+        set ymls \
             $$_ts_project_dir/modules/*/serverless.yml
-        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' \
+        test -n "$ymls" &&
+            sed -i '' -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' $ymls
+        set ymls
+        for f in \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
+            test -f $f && set -a ymls $f
+        end
+        test -n "$ymls" && sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $ymls
+
     else
         # add suffix to changed modules
 
@@ -59,10 +70,14 @@ function rename_modules
                     contains libs $changed_modules || set -a changed_modules libs
                 case modules/\*/\*
                     string match -q -r '^modules/(?<module_name>[^/]+)' $file
-                    contains $module_name $changed_modules || set -a changed_modules $module_name
+                    if not contains $module_name $changed_modules
+                        set -a changed_modules $module_name
+                    end
                 case services/\* admin/services/\*
                     string match -q -r '(?<services_dir>.*\bservices\b)' $file
-                    contains $services_dir $services_dirs || set -a services_dirs $services_dir
+                    if not contains $services_dir $services_dirs; and test -d $$_ts_project_dir/$services_dir
+                        set -a services_dirs $services_dir
+                    end
             end
         end
 
