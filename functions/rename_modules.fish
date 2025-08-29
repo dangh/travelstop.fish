@@ -106,7 +106,10 @@ end
 function _ts_module_get_suffix -a name -d 'get module name suffix'
     if test -z "$name"
         set -l branch (git branch --show-current)
-        if not contains "$branch" master release
+        switch "$branch"
+        case master release 'release-*'
+            # don't rename modules
+        case \*
             set name $branch
         end
     end
