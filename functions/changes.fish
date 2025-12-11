@@ -42,7 +42,7 @@ function changes -a type -d "print list of changes"
 end
 
 function _change_stacks -d "print list of changed services and modules"
-    argparse -i f/from= t/to= merge-base= v/verbose -- $argv
+    argparse -i f/from= t/to= merge-base= v/verbose x/exclude= -- $argv
     set -l from $_flag_from
     set -l to $_flag_to
 
@@ -85,6 +85,9 @@ function _change_stacks -d "print list of changed services and modules"
     end
 
     set -l git_cmd "git diff --name-only --no-renames $range | grep -E '^(admin/)?(modules|services|web)/'"
+    if test -n "$_flag_exclude"
+        set git_cmd "$git_cmd | grep -v '\($_flag_exclude\)\$'"
+    end
 
     if set -q _flag_verbose
         echo (yellow \$ $git_cmd)
