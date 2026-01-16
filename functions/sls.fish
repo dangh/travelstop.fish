@@ -16,12 +16,13 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         'd/data=' \
         'c/config=' \
         h/help \
+        v/version \
         -- $args
     or return 1
 
     set -l cmd
-    if test -z "$sub_command" -o "$sub_command" = help || set -q _flag_help
-        set cmd sls $args
+    if test -z "$sub_command" -o "$sub_command" = help || set -q _flag_help || set -q _flag_version
+        set cmd (_ts_sls) $args
     else
         set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
         set -q _flag_stage && set stage $_flag_stage
@@ -32,7 +33,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         string match -q -r '^\s*region:\s*\'(?<yml_region>[a-z0-9-]+)\'' <$yml
         test -n "$yml_region" && set region $yml_region
 
-        set cmd sls $argv --aws-profile $aws_profile --stage $stage -r $region
+        set cmd (_ts_sls --with-env) $argv --aws-profile $aws_profile --stage $stage -r $region
         test -n "$_flag_data" && begin
             set -l data_path (mktemp -t sls-data-)
             echo $_flag_data >$data_path
@@ -54,7 +55,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
                 end
         end
 
-        _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $cmd))
+        _ts_log execute command: (green (string join ' ' -- $cmd))
     end
-    env (_ts_env --mode=env) command $cmd
+    env $cmd
 end

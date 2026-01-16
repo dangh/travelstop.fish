@@ -188,6 +188,17 @@ function _ts_delete_function_version
     aws lambda delete-function --function-name $function_name --qualifier $v
 end
 
+function _ts_sls
+    argparse e/with-env -- $argv
+    if set -q _flag_with_env && test -n "$ts_env"
+        for pair in $ts_env
+            echo $pair | read -l -d = key value
+            echo $key=(string escape -- $value)
+        end
+    end
+    echo $$_ts_project_dir/node_modules/.bin/sls
+end
+
 status is-interactive || exit
 
 function _ts_uniq_completions

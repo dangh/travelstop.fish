@@ -65,7 +65,6 @@ function invoke -d "invoke lambda function"
         set last_function_js (string escape --style var -- $function)
         if test "$$last_function_js" != (md5 -q $function_js)
             set -g $last_function_js (md5 -q $function_js)
-            # push function
             set -l push_argv
             set -a push_argv $function
             test -n "$aws_profile" && set -a push_argv --aws-profile $aws_profile
@@ -75,7 +74,7 @@ function invoke -d "invoke lambda function"
         end
     end
 
-    set -l invoke_cmd sls invoke
+    set -l invoke_cmd (_ts_sls --with-env) invoke
     test -n "$function" && set -a invoke_cmd -f $function
     test -n "$aws_profile" && set -a invoke_cmd --aws-profile $aws_profile
     test -n "$stage" && set -a invoke_cmd -s $stage
@@ -96,7 +95,7 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_org" && set -a invoke_cmd --org $_flag_org
     test -n "$_flag_config" && set -a invoke_cmd -c $_flag_config
 
-    set -l logs_argv logs
+    set -l logs_argv
     test -n "$function" && set -a logs_argv -f $function
     test -n "$aws_profile" && set -a logs_argv --aws-profile $aws_profile
     test -n "$stage" && set -a logs_argv -s $stage
@@ -109,7 +108,7 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_org" && set -a logs_argv --org $_flag_org
     test -n "$_flag_config" && set -a logs_argv -c $_flag_config
 
-    env (_ts_env --mode=env) $invoke_cmd
+    command env $invoke_cmd
 
     logs $logs_argv
 end

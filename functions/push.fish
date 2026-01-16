@@ -121,7 +121,7 @@ function push -d 'deploy CF stack/lambda function'
         test (count $targets) -gt 1 && _ts_progress $targets
 
         set -l working_dir (dirname $serverless_yml)
-        set -l deploy_cmd sls deploy
+        set -l deploy_cmd (_ts_sls --with-env) deploy
         switch $target_type
             case function
                 set -a deploy_cmd function -f $function_name
@@ -155,7 +155,7 @@ function push -d 'deploy CF stack/lambda function'
             && _ts_log deploying function: (magenta $fullname) \
             || _ts_log deploying stack: (magenta $fullname)
         _ts_log working directory: (blue $working_dir)
-        _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $deploy_cmd))
+        _ts_log execute command: (green (string join ' ' -- $deploy_cmd))
 
         if test "$target_type" = module && string match -q -r module-libs $service_name
             build_libs --force
@@ -173,7 +173,7 @@ function push -d 'deploy CF stack/lambda function'
         fish --private --command "
             cd \"$working_dir\"
             type -q nvm && nvm use > /dev/null
-            "\ (_ts_env --mode=env)\ "command $deploy_cmd
+            $deploy_cmd
         "
         set -l result $status
 

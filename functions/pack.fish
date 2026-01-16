@@ -36,7 +36,7 @@ function pack -d "package a serverless service"
     test -f "$json" || set -l json (realpath $working_dir/nodejs/package.json 2>/dev/null)
     test -f "$json" && set name_ver $name_ver-(string match -r '^\s*"version":\s*"([^"]*)"' < $json)[2]
 
-    set -l package_cmd sls package
+    set -l package_cmd (_ts_sls --with-env) package
     test -n "$aws_profile" && set -a package_cmd --aws-profile $aws_profile
     test -n "$stage" && set -a package_cmd -s $stage
     test -n "$region" && set -a package_cmd -r $region
@@ -48,11 +48,10 @@ function pack -d "package a serverless service"
 
     _ts_log packaging stack: (magenta $name_ver)
     _ts_log config: (blue $yml)
-    _ts_log execute command: (green (string join ' ' -- (_ts_env --mode=env) $package_cmd))
+    _ts_log execute command: (green (string join ' ' -- $package_cmd))
 
     fish --private --command "
 cd $working_dir
 type -q nvm && nvm use >/dev/null
-"\ (_ts_env --mode=env)\ "command $package_cmd
-    "
+$package_cmd"
 end
