@@ -160,18 +160,16 @@ function push -d 'deploy CF stack/lambda function'
         if test "$target_type" = module && string match -q -r module-libs $service_name
             build_libs --force
         else
-            fish --private --command "
-                for d in \"$working_dir\" \"$working_dir\"/nodejs \"$working_dir\"/nodejs*/nodejs \"$working_dir\"/nodejs/node*
-                    if test -e \"\$d\"/package.json
-                        cd \"\$d\"
+            for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
+                if test -e "$d"/package.json
+                    env -C "$d" fish -P -c "
                         type -q nvm && nvm use > /dev/null
                         npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
-                    end
+                    "
                 end
-            "
+            end
         end
-        fish --private --command "
-            cd \"$working_dir\"
+        command env -C "$working_dir" fish -P -c "
             type -q nvm && nvm use > /dev/null
             $deploy_cmd
         "

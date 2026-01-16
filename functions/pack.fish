@@ -50,8 +50,7 @@ function pack -d "package a serverless service"
     _ts_log config: (blue $yml)
     _ts_log execute command: (green (string join ' ' -- $package_cmd))
 
-    fish --private --command "
-cd $working_dir
+    command env -C "$working_dir" fish -P -c "
 type -q nvm && nvm use >/dev/null
 $package_cmd"
 end

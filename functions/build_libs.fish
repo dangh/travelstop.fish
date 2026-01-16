@@ -34,7 +34,7 @@ function build_libs -d "rebuild libs module"
 
     if test -n "$libs"
         # wrapper shell to await multiple background processes
-        fish --private --command "
+        fish -P -c "
             set -l jobs
             for lib in $libs
                 set -l lib_dir
@@ -45,9 +45,7 @@ function build_libs -d "rebuild libs module"
                     set lib_dir $$_ts_project_dir/lib/\$lib
                 end
                 mkdir -p $packages_dir/\$lib
-                # wrapper shell to cd separately
-                fish --private --command \"
-                    cd $packages_dir/\$lib
+                command env -C \"$packages_dir/\$lib\" fish -P -c \"
                     command npm pack \$lib_dir 2>&1 | tail -1 | read -l tgz
                     if set -q ts_rewrite_tgz_header
                         set -l tar (string replace .tgz .tar \\\$tgz)
@@ -84,8 +82,7 @@ function build_libs -d "rebuild libs module"
         rm -f $nodejs_dir/package-lock.json
         set -l cmd npm install --no-proxy --prefix=(string escape -- $nodejs_dir) --omit=dev --omit=optional $ts_npm_install_options
         _ts_log (dim ...) (yellow $cmd \\\n'  '$tgzs | string collect)
-        fish --private --command "
-            cd $nodejs_dir
+        command env -C "$nodejs_dir" fish -P -c "
             type -q nvm && nvm use > /dev/null
             command $cmd $tgzs
         " >/dev/null

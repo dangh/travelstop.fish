@@ -51,8 +51,7 @@ function bump_version
     end
     if test -n "$v"
         if test "$v" != "$last_version"
-            fish -P -c "
-                cd $packageDir
+            command env -C "$packageDir" fish -P -c "
                 npm version --allow-same-version $v
                 test -f package-lock.json && npm i --package-lock-only
             "
