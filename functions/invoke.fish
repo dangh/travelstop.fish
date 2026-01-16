@@ -74,7 +74,7 @@ function invoke -d "invoke lambda function"
         end
     end
 
-    set -l invoke_cmd (_ts_sls --with-env) invoke
+    set -l invoke_cmd invoke
     test -n "$function" && set -a invoke_cmd -f $function
     test -n "$aws_profile" && set -a invoke_cmd --aws-profile $aws_profile
     test -n "$stage" && set -a invoke_cmd -s $stage
@@ -108,7 +108,7 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_org" && set -a logs_argv --org $_flag_org
     test -n "$_flag_config" && set -a logs_argv -c $_flag_config
 
-    command env $invoke_cmd
+    _ts_sls -E $invoke_cmd
 
     logs $logs_argv
 end

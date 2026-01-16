@@ -22,7 +22,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
 
     set -l cmd
     if test -z "$sub_command" -o "$sub_command" = help || set -q _flag_help || set -q _flag_version
-        set cmd (_ts_sls) $args
+        _ts_sls $args
     else
         set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
         set -q _flag_stage && set stage $_flag_stage
@@ -33,7 +33,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         string match -q -r '^\s*region:\s*\'(?<yml_region>[a-z0-9-]+)\'' <$yml
         test -n "$yml_region" && set region $yml_region
 
-        set cmd (_ts_sls --with-env) $argv --aws-profile $aws_profile --stage $stage -r $region
+        set cmd $argv --aws-profile $aws_profile --stage $stage -r $region
         test -n "$_flag_data" && begin
             set -l data_path (mktemp -t sls-data-)
             echo $_flag_data >$data_path
@@ -55,7 +55,6 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
                 end
         end
 
-        _ts_log execute command: (green (string join ' ' -- $cmd))
+        _ts_sls -E $cmd
     end
-    env $cmd
 end

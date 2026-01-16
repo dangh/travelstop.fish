@@ -189,14 +189,25 @@ function _ts_delete_function_version
 end
 
 function _ts_sls
-    argparse e/with-env -- $argv
-    if set -q _flag_with_env && test -n "$ts_env"
+    argparse -i C/cwd= E/with-env -- $argv
+    set -l sls $$_ts_project_dir/node_modules/.bin/sls
+    set -l cmd
+    if set -q _flag_with_env
         for pair in $ts_env
             echo $pair | read -l -d = key value
-            echo $key=(string escape -- $value)
+            set -a cmd $key=(string escape -- $value)
         end
     end
-    echo $$_ts_project_dir/node_modules/.bin/sls
+    set -a cmd $sls $argv
+    _ts_log execute command: (green (string join ' ' -- $cmd))
+    if not test -x $sls
+        _ts_log sls command not found. Installing...
+        npm i --prefix $$_ts_project_dir
+    end
+    command env -C "$_flag_cwd" fish -P -c "
+        type -q nvm && nvm use > /dev/null
+        $cmd
+    "
 end
 
 status is-interactive || exit

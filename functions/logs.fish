@@ -40,7 +40,7 @@ function logs -d "watch lambda function logs"
         return 1
     end
 
-    set -l logs_cmd (_ts_sls --with-env) logs
+    set -l logs_cmd logs
     test -n "$function" && set -a logs_cmd -f $function
     test -n "$aws_profile" && set -a logs_cmd --aws-profile $aws_profile
     test -n "$stage" && set -a logs_cmd -s $stage
@@ -57,11 +57,9 @@ function logs -d "watch lambda function logs"
 
     functions -q ts_styles && ts_styles
 
-    _ts_log execute command: (green (string join ' ' -- $logs_cmd))
-
     if functions -q parse_logs
-        env $logs_cmd | fish -c parse_logs | env $awk_cmd
+        _ts_sls -E $logs_cmd | fish -c parse_logs | env $awk_cmd
     else
-        env $logs_cmd | env $awk_cmd
+        _ts_sls -E $logs_cmd | env $awk_cmd
     end
 end
