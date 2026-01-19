@@ -161,9 +161,13 @@ function push -d 'deploy CF stack/lambda function'
         else
             for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
                 if test -e "$d"/package.json
-                    env -C "$d" fish -P -c "
+                    command env -C "$d" fish -P -c "
                         type -q nvm && nvm use > /dev/null
-                        npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
+                        if string match -q -r \\\\bweb\\\\b -- \"\$PWD\"
+                            npm i --no-proxy \$ts_npm_install_options
+                        else
+                            npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
+                        end
                     "
                 end
             end
