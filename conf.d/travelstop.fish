@@ -204,7 +204,11 @@ function _ts_sls
         _ts_log sls command not found. Installing...
         npm i --prefix $$_ts_project_dir
     end
-    command env -C "$_flag_cwd" fish -P -c "
+    set -l env
+    if set -q _flag_cwd
+        set -a env -C "$_flag_cwd"
+    end
+    command env $env fish -P -c "
         type -q nvm && nvm use > /dev/null
         $cmd
     "

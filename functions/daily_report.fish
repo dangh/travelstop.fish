@@ -80,10 +80,10 @@ function _get_error_message -a js_file
         let lastCatchClause;
         while((m = catchClauseRegex.exec(handlerFunction))) lastCatchClause = m.groups.src;
         let logStatementRegexes = [
-            /^ {4}log\.error\('(?<msg>[\w ]+)/m,
-            /^ {4}log\.info\('(?<msg>[\w ]+)/m,
-            /^ {6}log\.error\('(?<msg>[\w ]+)/m,
-            /^ {6}log\.info\('(?<msg>[\w ]+)/m,
+            /^ {4}log\.error\('(?<msg>[-\w ]+)/m,
+            /^ {4}log\.info\('(?<msg>[-\w ]+)/m,
+            /^ {6}log\.error\('(?<msg>[-\w ]+)/m,
+            /^ {6}log\.info\('(?<msg>[-\w ]+)/m,
         ];
         for(let regex of logStatementRegexes) {
             m = regex.exec(lastCatchClause);
