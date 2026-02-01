@@ -7,6 +7,9 @@ function daily_report -a lambda
         set -l yml $dir/serverless.yml
         string match -qr $functionName'\s*:\n\s*handler\s*:\s*(?<handler>[^\s.]+)' ( string split0 < $yml )
         set -l js_file $dir/$handler.js
+        if string match -qr '^/opt/(?<handler>.+)$' -- $handler
+            set js_file $ts_master_dir/modules/$handler.js
+        end
         set query (_get_error_message $js_file)
     end
 
