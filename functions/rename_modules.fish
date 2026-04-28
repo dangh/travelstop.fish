@@ -36,20 +36,26 @@ function rename_modules
             $$_ts_project_dir/admin/services/serverless-layers.yml
             test -f $f && set -a ymls $f
         end
-        sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' $ymls
+        sed -i.ts_bak -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' $ymls
+        and command rm $ymls.ts_bak
     else if set -q _flag_force
         # add suffix to all modules
         set ymls \
             $$_ts_project_dir/modules/*/serverless.yml
-        test -n "$ymls" &&
-            sed -i '' -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' $ymls
+        if test -n "$ymls"
+            sed -i.ts_bak -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' $ymls
+            and command rm $ymls.ts_bak
+        end
         set ymls
         for f in \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
             test -f $f && set -a ymls $f
         end
-        test -n "$ymls" && sed -i '' -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $ymls
+        if test -n "$ymls"
+            sed -i.ts_bak -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $ymls
+            and command rm $ymls.ts_bak
+        end
 
     else
         # add suffix to changed modules
@@ -84,9 +90,13 @@ function rename_modules
         if test -n "$changed_modules"
             for d in $changed_modules
                 string match -q -r '^# Layer: (?<module_name>\S+)' <$$_ts_project_dir/modules/$d/serverless.yml
-                sed -i '' -E 's/^service:.*$/service: '$module_name$suffix'/g' $$_ts_project_dir/modules/$d/serverless.yml
+                set -l _yml $$_ts_project_dir/modules/$d/serverless.yml
+                sed -i.ts_bak -E 's/^service:.*$/service: '$module_name$suffix'/g' $_yml
+                and command rm $_yml.ts_bak
                 if test -n "$services_dirs"
-                    sed -i '' -E 's/cf:'$module_name'[^$]*\$/cf:'$module_name$suffix'-$/g' $$_ts_project_dir/$services_dirs/serverless-layers.yml
+                    set -l _layer_yml $$_ts_project_dir/$services_dirs/serverless-layers.yml
+                    sed -i.ts_bak -E 's/cf:'$module_name'[^$]*\$/cf:'$module_name$suffix'-$/g' $_layer_yml
+                    and command rm $_layer_yml.ts_bak
                 end
             end
         end
