@@ -100,6 +100,13 @@ function push -d 'deploy CF stack/lambda function'
     set -l success_count 0
     set -l failure_count 0
 
+    # taskbar progress (OSC 9;4)
+    if test (count $targets) -gt 1
+        printf '\e]9;4;1;0\a'
+    else if test (count $targets) -eq 1
+        printf '\e]9;4;3;0\a'
+    end
+
     # deploy
     for i in (seq (count $targets))
         echo $targets[$i] | read -l -d : state __
@@ -185,6 +192,17 @@ function push -d 'deploy CF stack/lambda function'
             && set targets[$i] "success:$__" \
             || set targets[$i] "failure:$__"
 
+        # taskbar progress (OSC 9;4)
+        if test (count $targets) -gt 1
+            if test $result -eq 0
+                printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
+            else
+                printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
+            end
+        else if test $result -ne 0
+            printf '\e]9;4;2;0\a'
+        end
+
         # show notification
         set -l notif_message
         set -l notif_stage (string upper $stage)
@@ -216,6 +234,11 @@ function push -d 'deploy CF stack/lambda function'
         set -l notif_message success: $success_count\nfailure: $failure_count
         printf '\e]777;notify;%s;%s\a' "$notif_title" "$notif_message"
         _ts_pushover "$notif_title" "$notif_message"
+    end
+
+    # clear taskbar progress (OSC 9;4)
+    if test (count $targets) -ge 1
+        printf '\e]9;4;0\a'
     end
 end
 
