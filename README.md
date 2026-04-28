@@ -2,8 +2,15 @@
 
 ## Installation
 
+Install `jq`:
+- macOS: `brew install jq`
+- Debian/Ubuntu: `sudo apt install jq`
+- Arch: `sudo pacman -S jq`
+- Other: see https://jqlang.github.io/jq/download/
+
+Then:
+
 ```sh
-brew install jq
 fisher install \
   dangh/ansi-escape.fish \
   dangh/travelstop.fish
@@ -104,12 +111,14 @@ abbr -a -- l10 'logs --startTime=10m'
 abbr -a -- l15 'logs --startTime=15m'
 abbr -a -- l30 'logs --startTime=30m'
 ```
-### Random rainbow cowsay fortune before each request log:
+### Random rainbow cowsay fortune before each request log (macOS — Homebrew paths):
 
 ```sh
 brew install cowsay fortune lolcat
 set -Ux ts_blank_page_cmd fortune \| cowsay -f \$\( ls /opt/homebrew/share/cows/*.cow \| sort -R \| head -1 \) \| lolcat -F 0.01
 ```
+
+On Linux, the cow files live elsewhere depending on your distro (e.g. `/usr/share/cowsay/cows` on Debian/Ubuntu, `/usr/share/cows` on Arch). Adjust the path in `ls ...` accordingly.
 
 ### To open daily report function in Firefox container:
 
