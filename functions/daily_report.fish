@@ -26,8 +26,8 @@ function daily_report -a lambda
     end
 
     set -l container (string upper $stage)
-    set -l start_time (date -v-1d -v12H -v0M -v0S +%s)000
-    set -l end_time (date -v12H -v0M -v0S +%s)000
+    node -e 'const e=new Date();e.setHours(12,0,0,0);console.log(e.getTime()-86400000+" "+e.getTime())' \
+        | read -d ' ' start_time end_time
 
     set url "ext+container:name=$container&url=https://$region.console.aws.amazon.com/cloudwatch/home?region=$region#logsV2:log-groups/log-group/\$252Faws\$252Flambda\$252F$stack-$stage-$functionName/log-events\$3FfilterPattern\$3D\$2522$query\$2522\$26start\$3D$start_time\$26end\$3D$end_time"
 
