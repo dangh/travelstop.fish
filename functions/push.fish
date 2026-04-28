@@ -197,9 +197,11 @@ function push -d 'deploy CF stack/lambda function'
             || set notif_message "env: $notif_stage\nstack: $notif_name"
         set -q sls_success_icon || set -l sls_success_icon 🎉
         set -q sls_failure_icon || set -l sls_failure_icon 🤡
-        test $result -eq 0 \
-            && _ts_notify "$sls_success_icon deployed" "$notif_message" tink \
-            || _ts_notify "$sls_failure_icon failed to deploy" "$notif_message" basso
+        if test $result -eq 0
+            printf '\e]777;notify;%s;%s\a' "$sls_success_icon deployed" "$notif_message"
+        else
+            printf '\e]777;notify;%s;%s\a' "$sls_failure_icon failed to deploy" "$notif_message"
+        end
 
         test $result -eq 0 || break
     end
@@ -212,7 +214,7 @@ function push -d 'deploy CF stack/lambda function'
             && set success_count (fontface -s monospace $success_count) \
             && set failure_count (fontface -s monospace $failure_count)
         set -l notif_message success: $success_count\nfailure: $failure_count
-        _ts_notify "$notif_title" "$notif_message"
+        printf '\e]777;notify;%s;%s\a' "$notif_title" "$notif_message"
         _ts_pushover "$notif_title" "$notif_message"
     end
 end

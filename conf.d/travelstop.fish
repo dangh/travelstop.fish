@@ -1,13 +1,3 @@
-function _ts_notify -a title message sound -d "send notification to system"
-    osascript -e "display notification \"$message\" with title \"$title\"" &
-    disown
-    set sound "/System/Library/Sounds/$sound.aiff"
-    if test -f "$sound"
-        afplay $sound &
-        disown
-    end
-end
-
 function _ts_pushover -a title message
     test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN" || return
     wait # queue pushover api calls
