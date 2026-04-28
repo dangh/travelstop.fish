@@ -61,7 +61,8 @@ function bump_version
 
     if test "$release" != "$last_release"
         set changelog "# $v (Release: [$release](https://github.com/WhiteLabs/Travelstop/releases/tag/$release))\n- [TS-$ts](https://notion.so/TS-$ts): $msg\n\n"
-        sed -i '' "1s;^;$changelog;" CHANGELOG.md
+        sed -i.ts_bak "1s;^;$changelog;" CHANGELOG.md
+        and command rm CHANGELOG.md.ts_bak
     else
         # TODO
     end
