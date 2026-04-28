@@ -5,9 +5,9 @@ function _delete_function_versions -a function_name -a keep
     aws lambda list-versions-by-function --function-name $function_name \
         | jq -r '.Versions.[].Version' \
         | command tail -n +2 \
-        | command tail -r \
+        | awk '{a[NR]=$0} END{for(i=NR;i;i--) print a[i]}' \
         | command tail -n +$keep \
-        | command tail -r \
+        | awk '{a[NR]=$0} END{for(i=NR;i;i--) print a[i]}' \
         | xargs -n1 -P $batch_size -I {} (which fish) -c _ts_delete_function_version $function_name {}
 end
 

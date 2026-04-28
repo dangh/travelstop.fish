@@ -5,6 +5,6 @@ function prune_layer_versions -a layer_name -a keep
     aws lambda list-layer-versions --layer-name $layer_name \
         | jq -r '.LayerVersions.[].Version' \
         | command tail -n +(math $keep + 1) \
-        | command tail -r \
+        | awk '{a[NR]=$0} END{for(i=NR;i;i--) print a[i]}' \
         | xargs -n1 -P $batch_size -I {} (which fish) -c _ts_delete_layer_version $layer_name {}
 end
