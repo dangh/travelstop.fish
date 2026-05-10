@@ -24,8 +24,17 @@ function get_style(name) {
     return env(name, name)
 }
 function repeat(s, n, sep, out) { if (n > 0) out = s; for (i = 2; i <= n; i++) out = out sep s; return out; }
-function default(value, fallback) { return !value ? fallback : value }
-function env(key, default) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : default }
+function or_else(value, fallback) { return !value ? fallback : value }
+function env(key, fallback) { return "ts_" key in ENVIRON ? ENVIRON["ts_" key] : fallback }
+function hex_to_int(hex,    n, i, val) {
+    n = 0
+    hex = tolower(hex)
+    for (i = 1; i <= length(hex); i++) {
+        val = index("0123456789abcdef", substr(hex, i, 1)) - 1
+        if (val >= 0) n = n * 16 + val
+    }
+    return n
+}
 function format(style_str, s, force, on, off, style_arr, count) {
     if (NO_COLOR == 1) return s
 
@@ -69,7 +78,7 @@ function format(style_str, s, force, on, off, style_arr, count) {
             if (style ~ /^fg=brightcyan$/) on = on ";96"
             if (style ~ /^fg=brightwhite$/) on = on ";97"
             if (style ~ /^fg=[0-9]+$/) on = on ";38;5;" substr(style, 4)
-            if (style ~ /^fg=#[A-Fa-f0-9]{6}$/) on = on ";38;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
+            if (style ~ /^fg=#[A-Fa-f0-9]{6}$/) on = on ";38;2;" sprintf("%d;%d;%d", hex_to_int(substr(style, 5, 2)), hex_to_int(substr(style, 7, 2)), hex_to_int(substr(style, 9, 2)))
             if (style ~ /^fg=none$/) {
                 on = on ";39"
             } else {
@@ -94,7 +103,7 @@ function format(style_str, s, force, on, off, style_arr, count) {
             if (style ~ /^bg=brightcyan$/) on = on ";106"
             if (style ~ /^bg=brightwhite$/) on = on ";107"
             if (style ~ /^bg=[0-9]+$/) on = on ";48;5;" substr(style, 4)
-            if (style ~ /^bg=#[A-Fa-f0-9]{6}$/) on = on ";48;2;" sprintf("%d;%d;%d", "0x" substr(style, 5, 2), "0x" substr(style, 7, 2), "0x" substr(style, 9, 2))
+            if (style ~ /^bg=#[A-Fa-f0-9]{6}$/) on = on ";48;2;" sprintf("%d;%d;%d", hex_to_int(substr(style, 5, 2)), hex_to_int(substr(style, 7, 2)), hex_to_int(substr(style, 9, 2)))
             if (style ~ /^bg=none$/) {
                 on = on ";49"
             } else {
@@ -124,7 +133,7 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
             printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket)
             s = substr(s, RSTART+RLENGTH)
             # inline simple object
-            if (env("inline_simple_object", 1) && s ~ /^"[^"]+":("[^"]{1,40}"|(\d+(\.\d+))")[}\]]/) {
+            if (env("inline_simple_object", 1) && s ~ /^"[^"]+":("[^"]{1,40}"|([[:digit:]]+(\.[[:digit:]]+)?))[}\]]/) {
                 inline_object = 1
                 printf " "
             } else {
@@ -265,8 +274,8 @@ function format_json(s, indent, key, value, comma) {
 }
 BEGIN {
     NO_COLOR = "NO_COLOR" in ENVIRON ? 1 : 0
-    INDENT_GUIDE = format("indent_guide", default(substr(env("indent_chars"), 1, 1), " ")) repeat(default(substr(env("indent_chars"), 2, 1), " "), default(env("indent_size"), 4) - 1)
-    BLANK_PAGE = default(env("blank_page"), repeat(format("blank_page", "", 1) "\x1b[K", default(env("blank_page_height"), 1), "\n") format("none", "", 1))
+    INDENT_GUIDE = format("indent_guide", or_else(substr(env("indent_chars"), 1, 1), " ")) repeat(or_else(substr(env("indent_chars"), 2, 1), " "), or_else(env("indent_size"), 4) - 1)
+    BLANK_PAGE = or_else(env("blank_page"), repeat(format("blank_page", "", 1) "\x1b[K", or_else(env("blank_page_height"), 1), "\n") format("none", "", 1))
 }
 {
     is_cloudwatch_log = 0
