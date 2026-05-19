@@ -60,7 +60,7 @@ function invoke -d "invoke lambda function"
     end
 
     # auto push
-    set function_js './functions/'(string replace -ar '[A-Z]' -- '-$0' $function)'.js'
+    set function_js './functions/'(string replace -ar '[A-Z]' -- '-$0' $function | string lower)'.js'
     if test -f $function_js
         set last_function_js (string escape --style var -- $function)
         if test "$$last_function_js" != (md5sum $function_js | string split -f1 ' ')
