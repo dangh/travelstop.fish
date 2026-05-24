@@ -27,9 +27,6 @@ function push -d 'deploy CF stack/lambda function'
         -- $ts_default_argv_push $argv
     or return 1
 
-    # rename modules before deploy
-    rename_modules on
-
     set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set default_region $_flag_region
@@ -46,6 +43,13 @@ function push -d 'deploy CF stack/lambda function'
                     return
             end
         end
+    end
+
+    # rename modules before deploy, restore on exit (normal or signal)
+    rename_modules on
+    function _ts_push_restore_modules -s SIGINT -s SIGTERM -s SIGHUP
+        functions -e _ts_push_restore_modules
+        rename_modules off
     end
 
     # push without any target/config/function
@@ -240,6 +244,9 @@ function push -d 'deploy CF stack/lambda function'
     if test (count $targets) -ge 1
         printf '\e]9;4;0\a'
     end
+
+    # restore module names (signal-handler path triggers the same body)
+    _ts_push_restore_modules
 end
 
 function _ts_progress
