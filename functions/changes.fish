@@ -1,6 +1,6 @@
 function changes -a type -d "print list of changes"
     set -l args $argv
-    argparse -i f/from= -- $argv
+    argparse -i f/from= o/output= -- $argv
     test -z "$_flag_from" -o "$_flag_from" = merge-base &&
         set -a args --merge-base (git merge-base origin/master HEAD)
     switch "$type"
@@ -11,6 +11,10 @@ function changes -a type -d "print list of changes"
         case translations
             _change_translations $args[2..]
         case '*'
+            if test "$_flag_output" = path
+                _change_stacks $args
+                return
+            end
             _change_stacks $args | read -l -z -a -d \n changes && set -e changes[-1]
             if test -n "$changes"
                 echo (magenta (reverse (dim '**')(bold 'Packages')(dim '**')))
@@ -42,7 +46,7 @@ function changes -a type -d "print list of changes"
 end
 
 function _change_stacks -d "print list of changed services and modules"
-    argparse -i f/from= t/to= merge-base= v/verbose x/exclude= -- $argv
+    argparse -i f/from= t/to= merge-base= v/verbose x/exclude= o/output= -- $argv
     set -l from $_flag_from
     set -l to $_flag_to
 
@@ -133,8 +137,8 @@ function _change_stacks -d "print list of changed services and modules"
     end
 
     # sort
-    for name in $stack_names
-        set -l v $stack_versions[(contains -i -- $name $stack_names)]
+    for i in (seq (count $stack_names))
+        set -l name $stack_names[$i]
         set -l group (string match -r '^\w+' $name | string replace -r 's$' '')
         set -l group_order 1
         set -l stack_order 1
@@ -148,9 +152,17 @@ function _change_stacks -d "print list of changed services and modules"
             case '*-resources'
                 set stack_order 0
         end
-        test -n "$v" && set v -$v
-        echo $name$v $group_order $group $stack_order
-    end | sort --key=2,2n --key=3,3 --key=4,4n | string replace -r '^([^\s]+).*' -- (magenta (dim '-'))' $1'
+        echo $i $group_order $group $stack_order
+    end | sort --key=2,2n --key=3,3 --key=4,4n | string replace -r '^(\S+).*' '$1' | while read -l i
+        switch "$_flag_output"
+            case path
+                echo $package_dirs[$i]
+            case '*'
+                set -l v $stack_versions[$i]
+                test -n "$v" && set v -$v
+                echo (magenta (dim '-')) $stack_names[$i]$v
+        end
+    end
 end
 
 function _change_mappings -d "print elasticsearch index mapping changes"

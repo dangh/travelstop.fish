@@ -14,4 +14,5 @@ complete -c changes -r -f -l from -s f -a "(_git_refs)"
 complete -c changes -r -f -l to -s t -d "Change to ref"
 complete -c changes -r -f -l to -s t -a index -d "Change compare to index"
 complete -c changes -r -f -l to -s t -a "(_git_refs)"
+complete -f -c changes -s o -l output -x -a 'path markdown' -d "Output format (default: markdown)"
 complete -f -c changes
