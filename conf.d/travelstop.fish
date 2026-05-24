@@ -1,12 +1,26 @@
-function _ts_pushover -a title message
-    test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN" || return
-    wait # queue pushover api calls
-    curl -s \
-        --form-string "token=$PUSHOVER_APP_TOKEN" \
-        --form-string "user=$PUSHOVER_USER_KEY" \
-        --form-string "title=$title" \
-        --form-string "message=$message" \
-        https://api.pushover.net/1/messages.json >/dev/null 2>&1 &
+function _ts_notify -d 'send terminal notification (OSC 777) and pushover'
+    argparse 't/title=' 'm/message=' 'd/details=' -- $argv
+    or return 1
+    # convert literal \n (backslash-n) to real newlines for ergonomic input
+    set -l title (string replace -ra '\\\\n' \n -- $_flag_title)
+    set -l message (string replace -ra '\\\\n' \n -- $_flag_message)
+    set -l details (string replace -ra '\\\\n' \n -- $_flag_details)
+
+    # terminal notification (title + message only)
+    printf '\e]777;notify;%s;%s\a' "$title" "$message"
+
+    # pushover: message + details (if provided), only when configured
+    if test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN"
+        set -l body $message
+        test -n "$details" && set body (string join \n -- $message $details | string collect)
+        wait # queue pushover api calls
+        curl -s \
+            --form-string "token=$PUSHOVER_APP_TOKEN" \
+            --form-string "user=$PUSHOVER_USER_KEY" \
+            --form-string "title=$title" \
+            --form-string "message=$body" \
+            https://api.pushover.net/1/messages.json >/dev/null 2>&1 &
+    end
 end
 
 function _ts_log

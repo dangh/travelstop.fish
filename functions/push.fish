@@ -104,10 +104,8 @@ function push -d 'deploy CF stack/lambda function'
     set -l success_count 0
     set -l failure_count 0
 
-    # taskbar progress (OSC 9;4)
-    if test (count $targets) -gt 1
-        printf '\e]9;4;1;0\a'
-    else if test (count $targets) -eq 1
+    # taskbar progress (OSC 9;4) - indeterminate until first item finishes
+    if test (count $targets) -ge 1
         printf '\e]9;4;3;0\a'
     end
 
@@ -129,7 +127,7 @@ function push -d 'deploy CF stack/lambda function'
 
         # update progress
         set targets[$i] "running:$__"
-        test (count $targets) -gt 1 && _ts_progress $targets
+        _ts_progress $targets
 
         set -l working_dir (dirname $serverless_yml)
         set -l deploy_cmd deploy
@@ -196,48 +194,48 @@ function push -d 'deploy CF stack/lambda function'
             && set targets[$i] "success:$__" \
             || set targets[$i] "failure:$__"
 
-        # taskbar progress (OSC 9;4)
-        if test (count $targets) -gt 1
-            if test $result -eq 0
-                printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
-            else
-                printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
-            end
-        else if test $result -ne 0
-            printf '\e]9;4;2;0\a'
-        end
-
-        # show notification
-        set -l notif_message
-        set -l notif_stage (string upper $stage)
-        set -l notif_name $fullname
-        functions -q fontface \
-            && set notif_stage (fontface -s monospace $notif_stage) \
-            && set notif_name (fontface -s monospace $notif_name)
-        test "$target_type" = function \
-            && set notif_message "env: $notif_stage\nfunc: $notif_name" \
-            || set notif_message "env: $notif_stage\nstack: $notif_name"
-        set -q sls_success_icon || set -l sls_success_icon 🎉
-        set -q sls_failure_icon || set -l sls_failure_icon 🤡
+        # taskbar progress (OSC 9;4) - switch from indeterminate to normal/error with percentage
         if test $result -eq 0
-            printf '\e]777;notify;%s;%s\a' "$sls_success_icon deployed" "$notif_message"
+            printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
         else
-            printf '\e]777;notify;%s;%s\a' "$sls_failure_icon failed to deploy" "$notif_message"
+            printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
         end
 
         test $result -eq 0 || break
     end
 
-    # summary
-    if test (count $targets) -gt 1
+    # summary notification (single per push, only after everything is done)
+    if test (count $targets) -ge 1
         _ts_progress $targets
-        set -l notif_title (math $success_count + $failure_count) stacks/functions deployed
-        functions -q fontface \
-            && set success_count (fontface -s monospace $success_count) \
-            && set failure_count (fontface -s monospace $failure_count)
-        set -l notif_message success: $success_count\nfailure: $failure_count
-        printf '\e]777;notify;%s;%s\a' "$notif_title" "$notif_message"
-        _ts_pushover "$notif_title" "$notif_message"
+
+        set -l branch (git branch --show-current 2>/dev/null)
+        test -n "$branch" || set branch deploy
+        set -l notif_title (string upper -- $stage)" $branch"
+
+        set -l target_list
+        for t in $targets
+            echo $t | read -l -d : state target_type serverless_yml service_name function_name package_version region tstage
+            set -l fullname $service_name
+            switch "$target_type"
+                case function
+                    set fullname $service_name-$function_name
+                case service
+                    test -n "$package_version" && set fullname $service_name-$package_version
+            end
+            set -l bullet
+            switch "$state"
+                case success
+                    set bullet ✅
+                case '*'
+                    set bullet ❌
+            end
+            set -a target_list "$bullet $fullname"
+        end
+
+        set -l notif_summary "success: $success_count, failure: $failure_count"
+        set -l notif_details (string join \n -- $target_list | string collect)
+
+        _ts_notify -t "$notif_title" -m "$notif_summary" -d "$notif_details"
     end
 
     # clear taskbar progress (OSC 9;4)
