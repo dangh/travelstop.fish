@@ -1,0 +1,8 @@
+service: hotels-service
+provider:
+  region: 'ap-southeast-1'
+functions:
+  getHotel:
+    handler: h.get
+  optFn:
+    handler: /opt/shared/m.handler
