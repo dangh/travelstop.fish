@@ -393,6 +393,7 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
     set -l resource_dirs
     set -l main_dir
     set -l subservice_dirs
+    set -l monitoring_dirs
 
     for dir in $stack_dirs
         if test "$dir" = "$current_dir"
@@ -401,15 +402,18 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
             set -l service_name (_ts_service_name "$dir/serverless.yml")
             if string match -q '*-resources' -- $service_name
                 set -a resource_dirs $dir
+            else if string match -q '*monitoring*' -- $service_name
+                set -a monitoring_dirs $dir
             else
                 set -a subservice_dirs $dir
             end
         end
     end
 
+    # monitoring stacks deploy last (they observe the rest)
     set -l ordered_targets $resource_dirs
     test -n "$main_dir" && set -a ordered_targets $main_dir
-    set -a ordered_targets $subservice_dirs
+    set -a ordered_targets $subservice_dirs $monitoring_dirs
 
     for dir in $ordered_targets
         if test -n "$project_dir"; and string match -q -- "$project_dir/*" "$dir"

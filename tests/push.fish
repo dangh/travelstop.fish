@@ -72,6 +72,16 @@ push -a hotels >/dev/null 2>&1
 @test "-a hotels deploys 2 stacks" (count (cat $TS_SLS_LOG)) -eq 2
 @test "-a hotels includes the subservice" (string match -q '*/hotels/sub *' -- (cat $TS_SLS_LOG); echo $status) -eq 0
 
+# ===== monitoring subservice deploys last =====
+# temp monitoring stack; removed after so later tests still see 2 targets
+mkdir -p $TS_ROOT/hotels/monitoring
+printf "service: hotels-monitoring\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/hotels/monitoring/serverless.yml
+echo -n >$TS_SLS_LOG
+push -a hotels >/dev/null 2>&1
+@test "monitoring deploys last" (string match -q '*/hotels/monitoring *' -- (cat $TS_SLS_LOG)[-1]; echo $status) -eq 0
+@test "monitoring is not first" (string match -q '*/hotels/monitoring *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 1
+rm -rf $TS_ROOT/hotels/monitoring
+
 # ===== regression: unresolvable target must not crash =====
 # previously: empty _ts_resolve_config output left target_type as 0 elements ->
 # `set -a {$target_type}s ...` failed with "invalid variable name".
