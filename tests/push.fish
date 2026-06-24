@@ -31,7 +31,16 @@ function rename_modules; end
 function _ts_notify; end
 function _ts_progress; end
 set -g TS_SLS_LOG (mktemp)
-function _ts_sls; echo "$argv" >>$TS_SLS_LOG; return 0; end
+# fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry succeeds
+set -g TS_FAIL_FLAG (mktemp)
+function _ts_sls
+    echo "$argv" >>$TS_SLS_LOG
+    if test -s $TS_FAIL_FLAG
+        echo -n >$TS_FAIL_FLAG
+        return 1
+    end
+    return 0
+end
 
 set -gx AWS_PROFILE acme@dev
 set -gx AWS_REGION us-east-1
@@ -103,7 +112,22 @@ set -l out (push -i -a hotels 2>&1)
 @test "-i empty selection logs a notice" (string match -q '*no targets selected*' -- "$out"; echo $status) -eq 0
 set -e EDITOR
 
+# ===== retry on failure: 'r' redeploys the failed target =====
+cd $TS_ROOT
+echo -n >$TS_SLS_LOG
+echo fail >$TS_FAIL_FLAG
+printf 'r\n' | push hotels >/dev/null 2>&1
+@test "retry redeploys the failed target (2 sls calls)" (count (cat $TS_SLS_LOG)) -eq 2
+
+# ===== abort on failure (default/EOF) stops the run =====
+echo -n >$TS_SLS_LOG
+echo fail >$TS_FAIL_FLAG
+push -a hotels >/dev/null 2>&1 </dev/null
+set -l code $status
+@test "abort on first failure deploys only once" (count (cat $TS_SLS_LOG)) -eq 1
+echo -n >$TS_FAIL_FLAG
+
 # --- teardown ------------------------------------------------------------
 cd $repo
 rm -rf $TS_ROOT
-rm -f $TS_SLS_LOG $TS_FAKE_EDITOR
+rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG

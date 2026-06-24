@@ -211,43 +211,53 @@ function push -d 'deploy CF stack/lambda function'
             || _ts_log deploying stack: (magenta $fullname)
         _ts_log working directory: (blue $working_dir)
 
-        if test "$target_type" = module && string match -q -r module-libs $service_name
-            build_libs --force
-        else
-            for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
-                if test -e "$d"/package.json
-                    command env -C "$d" fish -P -c "
-                        type -q nvm && nvm use > /dev/null
-                        if string match -q -r \\\\bweb\\\\b -- \"\$PWD\"
-                            npm i --no-proxy \$ts_npm_install_options
-                        else
-                            npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
-                        end
-                    "
+        # deploy with retry: on failure, prompt to retry (redeploy this target)
+        # or abort (stop the run). default is abort, matching the old behavior.
+        set -l aborted
+        while true
+            if test "$target_type" = module && string match -q -r module-libs $service_name
+                build_libs --force
+            else
+                for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
+                    if test -e "$d"/package.json
+                        command env -C "$d" fish -P -c "
+                            type -q nvm && nvm use > /dev/null
+                            if string match -q -r \\\\bweb\\\\b -- \"\$PWD\"
+                                npm i --no-proxy \$ts_npm_install_options
+                            else
+                                npm i --no-proxy --os=linux --cpu=x64 --libc=glibc \$ts_npm_install_options
+                            end
+                        "
+                    end
                 end
             end
-        end
-        _ts_sls -C "$working_dir" -E $deploy_cmd
-        set -l result $status
+            _ts_sls -C "$working_dir" -E $deploy_cmd
 
-        # update counters
-        test $result -eq 0 \
-            && set success_count (math $success_count + 1) \
-            || set failure_count (math $failure_count + 1)
+            if test $status -eq 0
+                set success_count (math $success_count + 1)
+                set targets[$i] "success:$__"
+                printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
+                break
+            end
 
-        # update progress
-        test $result -eq 0 \
-            && set targets[$i] "success:$__" \
-            || set targets[$i] "failure:$__"
-
-        # taskbar progress (OSC 9;4) - switch from indeterminate to normal/error with percentage
-        if test $result -eq 0
-            printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
-        else
+            # failure: mark, show progress, then prompt
+            set targets[$i] "failure:$__"
             printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
+            _ts_progress $targets
+            read -l -P (red 'push failed for')" $fullname"'. [r]etry / [a]bort? [a] ' answer
+            switch $answer
+                case R r retry
+                    _ts_log retrying: (magenta $fullname)
+                    set targets[$i] "running:$__"
+                    continue
+                case '*'
+                    set failure_count (math $failure_count + 1)
+                    set aborted 1
+                    break
+            end
         end
 
-        test $result -eq 0 || break
+        test -n "$aborted" && break
     end
 
     # summary notification (single per push, only after everything is done)
