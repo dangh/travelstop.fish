@@ -1,4 +1,4 @@
-function push_all -d 'deploy all changed stacks/modules in current branch'
+function push_changes -d 'deploy all changed stacks/modules in current branch'
     argparse -i f/from= -- $argv
     or return
     set -l from_arg

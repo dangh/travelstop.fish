@@ -232,7 +232,7 @@ end
 
 abbr -a -- c changes
 abbr -a -- p push
-abbr -a -- pa push_all
+abbr -a -- pc push_changes
 abbr -a -- l logs
 abbr -a -- i invoke
 abbr -a -- b build_libs
