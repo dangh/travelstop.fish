@@ -10,7 +10,12 @@
 
 set -l here (path dirname (status filename))
 set -l repo (path dirname $here)
-set -g TS_ROOT $here/fixtures/project
+# Work on a throwaway copy: push runs `nvm use` + real `npm i` against any
+# service with a package.json, which would write package-lock.json into the
+# committed fixtures. Copy to a temp dir so the checked-in tree stays pristine.
+set -g TS_ROOT (mktemp -d)
+cp -R $here/fixtures/project/ $TS_ROOT
+mkdir -p $TS_ROOT/empty
 
 source $repo/functions/push.fish
 # conf.d lines 73-138 hold the real listing helpers; the file's `exit` (line 221)
@@ -61,7 +66,7 @@ push -a hotels >/dev/null 2>&1
 # previously: empty _ts_resolve_config output left target_type as 0 elements ->
 # `set -a {$target_type}s ...` failed with "invalid variable name".
 # Run from a dir without serverless.yml so the $PWD fallback can't resolve it.
-cd $here/fixtures/empty
+cd $TS_ROOT/empty
 set -l out (push bogus 2>&1)
 set -l code $status
 @test "push bogus exits non-zero" $code -ne 0
@@ -76,4 +81,5 @@ set -l code $status
 
 # --- teardown ------------------------------------------------------------
 cd $repo
+rm -rf $TS_ROOT
 rm -f $TS_SLS_LOG
