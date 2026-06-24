@@ -270,7 +270,7 @@ function push -d 'deploy CF stack/lambda function'
             # notify (native + pushover) that a deploy failed and needs input
             _ts_notify -t "push failed: $fullname" \
                 -m 'deploy failed — waiting for [r]etry / [s]kip / [a]bort'
-            read -l -P (red 'push failed for')" $fullname"'. [r]etry / [s]kip / [a]bort? [a] ' answer
+            read -l -n 1 -P (red 'push failed for')" $fullname"'. [r]etry / [s]kip / [a]bort? [a] ' answer
             switch $answer
                 case R r retry
                     _ts_log retrying: (magenta $fullname)
