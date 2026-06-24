@@ -33,6 +33,24 @@ function push -d 'deploy CF stack/lambda function'
     set -q _flag_config && set config $_flag_config
     set -a targets $argv
 
+    if contains -- all $targets
+        set -l all_targets (_ts_push_all_targets)
+        or return 1
+        set -l expanded_targets
+        for target in $targets
+            if test "$target" = all
+                for all_target in $all_targets
+                    if not contains -- $all_target $expanded_targets
+                        set -a expanded_targets $all_target
+                    end
+                end
+            else if not contains -- $target $expanded_targets
+                set -a expanded_targets $target
+            end
+        end
+        set targets $expanded_targets
+    end
+
     if test "$stage" = prod
         while true
             read -l -P 'Do you want to continue pushing to PROD? [y/N] ' confirm
@@ -245,6 +263,61 @@ function push -d 'deploy CF stack/lambda function'
 
     # restore module names (signal-handler path triggers the same body)
     _ts_push_restore_modules
+end
+
+function _ts_push_all_targets -d "expand push all to current service and subservices"
+    set -l project_dir
+    set -q $_ts_project_dir && set project_dir $$_ts_project_dir
+
+    set -l current_dir $PWD
+    while true
+        if test -f "$current_dir/serverless.yml"
+            break
+        end
+        if test "$current_dir" = /
+            set current_dir
+            break
+        end
+        if test -n "$project_dir"; and test "$current_dir" = "$project_dir"
+            set current_dir
+            break
+        end
+        set current_dir (path dirname -- $current_dir)
+    end
+
+    if test -z "$current_dir"
+        _ts_log cannot resolve current service. run from a service directory
+        return 1
+    end
+
+    set -l stack_dirs (find "$current_dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace -r '/serverless.yml$' '' | path sort)
+    set -l resource_dirs main_dir subservice_dirs
+
+    for dir in $stack_dirs
+        if test "$dir" = "$current_dir"
+            set main_dir $dir
+        else
+            set -l service_name (_ts_service_name "$dir/serverless.yml")
+            if string match -q '*-resources' -- $service_name
+                set -a resource_dirs $dir
+            else
+                set -a subservice_dirs $dir
+            end
+        end
+    end
+
+    set -l ordered_targets $resource_dirs
+    test -n "$main_dir" && set -a ordered_targets $main_dir
+    set -a ordered_targets $subservice_dirs
+
+    for dir in $ordered_targets
+        if test -n "$project_dir"; and string match -q -- "$project_dir/*" "$dir"
+            set -l offset (math (string length -- "$project_dir") + 2)
+            echo (string sub -s $offset -- "$dir")
+        else
+            echo $dir
+        end
+    end
 end
 
 function _ts_progress
