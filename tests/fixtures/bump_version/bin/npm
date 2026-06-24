@@ -1,0 +1,14 @@
+#!/usr/bin/env fish
+# Test shim for npm. The real bump_version runs (in a private fish subshell):
+#   npm version --allow-same-version <ver>
+#   test -f package-lock.json && npm i --package-lock-only
+# We must shim it because that subshell is spawned by `command env ... fish -P -c`
+# where a shadowing fish function would NOT be visible -- only PATH is inherited.
+# `npm version X` mutates package.json's "version" field, exactly what the real
+# tool does, so the later `jq -r .version package.json` reads the bumped value.
+if test "$argv[1]" = version
+    set -l ver $argv[-1]
+    jq --arg v "$ver" '.version = $v' package.json >package.json.shim
+    and mv package.json.shim package.json
+end
+exit 0
