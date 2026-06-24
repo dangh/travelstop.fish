@@ -1,0 +1,3 @@
+service: services-stack
+layers:
+  - cf:module-auth-LayerLambdaArn

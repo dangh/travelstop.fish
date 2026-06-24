@@ -1,0 +1,5 @@
+service: module-auth
+
+provider:
+  name: aws
+  region: us-east-1
