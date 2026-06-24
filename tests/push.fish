@@ -127,7 +127,24 @@ set -l code $status
 @test "abort on first failure deploys only once" (count (cat $TS_SLS_LOG)) -eq 1
 echo -n >$TS_FAIL_FLAG
 
+# ===== -C/--continue resumes a failed/interrupted run =====
+cd $TS_ROOT
+echo -n >$TS_SLS_LOG
+echo fail >$TS_FAIL_FLAG
+# first target fails -> abort -> state saved with one failure + one pending
+set -l out (push -a hotels </dev/null 2>&1)
+@test "aborted run made 1 attempt" (count (cat $TS_SLS_LOG)) -eq 1
+@test "abort prints continue hint" (string match -q '*push -C*' -- "$out"; echo $status) -eq 0
+# continue: redeploys the failed + remaining target (fail flag already cleared)
+echo -n >$TS_SLS_LOG
+push -C </dev/null >/dev/null 2>&1
+@test "continue deploys the 2 remaining targets" (count (cat $TS_SLS_LOG)) -eq 2
+# state cleared after a clean finish
+set -l out2 (push -C </dev/null 2>&1)
+@test "continue with no saved state says so" (string match -q '*nothing to continue*' -- "$out2"; echo $status) -eq 0
+
 # --- teardown ------------------------------------------------------------
 cd $repo
+rm -f (_ts_push_state_file)
 rm -rf $TS_ROOT
 rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG

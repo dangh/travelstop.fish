@@ -17,6 +17,7 @@ function push -d 'deploy CF stack/lambda function'
         v/verbose \
         a/all \
         i/interactive \
+        C/continue \
         force \
         'f/function=' \
         u/update-config \
@@ -79,63 +80,74 @@ function push -d 'deploy CF stack/lambda function'
         rename_modules off
     end
 
-    # push without any target/config/function
-    test -z "$argv" -a -z "$function" && not set -q _flag_all && set -a targets .
-
-    set -l match_flags
-    set -q _flag_regex && set match_flags -r
-    set -l patterns $targets
-    set targets
-
-    set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort) (_ts_functions | sort)
-    set -l matched_patterns
-    for pattern in $patterns
-        if string match -q '!*' $pattern
-            set -a _flag_exclude (string sub -s 2 $pattern)
-            set -a matched_patterns $pattern
-            continue
-        end
-        string match $match_flags -a "$pattern" $all_stacks | while read -l stack
-            if not contains $stack $targets
-                set -a targets $stack
-            end
-            set -a matched_patterns $pattern
-        end
-    end
-    for pattern in $patterns
-        if contains $pattern $matched_patterns
-            continue
-        end
-        set -a targets $pattern
-    end
-    for pattern in $_flag_exclude
-        set targets (string match $match_flags -v -a "$pattern" $targets)
-    end
-
-    for target in $targets
-        _ts_resolve_config "$target" "$config" | read -l -d : target_type __
-        if test -z "$target_type"
-            _ts_log cannot resolve target: (magenta $target)
-            _ts_push_restore_modules
-            return 1
-        end
-        set -a {$target_type}s "pending:$target_type:$__:$stage"
-    end
-
-    # re-order targets
-    set targets $modules $services $functions
-
-    # interactive: let the user delete/re-order resolved targets in $EDITOR
-    if set -q _flag_interactive
-        set targets (_ts_push_edit_targets $targets)
-        or begin
-            _ts_push_restore_modules
-            return 1
-        end
+    if set -q _flag_continue
+        # -C/--continue: resume a prior interrupted/failed run from saved state
+        # (the resolved targets and their per-target success/failure status).
+        set targets (_ts_push_load_state)
         if test -z "$targets"
-            _ts_log no targets selected
+            _ts_log nothing to continue
             _ts_push_restore_modules
             return
+        end
+    else
+        # push without any target/config/function
+        test -z "$argv" -a -z "$function" && not set -q _flag_all && set -a targets .
+
+        set -l match_flags
+        set -q _flag_regex && set match_flags -r
+        set -l patterns $targets
+        set targets
+
+        set -l all_stacks (_ts_modules | sort) (_ts_substacks | sort) (_ts_functions | sort)
+        set -l matched_patterns
+        for pattern in $patterns
+            if string match -q '!*' $pattern
+                set -a _flag_exclude (string sub -s 2 $pattern)
+                set -a matched_patterns $pattern
+                continue
+            end
+            string match $match_flags -a "$pattern" $all_stacks | while read -l stack
+                if not contains $stack $targets
+                    set -a targets $stack
+                end
+                set -a matched_patterns $pattern
+            end
+        end
+        for pattern in $patterns
+            if contains $pattern $matched_patterns
+                continue
+            end
+            set -a targets $pattern
+        end
+        for pattern in $_flag_exclude
+            set targets (string match $match_flags -v -a "$pattern" $targets)
+        end
+
+        for target in $targets
+            _ts_resolve_config "$target" "$config" | read -l -d : target_type __
+            if test -z "$target_type"
+                _ts_log cannot resolve target: (magenta $target)
+                _ts_push_restore_modules
+                return 1
+            end
+            set -a {$target_type}s "pending:$target_type:$__:$stage"
+        end
+
+        # re-order targets
+        set targets $modules $services $functions
+
+        # interactive: let the user delete/re-order resolved targets in $EDITOR
+        if set -q _flag_interactive
+            set targets (_ts_push_edit_targets $targets)
+            or begin
+                _ts_push_restore_modules
+                return 1
+            end
+            if test -z "$targets"
+                _ts_log no targets selected
+                _ts_push_restore_modules
+                return
+            end
         end
     end
 
@@ -149,6 +161,13 @@ function push -d 'deploy CF stack/lambda function'
 
     set -l success_count 0
     set -l failure_count 0
+    # count already-deployed targets carried over from a resumed run
+    for t in $targets
+        string match -q 'success:*' -- $t && set success_count (math $success_count + 1)
+    end
+
+    # persist resolved targets so an interrupted run can be resumed with -C
+    _ts_push_save_state $targets
 
     # taskbar progress (OSC 9;4) - indeterminate until first item finishes
     if test (count $targets) -ge 1
@@ -158,6 +177,8 @@ function push -d 'deploy CF stack/lambda function'
     # deploy
     for i in (seq (count $targets))
         echo $targets[$i] | read -l -d : state __
+        # skip targets already deployed in a prior run (still shown in progress)
+        test "$state" = success && continue
         echo $__ | read -l -d : target_type serverless_yml service_name function_name package_version region stage
         set -l fullname
         switch "$target_type"
@@ -236,12 +257,14 @@ function push -d 'deploy CF stack/lambda function'
             if test $status -eq 0
                 set success_count (math $success_count + 1)
                 set targets[$i] "success:$__"
+                _ts_push_save_state $targets
                 printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
                 break
             end
 
             # failure: mark, show progress, then prompt
             set targets[$i] "failure:$__"
+            _ts_push_save_state $targets
             printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
             _ts_progress $targets
             read -l -P (red 'push failed for')" $fullname"'. [r]etry / [a]bort? [a] ' answer
@@ -258,6 +281,19 @@ function push -d 'deploy CF stack/lambda function'
         end
 
         test -n "$aborted" && break
+    end
+
+    # resume state: clear it when everything is done, otherwise keep it and tell
+    # the user how to pick up where this run stopped (after a failure or Ctrl-C)
+    set -l remaining 0
+    for t in $targets
+        string match -q 'success:*' -- $t || set remaining (math $remaining + 1)
+    end
+    if test $remaining -eq 0
+        _ts_push_clear_state
+    else
+        _ts_push_save_state $targets
+        _ts_log (yellow $remaining) 'remaining — run' (green 'push -C') 'to continue'
     end
 
     # summary notification (single per push, only after everything is done)
@@ -301,6 +337,27 @@ function push -d 'deploy CF stack/lambda function'
 
     # restore module names (signal-handler path triggers the same body)
     _ts_push_restore_modules
+end
+
+function _ts_push_state_file -d "path to the resume-state file for the current project"
+    set -l dir /tmp
+    set -q TMPDIR && set dir $TMPDIR
+    set -l key (string replace -a -r '[^A-Za-z0-9]+' _ -- $$_ts_project_dir)
+    path normalize $dir/travelstop-push-$key.state
+end
+
+function _ts_push_save_state -d "persist resolved targets (with per-target status) for -C"
+    set -l f (_ts_push_state_file)
+    printf '%s\n' $argv >$f
+end
+
+function _ts_push_load_state -d "read saved targets for -C, if any"
+    set -l f (_ts_push_state_file)
+    test -f $f && cat $f
+end
+
+function _ts_push_clear_state -d "drop the resume-state file"
+    rm -f (_ts_push_state_file)
 end
 
 function _ts_push_all_targets -a base -d "expand a service dir to itself and its subservices"
