@@ -1,0 +1,30 @@
+#!/bin/sh
+# Fake `fish` used ONLY to intercept the deletion fan-out in
+# _delete_function_versions:
+#   xargs ... (which fish) -c _ts_delete_function_version <fn> <version>
+#
+# `which fish` resolves to this shim because the fixture bin is first on PATH,
+# so each would-be `fish -c _ts_delete_function_version <fn> <ver>` is recorded
+# instead of spawning a real fish (which would autoload + run real AWS).
+#
+# Records just the version to $DEL_LOG, one per line, so the test can assert the
+# exact set of versions targeted for deletion.
+
+# Expected argv: -c _ts_delete_function_version <fn> <version>
+# Be defensive: grab the last argument as the version.
+ver=""
+for a in "$@"; do ver="$a"; done
+
+fn=""
+# pull the arg just before the last (the function name)
+prev=""
+fn_candidate=""
+for a in "$@"; do
+    fn_candidate="$prev"
+    prev="$a"
+done
+fn="$fn_candidate"
+
+if [ -n "$DEL_LOG" ]; then
+    echo "$fn $ver" >>"$DEL_LOG"
+fi

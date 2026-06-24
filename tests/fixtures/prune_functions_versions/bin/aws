@@ -1,0 +1,36 @@
+#!/bin/sh
+# Fake `aws` for prune_functions_versions tests. No network, no real AWS.
+# Only supports: aws lambda list-versions-by-function --function-name <fn>
+# Prints the canned JSON fixture for <fn> from ../json/<fn>.json.
+# Records each invocation to $AWS_FAKE_LOG (if set) for sanity.
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+json_dir="$here/../json"
+
+[ -n "$AWS_FAKE_LOG" ] && echo "$*" >>"$AWS_FAKE_LOG"
+
+fn=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --function-name)
+            fn="$2"
+            shift 2
+            ;;
+        *)
+            shift
+            ;;
+    esac
+done
+
+if [ -z "$fn" ]; then
+    echo "fake-aws: missing --function-name" >&2
+    exit 2
+fi
+
+f="$json_dir/$fn.json"
+if [ ! -f "$f" ]; then
+    echo "fake-aws: no fixture for function '$fn' ($f)" >&2
+    exit 3
+fi
+
+cat "$f"
