@@ -130,6 +130,14 @@ echo fail >$TS_FAIL_FLAG
 printf 'r\n' | push hotels >/dev/null 2>&1
 @test "retry redeploys the failed target (2 sls calls)" (count (cat $TS_SLS_LOG)) -eq 2
 
+# ===== skip on failure: 's' skips the failed target, continues with the rest =====
+cd $TS_ROOT
+echo -n >$TS_SLS_LOG
+echo fail >$TS_FAIL_FLAG
+printf 's\n' | push -a hotels >/dev/null 2>&1
+@test "skip continues to the next target (2 calls)" (count (cat $TS_SLS_LOG)) -eq 2
+@test "skip moves on to the subservice" (string match -q '*/hotels/sub *' -- (cat $TS_SLS_LOG)[-1]; echo $status) -eq 0
+
 # ===== abort on failure (default/EOF) stops the run =====
 echo -n >$TS_SLS_LOG
 echo -n >$TS_NOTIFY_LOG

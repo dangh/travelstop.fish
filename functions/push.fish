@@ -269,13 +269,17 @@ function push -d 'deploy CF stack/lambda function'
             _ts_progress $targets
             # notify (native + pushover) that a deploy failed and needs input
             _ts_notify -t "push failed: $fullname" \
-                -m 'deploy failed — waiting for [r]etry / [a]bort'
-            read -l -P (red 'push failed for')" $fullname"'. [r]etry / [a]bort? [a] ' answer
+                -m 'deploy failed — waiting for [r]etry / [s]kip / [a]bort'
+            read -l -P (red 'push failed for')" $fullname"'. [r]etry / [s]kip / [a]bort? [a] ' answer
             switch $answer
                 case R r retry
                     _ts_log retrying: (magenta $fullname)
                     set targets[$i] "running:$__"
                     continue
+                case S s skip
+                    _ts_log skipping: (magenta $fullname)
+                    set failure_count (math $failure_count + 1)
+                    break
                 case '*'
                     set failure_count (math $failure_count + 1)
                     set aborted 1
