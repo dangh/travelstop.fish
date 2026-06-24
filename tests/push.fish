@@ -79,7 +79,31 @@ set -l code $status
 @test "-a nope exits non-zero" $code -ne 0
 @test "-a nope no crash" (string match -q '*invalid variable name*' -- "$out"; echo $status) -eq 1
 
+# ===== interactive mode: $EDITOR can reorder/delete targets =====
+# fake editor: keep only the last target line (drops the rest)
+set -g TS_FAKE_EDITOR (mktemp)
+echo '#!/usr/bin/env fish
+set -l f $argv[1]
+set -l kept (string match -r \'^\d+\' < $f)[-1]
+printf \'%s\n\' $kept > $f' >$TS_FAKE_EDITOR
+chmod +x $TS_FAKE_EDITOR
+set -gx EDITOR $TS_FAKE_EDITOR
+
+cd $TS_ROOT
+echo -n >$TS_SLS_LOG
+push -i -a hotels >/dev/null 2>&1
+@test "-i keeps only the editor-selected target" (count (cat $TS_SLS_LOG)) -eq 1
+
+# fake editor that deletes everything -> no deploy
+echo '#!/usr/bin/env fish
+printf \'\' > $argv[1]' >$TS_FAKE_EDITOR
+echo -n >$TS_SLS_LOG
+set -l out (push -i -a hotels 2>&1)
+@test "-i with all lines deleted deploys nothing" (count (cat $TS_SLS_LOG)) -eq 0
+@test "-i empty selection logs a notice" (string match -q '*no targets selected*' -- "$out"; echo $status) -eq 0
+set -e EDITOR
+
 # --- teardown ------------------------------------------------------------
 cd $repo
 rm -rf $TS_ROOT
-rm -f $TS_SLS_LOG
+rm -f $TS_SLS_LOG $TS_FAKE_EDITOR

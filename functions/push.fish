@@ -16,6 +16,7 @@ function push -d 'deploy CF stack/lambda function'
         'p/package=' \
         v/verbose \
         a/all \
+        i/interactive \
         force \
         'f/function=' \
         u/update-config \
@@ -123,6 +124,20 @@ function push -d 'deploy CF stack/lambda function'
 
     # re-order targets
     set targets $modules $services $functions
+
+    # interactive: let the user delete/re-order resolved targets in $EDITOR
+    if set -q _flag_interactive
+        set targets (_ts_push_edit_targets $targets)
+        or begin
+            _ts_push_restore_modules
+            return 1
+        end
+        if test -z "$targets"
+            _ts_log no targets selected
+            _ts_push_restore_modules
+            return
+        end
+    end
 
     # rename modules again to apply renamed modules for deploying targets
     set -l ymls
@@ -334,6 +349,45 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
             echo $dir
         end
     end
+end
+
+function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoes kept targets in new order"
+    set -l editor $EDITOR
+    test -n "$editor" || set editor $VISUAL
+    test -n "$editor" || set editor vi
+
+    set -l tmp (mktemp -t ts_push.XXXXXX)
+    begin
+        echo '# travelstop push — reorder or delete lines, then save and close.'
+        echo '# Targets deploy top to bottom. Delete a line to skip it. Keep the leading number.'
+        for i in (seq (count $argv))
+            echo $argv[$i] | read -l -d : state target_type serverless_yml service_name function_name __
+            set -l label $service_name
+            test -n "$function_name" && set label $service_name:$function_name
+            printf '%d\t%s\t%s\n' $i $target_type $label
+        end
+    end >$tmp
+
+    command $editor $tmp
+    or begin
+        rm -f $tmp
+        _ts_log editor exited non-zero, aborting
+        return 1
+    end
+
+    set -l result
+    while read -l line
+        # skip comments/blank; map the leading number back to the original target
+        set -l idx (string match -r '^\s*(\d+)' -- $line)[2]
+        test -n "$idx"; and test "$idx" -ge 1 -a "$idx" -le (count $argv)
+        and set -a result $argv[$idx]
+    end <$tmp
+    rm -f $tmp
+
+    for r in $result
+        echo $r
+    end
+    return 0
 end
 
 function _ts_progress
