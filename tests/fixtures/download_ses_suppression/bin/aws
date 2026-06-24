@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Fake `aws` for download_ses_suppression fishtape spec.
+# Emulates `aws sesv2 list-suppressed-destinations [--next-token TOKEN]`.
+# Page selection is driven purely by the presence of --next-token:
+#   - no --next-token  -> page 1 (returns a NextToken so the caller paginates)
+#   - --next-token set -> page 2 (returns NextToken: null so the loop stops)
+# Items deliberately arrive out of LastUpdateTime order across pages so the
+# spec can prove the jq merge sorts by LastUpdateTime descending.
+
+has_next_token=0
+for arg in "$@"; do
+  if [ "$arg" = "--next-token" ]; then
+    has_next_token=1
+  fi
+done
+
+if [ "$has_next_token" -eq 0 ]; then
+  # Page 1
+  cat <<'JSON'
+{
+  "SuppressedDestinationSummaries": [
+    { "EmailAddress": "p1-old@example.com",  "Reason": "BOUNCE",    "LastUpdateTime": "2024-01-10T00:00:00Z" },
+    { "EmailAddress": "p1-new@example.com",  "Reason": "COMPLAINT", "LastUpdateTime": "2024-03-15T00:00:00Z" }
+  ],
+  "NextToken": "PAGE2TOKEN"
+}
+JSON
+else
+  # Page 2
+  cat <<'JSON'
+{
+  "SuppressedDestinationSummaries": [
+    { "EmailAddress": "p2-newest@example.com", "Reason": "BOUNCE",    "LastUpdateTime": "2024-05-20T00:00:00Z" },
+    { "EmailAddress": "p2-mid@example.com",    "Reason": "COMPLAINT", "LastUpdateTime": "2024-02-01T00:00:00Z" }
+  ],
+  "NextToken": null
+}
+JSON
+fi
