@@ -1,0 +1,6 @@
+service: noregion-service
+provider:
+  name: aws
+functions:
+  ping:
+    handler: h.ping

@@ -1,0 +1,7 @@
+service: withregion-service
+provider:
+  name: aws
+  region: 'ap-south-1'
+functions:
+  ping:
+    handler: h.ping
