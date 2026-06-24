@@ -1,0 +1,23 @@
+#!/bin/sh
+# Fake `aws` for download_ddb_table tests.
+# Ignores all args (download_ddb_table only calls `aws dynamodb scan ...`)
+# and emits a canned, marshalled DynamoDB scan response so the real jq
+# unmarshalling + output path can be exercised without AWS/network.
+cat <<'JSON'
+{
+  "Items": [
+    {
+      "id": {"S": "abc-123"},
+      "age": {"N": "42"},
+      "active": {"BOOL": true}
+    },
+    {
+      "id": {"S": "def-456"},
+      "age": {"N": "7"},
+      "active": {"BOOL": false}
+    }
+  ],
+  "Count": 2,
+  "ScannedCount": 2
+}
+JSON
