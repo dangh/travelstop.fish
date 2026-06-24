@@ -28,7 +28,8 @@ for c in magenta yellow blue green red dim ansi-escape
     function $c; echo $argv; end
 end
 function rename_modules; end
-function _ts_notify; end
+set -g TS_NOTIFY_LOG (mktemp)
+function _ts_notify; echo "$argv" >>$TS_NOTIFY_LOG; end
 function _ts_progress; end
 set -g TS_SLS_LOG (mktemp)
 # fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry succeeds
@@ -121,10 +122,12 @@ printf 'r\n' | push hotels >/dev/null 2>&1
 
 # ===== abort on failure (default/EOF) stops the run =====
 echo -n >$TS_SLS_LOG
+echo -n >$TS_NOTIFY_LOG
 echo fail >$TS_FAIL_FLAG
 push -a hotels >/dev/null 2>&1 </dev/null
 set -l code $status
 @test "abort on first failure deploys only once" (count (cat $TS_SLS_LOG)) -eq 1
+@test "failure sends a notification" (string match -q '*push failed*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 0
 echo -n >$TS_FAIL_FLAG
 
 # ===== -C/--continue resumes a failed/interrupted run =====
@@ -147,4 +150,4 @@ set -l out2 (push -C </dev/null 2>&1)
 cd $repo
 rm -f (_ts_push_state_file)
 rm -rf $TS_ROOT
-rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG
+rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_NOTIFY_LOG

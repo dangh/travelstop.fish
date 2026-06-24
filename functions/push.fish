@@ -267,6 +267,9 @@ function push -d 'deploy CF stack/lambda function'
             _ts_push_save_state $targets
             printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
             _ts_progress $targets
+            # notify (native + pushover) that a deploy failed and needs input
+            _ts_notify -t "push failed: $fullname" \
+                -m 'deploy failed — waiting for [r]etry / [a]bort'
             read -l -P (red 'push failed for')" $fullname"'. [r]etry / [a]bort? [a] ' answer
             switch $answer
                 case R r retry
