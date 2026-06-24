@@ -1,0 +1,7 @@
+service: app
+provider:
+  name: aws
+  region: 'us-east-1'
+functions:
+  ping:
+    handler: h.ping

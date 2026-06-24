@@ -1,0 +1,3 @@
+service: flights-service
+provider:
+  region: 'us-east-1'

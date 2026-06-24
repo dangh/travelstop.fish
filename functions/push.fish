@@ -15,6 +15,7 @@ function push -d 'deploy CF stack/lambda function'
         'r/region=' \
         'p/package=' \
         v/verbose \
+        a/all \
         force \
         'f/function=' \
         u/update-config \
@@ -33,19 +34,26 @@ function push -d 'deploy CF stack/lambda function'
     set -q _flag_config && set config $_flag_config
     set -a targets $argv
 
-    if contains -- all $targets
-        set -l all_targets (_ts_push_all_targets)
-        or return 1
+    # -a/--all: expand each base (or PWD if none) to its service dir + subservices
+    if set -q _flag_all
+        set -l bases $targets
+        test -z "$bases" && set bases $PWD
         set -l expanded_targets
-        for target in $targets
-            if test "$target" = all
-                for all_target in $all_targets
-                    if not contains -- $all_target $expanded_targets
-                        set -a expanded_targets $all_target
-                    end
+        for base in $bases
+            # resolve a stack name to its service dir; dirs pass through
+            set -l dir $base
+            if not test -d "$dir"
+                set -l yml (_ts_resolve_config "$base" "" | string split -f2 -- :)
+                test -n "$yml"; or begin
+                    _ts_log cannot resolve target: (magenta $base)
+                    return 1
                 end
-            else if not contains -- $target $expanded_targets
-                set -a expanded_targets $target
+                set dir (path dirname -- $yml)
+            end
+            set -l base_targets (_ts_push_all_targets "$dir")
+            or return 1
+            for t in $base_targets
+                contains -- $t $expanded_targets || set -a expanded_targets $t
             end
         end
         set targets $expanded_targets
@@ -71,7 +79,7 @@ function push -d 'deploy CF stack/lambda function'
     end
 
     # push without any target/config/function
-    test -z "$argv" -a -z "$function" && set -a targets .
+    test -z "$argv" -a -z "$function" && not set -q _flag_all && set -a targets .
 
     set -l match_flags
     set -q _flag_regex && set match_flags -r
@@ -105,6 +113,11 @@ function push -d 'deploy CF stack/lambda function'
 
     for target in $targets
         _ts_resolve_config "$target" "$config" | read -l -d : target_type __
+        if test -z "$target_type"
+            _ts_log cannot resolve target: (magenta $target)
+            _ts_push_restore_modules
+            return 1
+        end
         set -a {$target_type}s "pending:$target_type:$__:$stage"
     end
 
@@ -265,11 +278,12 @@ function push -d 'deploy CF stack/lambda function'
     _ts_push_restore_modules
 end
 
-function _ts_push_all_targets -d "expand push all to current service and subservices"
+function _ts_push_all_targets -a base -d "expand a service dir to itself and its subservices"
     set -l project_dir
     set -q $_ts_project_dir && set project_dir $$_ts_project_dir
 
-    set -l current_dir $PWD
+    test -n "$base" || set base $PWD
+    set -l current_dir (path resolve -- $base)
     while true
         if test -f "$current_dir/serverless.yml"
             break
@@ -291,7 +305,9 @@ function _ts_push_all_targets -d "expand push all to current service and subserv
     end
 
     set -l stack_dirs (find "$current_dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace -r '/serverless.yml$' '' | path sort)
-    set -l resource_dirs main_dir subservice_dirs
+    set -l resource_dirs
+    set -l main_dir
+    set -l subservice_dirs
 
     for dir in $stack_dirs
         if test "$dir" = "$current_dir"

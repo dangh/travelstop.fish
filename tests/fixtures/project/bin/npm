@@ -1,0 +1,3 @@
+#!/bin/sh
+# no-op npm shim so push's inline `npm i` does nothing during tests
+exit 0

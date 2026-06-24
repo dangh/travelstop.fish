@@ -1,0 +1,3 @@
+service: hotels-sub
+provider:
+  region: 'us-east-1'

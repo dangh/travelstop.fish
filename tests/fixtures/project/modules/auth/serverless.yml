@@ -1,0 +1,3 @@
+service: auth
+provider:
+  region: 'us-east-1'
