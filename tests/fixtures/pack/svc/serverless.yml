@@ -1,0 +1,6 @@
+service: pack-svc
+provider:
+  region: 'us-east-1'
+functions:
+  doThing:
+    handler: h.do
