@@ -346,25 +346,18 @@ function push -d 'deploy CF stack/lambda function'
     _ts_push_restore_modules
 end
 
-function _ts_push_state_file -d "path to the resume-state file for the current project"
-    set -l dir /tmp
-    set -q TMPDIR && set dir $TMPDIR
-    set -l key (string replace -a -r '[^A-Za-z0-9]+' _ -- $$_ts_project_dir)
-    path normalize $dir/travelstop-push-$key.state
-end
-
 function _ts_push_save_state -d "persist resolved targets (with per-target status) for -C"
-    set -l f (_ts_push_state_file)
-    printf '%s\n' $argv >$f
+    set -g _ts_push_state $argv
 end
 
 function _ts_push_load_state -d "read saved targets for -C, if any"
-    set -l f (_ts_push_state_file)
-    test -f $f && cat $f
+    for t in $_ts_push_state
+        echo $t
+    end
 end
 
-function _ts_push_clear_state -d "drop the resume-state file"
-    rm -f (_ts_push_state_file)
+function _ts_push_clear_state -d "drop the saved resume state"
+    set -e _ts_push_state
 end
 
 function _ts_push_all_targets -a base -d "expand a service dir to itself and its subservices"

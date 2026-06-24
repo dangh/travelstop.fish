@@ -166,6 +166,5 @@ set -l out2 (push -C </dev/null 2>&1)
 
 # --- teardown ------------------------------------------------------------
 cd $repo
-rm -f (_ts_push_state_file)
 rm -rf $TS_ROOT
 rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_NOTIFY_LOG
