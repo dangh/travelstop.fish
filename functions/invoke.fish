@@ -77,7 +77,7 @@ function invoke -d "invoke lambda function"
     test -n "$_flag_path" && set -a invoke_cmd -p $_flag_path
     set -q _flag_log && set -a invoke_cmd --log
     test -n "$_flag_data" && begin
-        set -l data_path (mktemp -t sls-invoke-data-)
+        set -l data_path (mktemp -t sls-invoke-data-XXXXXX)
         echo $_flag_data >$data_path
         set -a invoke_cmd -p $data_path
     end

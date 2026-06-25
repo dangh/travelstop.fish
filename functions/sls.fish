@@ -35,7 +35,7 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
 
         set cmd $argv --aws-profile $aws_profile --stage $stage -r $region
         test -n "$_flag_data" && begin
-            set -l data_path (mktemp -t sls-data-)
+            set -l data_path (mktemp -t sls-data-XXXXXX)
             echo $_flag_data >$data_path
             set -a cmd -p $data_path
         end
