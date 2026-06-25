@@ -218,6 +218,18 @@ function _ts_sls
     "
 end
 
+function _ts_confirm_prod -a action -d "prompt y/N before a PROD action; return 1 if declined"
+    while true
+        read -l -P "Do you want to $action on PROD? [y/N] " confirm
+        switch $confirm
+            case Y y
+                return 0
+            case '' N n
+                return 1
+        end
+    end
+end
+
 status is-interactive || exit
 
 function _ts_uniq_completions

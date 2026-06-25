@@ -29,15 +29,8 @@ function invoke -d "invoke lambda function"
     or return 1
 
     if test "$stage" = prod
-        while true
-            read -l -P 'Do you want to continue invoking function on PROD? [y/N] ' confirm
-            switch $confirm
-                case Y y
-                    break
-                case '' N n
-                    return
-            end
-        end
+        _ts_confirm_prod "continue invoking function"
+        or return 0
     end
 
     # function is the first positional argument

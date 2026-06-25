@@ -43,15 +43,8 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
         switch $sub_command
             case invoke deploy
                 if test "$stage" = prod
-                    while true
-                        read -l -P "Do you want to perform $sub_command on PROD? [y/N] " confirm
-                        switch $confirm
-                            case Y y
-                                break
-                            case '' N n
-                                return
-                        end
-                    end
+                    _ts_confirm_prod "perform $sub_command"
+                    or return 0
                 end
         end
 

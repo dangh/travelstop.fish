@@ -62,15 +62,8 @@ function push -d 'deploy CF stack/lambda function'
     end
 
     if test "$stage" = prod
-        while true
-            read -l -P 'Do you want to continue pushing to PROD? [y/N] ' confirm
-            switch $confirm
-                case Y y
-                    break
-                case '' N n
-                    return
-            end
-        end
+        _ts_confirm_prod "continue pushing"
+        or return 0
     end
 
     # rename modules before deploy, restore on exit (normal or signal)
