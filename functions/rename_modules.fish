@@ -36,26 +36,19 @@ function rename_modules
             $$_ts_project_dir/admin/services/serverless-layers.yml
             test -f $f && set -a ymls $f
         end
-        sed -i.ts_bak -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' $ymls
-        and command rm $ymls.ts_bak
+        _ts_sed_inplace 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1\4/g' $ymls
     else if set -q _flag_force
         # add suffix to all modules
         set ymls \
             $$_ts_project_dir/modules/*/serverless.yml
-        if test -n "$ymls"
-            sed -i.ts_bak -E 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' $ymls
-            and command rm $ymls.ts_bak
-        end
+        _ts_sed_inplace 's/^service: module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/service: module-\1'"$suffix"'\4/g' $ymls
         set ymls
         for f in \
             $$_ts_project_dir/services/serverless-layers.yml \
             $$_ts_project_dir/admin/services/serverless-layers.yml
             test -f $f && set -a ymls $f
         end
-        if test -n "$ymls"
-            sed -i.ts_bak -E 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $ymls
-            and command rm $ymls.ts_bak
-        end
+        _ts_sed_inplace 's/module-([a-z]+)((-+[a-z0-9]+)*)(.*)?$/module-\1'"$suffix"'\4/g' $ymls
 
     else
         # add suffix to changed modules
@@ -91,12 +84,10 @@ function rename_modules
             for d in $changed_modules
                 string match -q -r '^# Layer: (?<module_name>\S+)' <$$_ts_project_dir/modules/$d/serverless.yml
                 set -l _yml $$_ts_project_dir/modules/$d/serverless.yml
-                sed -i.ts_bak -E 's/^service:.*$/service: '$module_name$suffix'/g' $_yml
-                and command rm $_yml.ts_bak
+                _ts_sed_inplace 's/^service:.*$/service: '$module_name$suffix'/g' $_yml
                 if test -n "$services_dirs"
                     set -l _layer_yml $$_ts_project_dir/$services_dirs/serverless-layers.yml
-                    sed -i.ts_bak -E 's/cf:'$module_name'[^$]*\$/cf:'$module_name$suffix'-$/g' $_layer_yml
-                    and command rm $_layer_yml.ts_bak
+                    _ts_sed_inplace 's/cf:'$module_name'[^$]*\$/cf:'$module_name$suffix'-$/g' $_layer_yml
                 end
             end
         end
@@ -111,6 +102,14 @@ function _ts_modules_have_suffix -d 'check if any module already has suffix'
         end
     end
     return 1
+end
+
+function _ts_sed_inplace -d 'in-place sed -E, removing the .ts_bak backups it creates'
+    set -l expr $argv[1]
+    set -l files $argv[2..]
+    test -n "$files" || return 0
+    sed -i.ts_bak -E $expr $files
+    and command rm $files.ts_bak
 end
 
 function _ts_module_get_suffix -a name -d 'get module name suffix'
