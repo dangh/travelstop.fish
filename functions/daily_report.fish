@@ -1,7 +1,20 @@
 function daily_report -a lambda
-    test -n "$ts_master_dir" || return 1
+    if test -z "$ts_master_dir"
+        echo "daily_report: ts_master_dir is not set" >&2
+        return 1
+    end
+    if not test -d "$ts_master_dir"
+        echo "daily_report: ts_master_dir does not exist: $ts_master_dir" >&2
+        return 1
+    end
     string match -qr '(?<stack>[\w-]+?)-(?<stage>prod|stage|test|dev-in|dev)-(?<functionName>\w+)' $lambda
-    set -l dir (_find_dir $ts_master_dir/services $stack)
+    set -l services_root $ts_master_dir/services
+    set -l lookup_stack $stack
+    if string match -qr '^admin-' -- $stack
+        set services_root $ts_master_dir/admin/services
+        set lookup_stack (string replace -r '^admin-' '' -- $stack)
+    end
+    set -l dir (_find_dir $services_root $lookup_stack)
     set -l query
     if test -n "$dir"
         set -l yml $dir/serverless.yml

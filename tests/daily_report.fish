@@ -42,6 +42,9 @@ source $repo/functions/daily_report.fish
 
 # ===== daily_report: guard + end-to-end URL =====
 @test "daily_report returns 1 without ts_master_dir" (begin; set -lx ts_master_dir; daily_report a-prod-b; echo $status; end) -eq 1
+@test "daily_report prints error when ts_master_dir unset" (begin; set -lx ts_master_dir; daily_report a-prod-b 2>&1 >/dev/null; end | string match -q '*is not set*'; echo $status) -eq 0
+@test "daily_report returns 1 when ts_master_dir missing" (begin; set -lx ts_master_dir /no/such/dir; daily_report a-prod-b; echo $status; end) -eq 1
+@test "daily_report prints error when ts_master_dir missing" (begin; set -lx ts_master_dir /no/such/dir; daily_report a-prod-b 2>&1 >/dev/null; end | string match -q '*does not exist*'; echo $status) -eq 0
 
 set -gx ts_master_dir $DR_MASTER
 set -e AWS_BROWSER
@@ -60,6 +63,11 @@ set -l url_in (daily_report hotels-dev-in-getHotel)
 # /opt/<handler> resolves into the master modules dir
 set -l url_opt (daily_report hotels-prod-optFn)
 @test "daily_report resolves /opt handler from modules dir" (string match -q '*$2522module level failure$2522*' -- $url_opt; echo $status) -eq 0
+
+# admin-* stack resolves into admin/services and keeps the full log-group name
+set -l url_admin (daily_report admin-hotels-prod-getHotel)
+@test "daily_report admin stack reads admin/services handler" (string match -q '*$2522Failed to fetch admin hotel$2522*' -- $url_admin; echo $status) -eq 0
+@test "daily_report admin stack keeps full log-group name" (string match -q '*admin-hotels-prod-getHotel*' -- $url_admin; echo $status) -eq 0
 
 # unresolvable service -> fallback query "Failed to"
 set -l url_fb (daily_report unknownsvc-prod-doThing)
