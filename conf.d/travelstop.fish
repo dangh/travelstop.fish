@@ -218,6 +218,10 @@ function _ts_sls
     "
 end
 
+function _ts_git_refs -d "list git refs for completion"
+    git for-each-ref --format='%(refname:strip=2)' refs 2>/dev/null
+end
+
 function _ts_confirm_prod -a action -d "prompt y/N before a PROD action; return 1 if declined"
     while true
         read -l -P "Do you want to $action on PROD? [y/N] " confirm
