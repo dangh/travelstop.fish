@@ -27,7 +27,6 @@ function logs -d "watch lambda function logs"
     set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set region $_flag_region
-    set -q _flag_type && set type $_flag_type
     set -q _flag_startTime && set startTime $_flag_startTime
 
     if test -z "$function"
