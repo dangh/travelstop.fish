@@ -228,7 +228,7 @@ function diff(a, b) {
         d[k] = b[k];
       }
     } else if (Array.isArray(a[k]) && Array.isArray(b[k])) {
-      if (a.length != b.length || a[k].some((v, i) => v != b[k][i])) {
+      if (a[k].length != b[k].length || a[k].some((v, i) => v != b[k][i])) {
         d[k] = b[k];
       }
     } else {
