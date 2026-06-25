@@ -1,6 +1,6 @@
 function rename_modules
     # ensure we're inside workspace
-    test -d $$_ts_project_dir || exit 1
+    test -d $$_ts_project_dir || return 1
 
     argparse -i f/force s/service=+ -- $argv
 
