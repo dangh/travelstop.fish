@@ -76,7 +76,7 @@ function push -d 'deploy CF stack/lambda function'
     if set -q _flag_continue
         # -C/--continue: resume a prior interrupted/failed run from saved state
         # (the resolved targets and their per-target success/failure status).
-        set targets (_ts_push_load_state)
+        set targets $_ts_push_state
         if test -z "$targets"
             _ts_log nothing to continue
             _ts_push_restore_modules
@@ -341,12 +341,6 @@ end
 
 function _ts_push_save_state -d "persist resolved targets (with per-target status) for -C"
     set -g _ts_push_state $argv
-end
-
-function _ts_push_load_state -d "read saved targets for -C, if any"
-    for t in $_ts_push_state
-        echo $t
-    end
 end
 
 function _ts_push_clear_state -d "drop the saved resume state"
