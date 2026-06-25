@@ -8,8 +8,7 @@
 # path without opening a real browser. node is required (used by the function itself)
 # and is exercised for real against the JS/yml fixtures.
 #
-# Assertions reflect ACTUAL behaviour read from the source, including the known bug
-# in _pluralize's `*y` branch (it echoes the literal command instead of running it).
+# Assertions reflect ACTUAL behaviour read from the source.
 
 set -l here (path dirname (status filename))
 set -l repo (path dirname $here)
@@ -23,9 +22,7 @@ source $repo/functions/daily_report.fish
 @test "_pluralize appends s to a bare word" (_pluralize hotel) = hotels
 @test "_pluralize leaves an -s word unchanged" (_pluralize hotels) = hotels
 @test "_pluralize leaves another -s word unchanged" (_pluralize bus) = bus
-# Known bug: the `*y` branch echoes the literal `string replace ...` command
-# instead of executing it. We assert the real (buggy) output, not the intent.
-@test "_pluralize -y branch returns the literal command string" (_pluralize country) = "string replace -r y\$ ies country"
+@test "_pluralize converts -y to -ies" (_pluralize country) = countries
 
 # ===== _find_dir: resolve a stack dir under a root via pluralized parts =====
 @test "_find_dir resolves single-part stack to pluralized dir" (_find_dir $DR_SERVICES hotel) = $DR_SERVICES/hotels

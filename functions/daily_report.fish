@@ -59,7 +59,7 @@ function _pluralize -a word
     if string match -q '*s' $word
         echo $word
     else if string match -q '*y' $word
-        echo string replace -r 'y$' ies $word
+        echo (string replace -r 'y$' ies $word)
     else
         echo "$word"s
     end
