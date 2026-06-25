@@ -91,7 +91,7 @@ function push -d 'deploy CF stack/lambda function'
         end
     else
         # push without any target/config/function
-        test -z "$argv" -a -z "$function" && not set -q _flag_all && set -a targets .
+        test -z "$argv" && not set -q _flag_function && not set -q _flag_all && set -a targets .
 
         set -l match_flags
         set -q _flag_regex && set match_flags -r
