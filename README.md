@@ -1,5 +1,25 @@
 # travelstop.fish
 
+## Commands
+
+| Command                     | Abbr | Description                                                          |
+| ---                         | ---  | ---                                                                  |
+| `changes`                   | `c`  | Print list of changed stacks/modules in current branch              |
+| `push`                      | `p`  | Deploy a CloudFormation stack / lambda function                     |
+| `push_changes`              | `pc` | Deploy all changed stacks/modules in current branch                 |
+| `logs`                      | `l`  | Watch lambda function logs                                           |
+| `invoke`                    | `i`  | Invoke a lambda function                                            |
+| `build_libs`                | `b`  | Rebuild the `libs` module                                           |
+| `rename_modules`            | `r`  | Add/remove a suffix on module names                                 |
+| `bump_version`              | `v`  | Bump service version (infers ticket from branch name)               |
+| `sls`                       |      | Wrap `sls` to supply stage/profile/region implicitly                |
+| `pack`                      |      | Package a serverless service                                        |
+| `daily_report`              |      | Open daily report for a lambda in a Firefox container               |
+| `download_ddb_table`        |      | Scan a DynamoDB table to `<table>.json`                             |
+| `download_ses_suppression`  |      | Download the SES suppression list as JSON                           |
+| `prune_functions_versions`  |      | Delete old lambda function versions (keep last N, default 10)       |
+| `prune_layer_versions`      |      | Delete old lambda layer versions (keep last N)                      |
+
 ## Installation
 
 Install `jq`:
@@ -100,16 +120,26 @@ List of supported variables:
 ```sh
 abbr -a -- c changes
 abbr -a -- p push
+abbr -a -- pc push_changes
 abbr -a -- l logs
 abbr -a -- i invoke
 abbr -a -- b build_libs
 abbr -a -- r rename_modules
 abbr -a -- v bump_version
-abbr -a -- l0 'logs --startTime=(date -u +%Y%m%dT%H%M%S)'
-abbr -a -- l5 'logs --startTime=5m'
-abbr -a -- l10 'logs --startTime=10m'
-abbr -a -- l15 'logs --startTime=15m'
-abbr -a -- l30 'logs --startTime=30m'
+```
+
+Plus a regex abbreviation: any `l<N>` expands to `logs` over the last `<N>` minutes
+(`l5` → `logs --startTime=5m`, `l30` → `logs --startTime=30m`). `l0` starts from now
+(`logs --startTime=(date -u +%Y%m%dT%H%M%S)`).
+
+### AWS profile aliases (when [`assume`](https://docs.commonfate.io/granted) is installed):
+
+```sh
+alias d  'assume DEV'
+alias di 'assume DEV-IN'
+alias t  'assume TEST'
+alias s  'assume STAGE'
+# `a [profile]` assumes profile (default: current) with `-s cloudwatch`
 ```
 ### Random rainbow cowsay fortune before each request log (macOS — Homebrew paths):
 
