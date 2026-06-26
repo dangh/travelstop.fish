@@ -279,9 +279,10 @@ function _change_translations -d "print list of new translation keys"
     for i in (seq (count $jsons))
         set -l json_name $json_names[$i]
         set -l json $jsons[$i]
-        comm -13 \
-            (git show $from:$json | jq --raw-output "$jq_transform" | sort | psub) \
-            (git show $to:$json | jq --raw-output "$jq_transform" | sort | psub) | read -l -z diff
+        # LC_ALL=C: comm and sort must agree on collation or comm errors "not in sorted order"
+        LC_ALL=C comm -13 \
+            (git show $from:$json | jq --raw-output "$jq_transform" | LC_ALL=C sort | psub) \
+            (git show $to:$json | jq --raw-output "$jq_transform" | LC_ALL=C sort | psub) | read -l -z diff
 
         if set -q _flag_verbose
             echo (yellow \$ git show $from:$json)
