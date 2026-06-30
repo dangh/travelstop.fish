@@ -246,12 +246,26 @@ function push -d 'deploy CF stack/lambda function'
                 end
             end
             _ts_sls -C "$working_dir" -E $deploy_cmd
+            set -l deploy_status $status
 
-            if test $status -eq 0
+            if test $deploy_status -eq 0
                 set success_count (math $success_count + 1)
                 set targets[$i] "success:$__"
                 _ts_push_save_state $targets
                 printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
+                break
+            end
+
+            # Ctrl-C during deploy: fish keeps running the script after the
+            # signal kills sls (exit status 128+signum). Treat that as an
+            # interrupt and stop the whole run instead of prompting retry/abort.
+            if test $deploy_status -ge 128
+                set targets[$i] "failure:$__"
+                set failure_count (math $failure_count + 1)
+                set aborted 1
+                _ts_push_save_state $targets
+                printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
+                _ts_log (red interrupted)
                 break
             end
 
