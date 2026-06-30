@@ -14,7 +14,7 @@ set -l repo (path dirname $here)
 # service with a package.json, which would write package-lock.json into the
 # committed fixtures. Copy to a temp dir so the checked-in tree stays pristine.
 set -g TS_ROOT (mktemp -d)
-cp -R $here/fixtures/project/ $TS_ROOT
+cp -R $here/fixtures/project/. $TS_ROOT
 mkdir -p $TS_ROOT/empty
 
 source $repo/functions/push.fish
@@ -32,10 +32,17 @@ set -g TS_NOTIFY_LOG (mktemp)
 function _ts_notify; echo "$argv" >>$TS_NOTIFY_LOG; end
 function _ts_progress; end
 set -g TS_SLS_LOG (mktemp)
-# fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry succeeds
+# fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry succeeds.
+# TS_INT_FLAG simulates Ctrl-C: sls exits with a signal status (130 = SIGINT),
+# which fish reports after it resumes the script post-signal.
 set -g TS_FAIL_FLAG (mktemp)
+set -g TS_INT_FLAG (mktemp)
 function _ts_sls
     echo "$argv" >>$TS_SLS_LOG
+    if test -s $TS_INT_FLAG
+        echo -n >$TS_INT_FLAG
+        return 130
+    end
     if test -s $TS_FAIL_FLAG
         echo -n >$TS_FAIL_FLAG
         return 1
@@ -147,6 +154,24 @@ set -l code $status
 @test "abort on first failure deploys only once" (count (cat $TS_SLS_LOG)) -eq 1
 @test "failure sends a notification" (string match -q '*push failed*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 0
 echo -n >$TS_FAIL_FLAG
+
+# ===== Ctrl-C during deploy interrupts the run (no retry/abort prompt) =====
+# No stdin is fed: a real failure would block on `read`, but an interrupt must
+# stop the run on its own without ever prompting.
+cd $TS_ROOT
+echo -n >$TS_SLS_LOG
+echo -n >$TS_NOTIFY_LOG
+echo int >$TS_INT_FLAG
+set -l out (push -a hotels 2>&1 </dev/null)
+@test "interrupt makes only 1 attempt" (count (cat $TS_SLS_LOG)) -eq 1
+@test "interrupt logs 'interrupted'" (string match -q '*interrupted*' -- "$out"; echo $status) -eq 0
+@test "interrupt does NOT send a push-failed notification" (string match -q '*push failed*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 1
+@test "interrupt prints the continue hint" (string match -q '*push -C*' -- "$out"; echo $status) -eq 0
+# resume works after an interrupt (fail flag is clear, so the rest succeed)
+echo -n >$TS_SLS_LOG
+push -C </dev/null >/dev/null 2>&1
+@test "continue after interrupt deploys the remaining targets" (count (cat $TS_SLS_LOG)) -eq 2
+echo -n >$TS_INT_FLAG
 
 # ===== -C/--continue resumes a failed/interrupted run =====
 cd $TS_ROOT
