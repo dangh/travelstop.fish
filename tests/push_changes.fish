@@ -86,5 +86,21 @@ push_changes -f main --dry extra >/dev/null 2>&1
 @test "push forwards --dry passthrough arg" (contains -- --dry (cat $PUSH_ARGV_LOG); echo $status) -eq 0
 @test "push forwards extra passthrough arg" (contains -- extra (cat $PUSH_ARGV_LOG); echo $status) -eq 0
 
+# ===== (5) -i/--interactive forwards -i to push with the changed paths =====
+echo -n >$CHANGES_ARGV_LOG
+echo -n >$PUSH_ARGV_LOG
+set -g CHANGES_OUT a/one b/two
+push_changes -i >/dev/null 2>&1
+@test "-i passes -i through to push" (contains -- -i (cat $PUSH_ARGV_LOG); echo $status) -eq 0
+@test "-i still forwards both changed paths" (contains -- a/one (cat $PUSH_ARGV_LOG); and contains -- b/two (cat $PUSH_ARGV_LOG); echo $status) -eq 0
+
+# --interactive long form + --from together
+echo -n >$CHANGES_ARGV_LOG
+echo -n >$PUSH_ARGV_LOG
+set -g CHANGES_OUT a/one
+push_changes --interactive --from=main >/dev/null 2>&1
+@test "--interactive passes -i through to push" (contains -- -i (cat $PUSH_ARGV_LOG); echo $status) -eq 0
+@test "--interactive still forwards --from to changes" (string match -q '*--from=main*' -- (cat $CHANGES_ARGV_LOG); echo $status) -eq 0
+
 # --- teardown ------------------------------------------------------------
 rm -f $CHANGES_ARGV_LOG $PUSH_ARGV_LOG

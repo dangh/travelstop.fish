@@ -4,6 +4,7 @@ complete -c push_changes -r -f -l from -s f -a merge-base -d "Change from merge 
 complete -c push_changes -r -f -l from -s f -a "(_ts_git_refs)"
 
 # common push pass-through flags
+complete -c push_changes -s i -l interactive -d 'edit changed stacks in $EDITOR before deploy'
 complete -c push_changes -x -s s -l stage -a 'dev dev-in test stage prod' -d stage
 complete -c push_changes -x -s r -l region -d 'aws region'
 complete -c push_changes -s v -l verbose -d 'verbose output'
