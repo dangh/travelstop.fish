@@ -1,4 +1,12 @@
 function daily_report -a lambda
+    # no lambda given: fall back to the system clipboard (paste a name/ARN)
+    if test -z "$lambda"
+        set lambda (_ts_clipboard_paste | string trim)
+    end
+    if test -z "$lambda"
+        echo "daily_report: no lambda name given and clipboard is empty" >&2
+        return 1
+    end
     if test -z "$ts_master_dir"
         echo "daily_report: ts_master_dir is not set" >&2
         return 1
@@ -52,6 +60,20 @@ function daily_report -a lambda
         end
     else
         echo $url
+    end
+end
+
+function _ts_clipboard_paste -d "read text from the system clipboard (cross-platform)"
+    if type -q pbpaste
+        pbpaste
+    else if type -q wl-paste
+        wl-paste --no-newline
+    else if type -q xclip
+        xclip -selection clipboard -o
+    else if type -q xsel
+        xsel --clipboard --output
+    else
+        return 1
     end
 end
 

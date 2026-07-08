@@ -70,6 +70,17 @@ set -l url_admin (daily_report admin-hotels-prod-getHotel)
 set -l url_fb (daily_report unknownsvc-prod-doThing)
 @test "daily_report falls back to 'Failed to' query" (string match -q '*$2522Failed to$2522*' -- $url_fb; echo $status) -eq 0
 
+# ===== clipboard fallback: no arg -> read lambda from the clipboard =====
+# stub the cross-platform clipboard reader so tests never touch the real one
+function _ts_clipboard_paste; echo '  hotels-prod-getHotel  '; end
+set -l url_clip (daily_report)
+@test "daily_report reads lambda from clipboard when arg missing" (string match -q '*hotels-prod-getHotel*' -- $url_clip; echo $status) -eq 0
+@test "daily_report trims surrounding whitespace from the clipboard" (string match -q '*name=PROD*' -- $url_clip; echo $status) -eq 0
+
+function _ts_clipboard_paste; end # empty clipboard
+@test "daily_report returns 1 with no arg and empty clipboard" (daily_report; echo $status) -eq 1
+@test "daily_report errors with no arg and empty clipboard" (daily_report 2>&1 >/dev/null | string match -q '*clipboard is empty*'; echo $status) -eq 0
+
 # ===== daily_report: AWS_BROWSER launch path (stubbed fake browser) =====
 set -gx AWS_BROWSER $DR_ROOT/bin/fakebrowser
 
