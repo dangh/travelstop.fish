@@ -1,4 +1,5 @@
 function download_ses_suppression
+    _ts_ensure_session; or return 1
     set files
     set page 0
     set token

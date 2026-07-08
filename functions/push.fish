@@ -66,6 +66,10 @@ function push -d 'deploy CF stack/lambda function'
         or return 0
     end
 
+    # verify the AWS session up-front: an expired login surfaces here at a clean
+    # prompt instead of halting buried mid-deploy (and before any side-effects)
+    _ts_ensure_session $aws_profile; or return 1
+
     # rename modules before deploy, restore on exit (normal or signal)
     rename_modules on
     function _ts_push_restore_modules -s SIGINT -s SIGTERM -s SIGHUP

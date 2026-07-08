@@ -1,6 +1,7 @@
 function prune_layer_versions -a layer_name -a keep
     test -n "$layer_name" || return 1
     test -n "$keep" || set keep 10
+    _ts_ensure_session; or return 1
     set -l batch_size 20
     aws lambda list-layer-versions --layer-name $layer_name \
         | jq -r '.LayerVersions.[].Version' \

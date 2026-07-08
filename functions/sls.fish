@@ -48,6 +48,12 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
                 end
         end
 
+        # verify the AWS session up-front for subcommands that hit AWS
+        switch $sub_command
+            case deploy invoke logs remove rollback info metrics
+                _ts_ensure_session $aws_profile; or return 1
+        end
+
         _ts_sls -E $cmd
     end
 end

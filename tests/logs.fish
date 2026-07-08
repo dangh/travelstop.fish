@@ -19,6 +19,7 @@ set -l repo (path dirname $here)
 source $repo/functions/logs.fish
 
 # --- stub only external side effects -------------------------------------
+function _ts_ensure_session; end
 function _ts_log; echo $argv; end
 for c in red dim
     function $c; echo $argv; end

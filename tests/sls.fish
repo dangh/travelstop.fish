@@ -24,6 +24,7 @@ source $repo/functions/sls.fish
 
 # --- stub only the final exec --------------------------------------------
 set -g LOG (mktemp)
+function _ts_ensure_session; end
 function _ts_sls; echo "$argv" >>$LOG; return 0; end
 
 # helper: clear the log, run sls, return the single captured command line

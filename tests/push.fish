@@ -28,6 +28,7 @@ for c in magenta yellow blue green red dim ansi-escape
     function $c; echo $argv; end
 end
 function rename_modules; end
+function _ts_ensure_session; end
 set -g TS_NOTIFY_LOG (mktemp)
 function _ts_notify; echo "$argv" >>$TS_NOTIFY_LOG; end
 function _ts_progress; end

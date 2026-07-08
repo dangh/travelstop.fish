@@ -39,6 +39,9 @@ function logs -d "watch lambda function logs"
         return 1
     end
 
+    # verify the AWS session up-front so expiry surfaces here, not mid-tail
+    _ts_ensure_session $aws_profile; or return 1
+
     set -l logs_cmd logs
     test -n "$function" && set -a logs_cmd -f $function
     test -n "$aws_profile" && set -a logs_cmd --aws-profile $aws_profile

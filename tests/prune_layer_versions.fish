@@ -26,6 +26,7 @@ set -l repo (path dirname $here)
 set -g FIX $here/fixtures/prune_layer_versions
 
 source $repo/functions/prune_layer_versions.fish
+function _ts_ensure_session; end
 
 # fake aws on PATH (in front), and route the delete subprocess to our fake function.
 set -gx PATH $FIX/bin $PATH

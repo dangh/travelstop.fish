@@ -19,6 +19,7 @@
 | `download_ses_suppression`  |      | Download the SES suppression list as JSON                           |
 | `prune_functions_versions`  |      | Delete old lambda function versions (keep last N, default 10)       |
 | `prune_layer_versions`      |      | Delete old lambda layer versions (keep last N)                      |
+| `aws_check`                 |      | Check the AWS session for a profile (default `$AWS_PROFILE`); log in if expired |
 
 ## Installation
 
@@ -141,6 +142,15 @@ alias t  'assume TEST'
 alias s  'assume STAGE'
 # `a [profile]` assumes profile (default: current) with `-s cloudwatch`
 ```
+
+AWS-touching commands (`push`, `push_changes`, `invoke`, `logs`, `pack`, `sls`,
+`download_ddb_table`, `download_ses_suppression`, `prune_layer_versions`,
+`prune_functions_versions`) run a session pre-flight (`_ts_ensure_session`)
+before hitting AWS. An expired SSO session surfaces the login URL up-front at a
+clean prompt (not buried mid-command); complete it and the command continues. If
+login is skipped it prompts to retry, so you can re-auth inline instead of
+re-running the whole command. Run `aws_check` any time to check / refresh the
+session manually.
 ### Random rainbow cowsay fortune before each request log (macOS — Homebrew paths):
 
 ```sh

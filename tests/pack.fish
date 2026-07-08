@@ -20,6 +20,7 @@ source $repo/functions/pack.fish
 source (sed -n '140,177p' $repo/conf.d/travelstop.fish | psub)
 
 # --- stub only external side-effects -------------------------------------
+function _ts_ensure_session; end
 function _ts_log; echo $argv; end
 for c in magenta yellow blue green red dim ansi-escape
     function $c; echo $argv; end

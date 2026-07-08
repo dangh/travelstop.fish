@@ -31,6 +31,7 @@ set -l repo (path dirname $here)
 set -l fix $here/fixtures/prune_functions_versions
 
 source $repo/functions/prune_functions_versions.fish
+function _ts_ensure_session; end
 
 # fixture bin first on PATH: shadows `aws` and the `fish` that the delete
 # fan-out shells out to via `(which fish) -c ...`.

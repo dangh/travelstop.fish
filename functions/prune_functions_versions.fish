@@ -13,6 +13,7 @@ end
 
 function prune_functions_versions -a keep
     test -n "$keep" || set keep 10
+    _ts_ensure_session; or return 1
     for f in (_ts_substacks | _ts_functions -l)
         echo Pruning all versions of function $f except the last $keep
         _delete_function_versions $f $keep

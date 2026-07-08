@@ -1,4 +1,5 @@
 function download_ddb_table -a table_name
+    _ts_ensure_session; or return 1
     aws dynamodb scan \
         --table-name $table_name \
         --select ALL_ATTRIBUTES \

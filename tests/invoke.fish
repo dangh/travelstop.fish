@@ -23,6 +23,7 @@ set -l repo (path dirname $here)
 source $repo/functions/invoke.fish
 
 # --- stub only external side-effects -------------------------------------
+function _ts_ensure_session; end
 function _ts_log; echo $argv; end
 for c in red green yellow blue magenta dim ansi-escape
     function $c; echo $argv; end

@@ -281,6 +281,44 @@ function ts_env_vpn -e vpn -a action -a name -a proxy
     end
 end
 
+function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re-auth and continue if expired'
+    type -q aws; or return 0 # no aws CLI -> nothing to gate
+    set -l profile $argv[1]
+    test -n "$profile"; or set profile $AWS_PROFILE
+    if test -z "$profile"
+        _ts_log (yellow 'no AWS_PROFILE set — skipping session check')
+        return 0
+    end
+    while true
+        # credential_process runs with --auto-login: an expired SSO session
+        # surfaces the login URL here (via ~/sso-print-url.sh -> /dev/tty), at a
+        # clean prompt instead of buried mid-deploy. Complete it and we continue.
+        # Both streams are dropped: stdout is the identity JSON and stderr is the
+        # ExpiredToken noise; the login URL goes to /dev/tty, bypassing both.
+        if aws sts get-caller-identity --profile $profile >/dev/null 2>&1
+            return 0
+        end
+        # not authenticated — offer to re-auth inline and continue instead of
+        # aborting the whole run
+        _ts_log (red "AWS session expired for $profile.")
+        read -l -n 1 -P (yellow "log in to $profile now? [Y/n] ") ans
+        or return 1 # non-interactive / EOF -> abort
+        switch $ans
+            case n N
+                _ts_log aborted": run "(yellow "assume $profile")" to log in, then retry"
+                return 1
+        end
+        # cached creds in ~/.aws/credentials shadow the credential_process, so a
+        # bare re-check can't self-heal — force a fresh granted login (refreshes
+        # ~/.aws/credentials + the SSO token), then loop to re-verify.
+        if type -q assume
+            assume $profile
+        else
+            aws sso login --profile $profile
+        end
+    end
+end
+
 if type -q assume
     alias d='assume DEV'
     alias di='assume DEV-IN'

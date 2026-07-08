@@ -52,6 +52,9 @@ function invoke -d "invoke lambda function"
         return 1
     end
 
+    # verify the AWS session up-front so expiry surfaces here, not mid-run
+    _ts_ensure_session $aws_profile; or return 1
+
     # auto push
     set function_js './functions/'(string replace -ar '[A-Z]' -- '-$0' $function | string lower)'.js'
     if test -f $function_js

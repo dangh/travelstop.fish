@@ -19,6 +19,7 @@ set -l here (path dirname (status filename))
 set -l repo (path dirname $here)
 
 source $repo/functions/download_ddb_table.fish
+function _ts_ensure_session; end
 
 # --- stub only the external side-effect (aws) via a PATH shim ------------
 set -gx PATH $here/fixtures/download_ddb_table/bin $PATH

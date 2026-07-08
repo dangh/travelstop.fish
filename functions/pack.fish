@@ -46,6 +46,8 @@ function pack -d "package a serverless service"
     test -n "$_flag_org" && set -a package_cmd --org $_flag_org
     test (path basename $yml) != serverless.yml && set -a package_cmd -c (path basename $yml)
 
+    _ts_ensure_session $aws_profile; or return 1
+
     _ts_log packaging stack: (magenta $name_ver)
     _ts_log config: (blue $yml)
 

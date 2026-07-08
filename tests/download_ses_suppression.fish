@@ -21,6 +21,7 @@ set -l repo (path dirname $here)
 set -l fix $here/fixtures/download_ses_suppression
 
 source $repo/functions/download_ses_suppression.fish
+function _ts_ensure_session; end
 
 # put the fake `aws` first on PATH; jq/mktemp stay real
 set -gx PATH $fix/bin $PATH
