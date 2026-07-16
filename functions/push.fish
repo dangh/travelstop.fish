@@ -208,6 +208,14 @@ function push -d 'deploy CF stack/lambda function'
                 set -q _flag_force && set -a deploy_cmd --force
                 set -q _flag_update_config && set -a deploy_cmd -u
             case \*
+                # serverless-web service (has serverless.yml, no
+                # serverless-resources.yml, uses the serverless-web plugin):
+                # deploy the web app instead of the CF stack.
+                if test -e "$working_dir"/serverless.yml \
+                    && not test -e "$working_dir"/serverless-resources.yml \
+                    && grep -q -- serverless-web "$working_dir"/serverless.yml
+                    set deploy_cmd deploy web
+                end
                 set -q _flag_conceal && set -a deploy_cmd --conceal
                 test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
                 test -n "$stage" && set -a deploy_cmd -s $stage
