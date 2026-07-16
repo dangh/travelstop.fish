@@ -80,7 +80,7 @@ function build_libs -d "rebuild libs module"
 
     if test -n "$tgzs"
         rm -f $nodejs_dir/package-lock.json
-        set -l cmd npm install --no-proxy --prefix=(string escape -- $nodejs_dir) --omit=dev --omit=optional $ts_npm_install_options
+        set -l cmd (_ts_pm_install "$nodejs_dir" --no-proxy --prefix=(string escape -- $nodejs_dir) --omit=dev --omit=optional $ts_npm_install_options)
         _ts_log (dim ...) (yellow $cmd \\\n'  '$tgzs | string collect)
         command env -C "$nodejs_dir" fish -P -c "
             type -q nvm && nvm use > /dev/null

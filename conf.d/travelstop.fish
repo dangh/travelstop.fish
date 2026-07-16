@@ -192,6 +192,31 @@ function _ts_delete_function_version
     aws lambda delete-function --function-name $function_name --qualifier $v
 end
 
+function _ts_pm_install -d "npm/pnpm install command for a dir; uses pnpm when pnpm-lock.yaml present, translating npm-style flags"
+    set -l dir $argv[1]
+    set -e argv[1]
+    if test -f "$dir"/pnpm-lock.yaml
+        set -l cmd pnpm install
+        for a in $argv
+            switch $a
+                case '--prefix=*'
+                    set -a cmd --dir=(string replace -- '--prefix=' '' $a)
+                case '--omit=dev'
+                    set -a cmd --prod
+                case '--omit=optional'
+                    set -a cmd --no-optional
+                case '--no-proxy'
+                    # pnpm honors proxy via env/config; npm-only flag, drop it
+                case '*'
+                    set -a cmd $a
+            end
+        end
+        printf '%s\n' $cmd
+    else
+        printf '%s\n' npm install $argv
+    end
+end
+
 function _ts_sls
     argparse -i C/cwd= E/with-env -- $argv
     set -l sls $$_ts_project_dir/node_modules/.bin/sls
@@ -206,7 +231,8 @@ function _ts_sls
     _ts_log execute command: (green (string join ' ' -- $cmd))
     if not test -x $sls
         _ts_log sls command not found. Installing...
-        npm i --prefix $$_ts_project_dir
+        set -l install_cmd (_ts_pm_install "$$_ts_project_dir" --prefix=$$_ts_project_dir)
+        $install_cmd
     end
     set -l env
     if set -q _flag_cwd
