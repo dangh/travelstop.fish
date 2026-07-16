@@ -334,10 +334,40 @@ if type -q assume
 end
 
 function retain_aws_vars
-    function store_aws_vars -e fish_prompt -e fish_cancel
+    # universal-var prefix for the current git project; fails when not in a repo.
+    # `string escape --style=var` turns the toplevel path into a valid var name.
+    function _ts_aws_project_key
+        set -l dir (git --no-optional-locks rev-parse --show-toplevel 2>/dev/null)
+        test -n "$dir" || return 1
+        echo _ts_aws_(string escape --style=var -- $dir)
+    end
+
+    # persist the current profile/region on every prompt: globally (fallback) and
+    # per-project so each git project/worktree remembers its own last profile.
+    function _ts_store_aws_vars -e fish_prompt -e fish_cancel
         set -U LAST_AWS_PROFILE $AWS_PROFILE
         set -U LAST_AWS_REGION $AWS_REGION
+        set -l key (_ts_aws_project_key)
+        or return
+        set -U {$key}_profile $AWS_PROFILE
+        set -U {$key}_region $AWS_REGION
     end
-    set -gx AWS_PROFILE $LAST_AWS_PROFILE
-    set -gx AWS_REGION $LAST_AWS_REGION
+
+    # on entering a directory, restore that project's last-used profile/region.
+    # returns non-zero when there is nothing project-specific to restore.
+    function _ts_restore_aws_vars -v PWD
+        set -l key (_ts_aws_project_key)
+        or return
+        set -l pv {$key}_profile
+        set -l rv {$key}_region
+        set -q $pv || return
+        set -gx AWS_PROFILE $$pv
+        set -gx AWS_REGION $$rv
+    end
+
+    # seed the shell: prefer this project's saved profile, else the global last-used
+    if not _ts_restore_aws_vars
+        set -gx AWS_PROFILE $LAST_AWS_PROFILE
+        set -gx AWS_REGION $LAST_AWS_REGION
+    end
 end && retain_aws_vars && functions -e retain_aws_vars
