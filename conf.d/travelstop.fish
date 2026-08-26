@@ -28,7 +28,13 @@ function _ts_log
 end
 
 function _ts_env
-    test -n "$ts_env" || begin
+    # a user-defined `ts_env` function wins (compute pairs dynamically, e.g. a
+    # per-AWS-profile proxy); otherwise fall back to the `ts_env` universal var.
+    # each pair is one KEY=value entry.
+    set -l pairs $ts_env
+    functions -q ts_env && set pairs (ts_env)
+
+    test -n "$pairs" || begin
         echo
         return 0
     end
@@ -38,12 +44,12 @@ function _ts_env
 
     switch $_flag_mode
         case env
-            for pair in $ts_env
+            for pair in $pairs
                 echo $pair | read -l -d = key value
                 set -a result $key=(string escape -- $value)
             end
         case awk
-            for pair in $ts_env
+            for pair in $pairs
                 echo $pair | read -l -d = key value
                 set -a result -v $key=(string escape -- $value)
             end
@@ -222,10 +228,7 @@ function _ts_sls
     set -l sls $$_ts_project_dir/node_modules/.bin/sls
     set -l cmd
     if set -q _flag_with_env
-        for pair in $ts_env
-            echo $pair | read -l -d = key value
-            set -a cmd $key=(string escape -- $value)
-        end
+        set -a cmd (_ts_env --mode=env)
     end
     set -a cmd $sls $argv
     _ts_log execute command: (green (string join ' ' -- $cmd))
@@ -291,21 +294,6 @@ function logs_minutes -a lm
 end
 
 abbr -a logs_minutes -r '^l\d+$' -f logs_minutes
-
-function ts_env_vpn -e vpn -a action -a name -a proxy
-    set -l var HTTPS_PROXY=$proxy
-    switch "$action"
-        case connect
-            set -q ts_env || set -Ux ts_env
-            contains $var $ts_env || set -a ts_env $var
-        case disconnect
-            set -e ts_env
-            contains --index $var $ts_env | read -l idx
-            if test -n "$idx"
-                set -e ts_env[$idx]
-            end
-    end
-end
 
 function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re-auth and continue if expired'
     type -q aws; or return 0 # no aws CLI -> nothing to gate

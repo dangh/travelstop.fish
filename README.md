@@ -49,6 +49,21 @@ set -a ts_env HTTPS_PROXY=http://localhost:8888
 set -a ts_env SLS_DEPRECATION_DISABLE='*'
 ```
 
+For dynamic values, define a `ts_env` function (one `KEY=value` pair per line).
+If it exists it is used instead of the variable, so you can compute pairs with
+custom logic, e.g. a proxy that depends on the current AWS profile:
+
+```fish
+function ts_env
+    switch "$AWS_PROFILE"
+        case 'acme@prod'
+            echo HTTPS_PROXY=http://localhost:9999
+        case '*'
+            echo HTTPS_PROXY=http://localhost:8888
+    end
+end
+```
+
 ### To apply default arguments to commands:
 
 ```sh
