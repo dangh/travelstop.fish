@@ -41,10 +41,10 @@ set -gx AWS_REGION us-east-1
 cd $TS_SLS_FIX/noregion
 
 # ===== stage derived from AWS_PROFILE (acme@dev -> dev) ==================
-# The command line is exec'd as `_ts_sls -E <subcommand> ...`, so the captured
-# log line is `-E deploy --aws-profile ... --stage ... -r ...`.
+# The command line is exec'd as `_ts_sls --with-env <subcommand> ...`, so the captured
+# log line is `--with-env deploy --aws-profile ... --stage ... -r ...`.
 set -l out (_run deploy)
-@test "exec is invoked with -E then the subcommand" (string match -q -- '-E deploy *' $out; echo $status) -eq 0
+@test "exec is invoked with --with-env then the subcommand" (string match -q -- '--with-env deploy *' $out; echo $status) -eq 0
 @test "stage is derived from AWS_PROFILE" (string match -q -- '*--stage dev*' $out; echo $status) -eq 0
 @test "profile is forwarded from AWS_PROFILE" (string match -q -- '*--aws-profile acme@dev*' $out; echo $status) -eq 0
 @test "region is forwarded from AWS_REGION" (string match -q -- '*-r us-east-1*' $out; echo $status) -eq 0
@@ -56,7 +56,7 @@ set -l out (_run deploy --force)
 
 # ===== a different subcommand keeps the same injection ===================
 set -l out (_run info)
-@test "info subcommand keeps stage/profile/region injection" (string match -q -- '-E info --aws-profile acme@dev --stage dev -r us-east-1*' $out; echo $status) -eq 0
+@test "info subcommand keeps stage/profile/region injection" (string match -q -- '--with-env info --aws-profile acme@dev --stage dev -r us-east-1*' $out; echo $status) -eq 0
 
 # ===== explicit overrides win ============================================
 set -l out (_run deploy --stage staging)

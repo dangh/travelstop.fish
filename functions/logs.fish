@@ -60,8 +60,8 @@ function logs -d "watch lambda function logs"
     functions -q ts_styles && ts_styles
 
     if functions -q parse_logs
-        _ts_sls -E $logs_cmd | command fish -c parse_logs | command env $awk_cmd
+        _ts_sls --with-env $logs_cmd | command fish -c parse_logs | command env $awk_cmd
     else
-        _ts_sls -E $logs_cmd | command env $awk_cmd
+        _ts_sls --with-env $logs_cmd | command env $awk_cmd
     end
 end

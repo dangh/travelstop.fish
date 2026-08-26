@@ -2,7 +2,7 @@
 # Run: fishtape tests/invoke.fish < /dev/null
 #
 # Code under test: invoke. It builds a `serverless invoke` argv and hands it to
-# `_ts_sls -E ...`, then calls `logs`. We intercept the serverless invocation by
+# `_ts_sls --with-env ...`, then calls `logs`. We intercept the serverless invocation by
 # shadowing `_ts_sls` (logs argv to a file) and stub the other side-effects
 # (`logs`, `push`, `_ts_log`, colors). Nothing real runs; no network.
 #
@@ -30,11 +30,11 @@ for c in red green yellow blue magenta dim ansi-escape
 end
 
 set -g TS_SLS_LOG (mktemp)
-# Intercept the serverless invocation: invoke calls `_ts_sls -E $invoke_cmd`.
+# Intercept the serverless invocation: invoke calls `_ts_sls --with-env $invoke_cmd`.
 function _ts_sls
-    # drop the leading -E so the log holds the bare sls argv
+    # drop the leading --with-env so the log holds the bare sls argv
     set -l a $argv
-    test "$a[1]" = -E && set a $a[2..-1]
+    test "$a[1]" = --with-env && set a $a[2..-1]
     string join \n -- $a >>$TS_SLS_LOG
 end
 

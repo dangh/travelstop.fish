@@ -51,5 +51,5 @@ function pack -d "package a serverless service"
     _ts_log packaging stack: (magenta $name_ver)
     _ts_log config: (blue $yml)
 
-    _ts_sls -C "$working_dir" -E $package_cmd
+    _ts_sls --workdir "$working_dir" --with-env $package_cmd
 end

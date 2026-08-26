@@ -6,7 +6,7 @@
 # and builds the `package` subcommand + flags handed to serverless.
 #
 # We intercept the FINAL serverless invocation by shadowing _ts_sls so its full
-# argv is logged; pack calls `_ts_sls -C "$working_dir" -E $package_cmd`. Asserting
+# argv is logged; pack calls `_ts_sls --workdir "$working_dir" --with-env $package_cmd`. Asserting
 # on that log verifies the argument construction without any real sls/npm/network.
 # Only side-effects are stubbed (_ts_log, colors, _ts_sls). No fixture is mutated.
 
@@ -48,7 +48,7 @@ set -l line (_run)
 @test "pack injects -s with stage from AWS_PROFILE (acme@dev -> dev)" (string match -q '* -s dev *' -- "$line"; echo $status) -eq 0
 @test "pack injects --aws-profile from AWS_PROFILE" (string match -q '* --aws-profile acme@dev *' -- "$line"; echo $status) -eq 0
 @test "pack injects -r with region from AWS_REGION" (string match -q '* -r us-east-1*' -- "$line"; echo $status) -eq 0
-@test "pack runs with -C cwd pointing at the working dir" (string match -q "*-C $TS_FIX/svc*" -- "$line"; echo $status) -eq 0
+@test "pack runs with --workdir pointing at the working dir" (string match -q "*--workdir $TS_FIX/svc*" -- "$line"; echo $status) -eq 0
 @test "pack does not inject -p when no package flag given" (string match -q '* -p *' -- "$line"; echo $status) -eq 1
 @test "pack does not inject -c for plain serverless.yml" (string match -q '* -c *' -- "$line"; echo $status) -eq 1
 
@@ -84,7 +84,7 @@ set -l line (_run -c serverless.staging.yml)
 # ===== positional config arg: a directory resolves to its serverless.yml =====
 cd $TS_FIX
 set -l line (_run svc)
-@test "positional dir arg resolves to its serverless.yml (-C working dir)" (string match -q "*-C $TS_FIX/svc*" -- "$line"; echo $status) -eq 0
+@test "positional dir arg resolves to its serverless.yml (--workdir working dir)" (string match -q "*--workdir $TS_FIX/svc*" -- "$line"; echo $status) -eq 0
 cd $TS_FIX/svc
 
 # ===== invalid config: missing serverless.yml errors, does not invoke sls =====

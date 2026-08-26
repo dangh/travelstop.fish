@@ -224,12 +224,18 @@ function _ts_pm_install -d "npm/pnpm install command for a dir; uses pnpm when p
 end
 
 function _ts_sls
-    argparse -i C/cwd= E/with-env -- $argv
+    # long-only flags on purpose: fish argparse derives an implicit short flag
+    # from a long name's first char, and short flags match case-insensitively.
+    # `workdir` and `with-env` share the first char `w`, so the implicit short
+    # is disabled for both — otherwise `--workdir` would claim serverless's
+    # `-c/--config` and `--with-env` its `-e`, swallowing those values.
+    argparse -i workdir= with-env -- $argv
     # discover where serverless is installed: walk up from the current dir (or
-    # the -C target) to the nearest package.json that declares the `serverless`
-    # package. that dir owns node_modules/.bin/sls. don't search above git root.
+    # the --workdir target) to the nearest package.json that declares the
+    # `serverless` package. that dir owns node_modules/.bin/sls. don't search
+    # above git root.
     set -l start $PWD
-    set -q _flag_cwd && set start $_flag_cwd
+    set -q _flag_workdir && set start $_flag_workdir
     set -l groot
     set -q $_ts_project_dir && set groot $$_ts_project_dir
     set -l pkg_dir
@@ -266,8 +272,8 @@ function _ts_sls
     set -a cmd $sls $argv
     _ts_log execute command: (green (string join ' ' -- $cmd))
     set -l env
-    if set -q _flag_cwd
-        set -a env -C "$_flag_cwd"
+    if set -q _flag_workdir
+        set -a env -C "$_flag_workdir"
     end
     command env $env fish -P -c "
         type -q nvm && nvm use > /dev/null

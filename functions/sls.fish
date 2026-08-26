@@ -54,6 +54,6 @@ function sls -d "wraps sls to provide stage/profile/region implicitly"
                 _ts_ensure_session $aws_profile; or return 1
         end
 
-        _ts_sls -E $cmd
+        _ts_sls --with-env $cmd
     end
 end

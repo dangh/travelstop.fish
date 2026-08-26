@@ -46,7 +46,7 @@ end
 
 # ===== defaults: function from positional, stage/region/startTime derived =====
 set -l c (_run myFn)
-@test "logs: invokes _ts_sls with -E + logs subcommand" (string match -q -- '-E logs *' "$c"; echo $status) -eq 0
+@test "logs: invokes _ts_sls with --with-env + logs subcommand" (string match -q -- '--with-env logs *' "$c"; echo $status) -eq 0
 @test "logs: injects -f <function> from positional" (string match -q '* -f myFn *' -- "$c"; echo $status) -eq 0
 @test "logs: forwards --aws-profile from \$AWS_PROFILE" (string match -q '* --aws-profile acme@dev *' -- "$c"; echo $status) -eq 0
 @test "logs: stage defaults to lowercased part after @ (dev)" (string match -q '* -s dev *' -- "$c"; echo $status) -eq 0

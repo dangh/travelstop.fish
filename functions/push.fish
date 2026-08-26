@@ -258,7 +258,7 @@ function push -d 'deploy CF stack/lambda function'
                     end
                 end
             end
-            _ts_sls -C "$working_dir" -E $deploy_cmd
+            _ts_sls --workdir "$working_dir" --with-env $deploy_cmd
             set -l deploy_status $status
 
             if test $deploy_status -eq 0
