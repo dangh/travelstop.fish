@@ -225,18 +225,46 @@ end
 
 function _ts_sls
     argparse -i C/cwd= E/with-env -- $argv
-    set -l sls $$_ts_project_dir/node_modules/.bin/sls
+    # discover where serverless is installed: walk up from the current dir (or
+    # the -C target) to the nearest package.json that declares the `serverless`
+    # package. that dir owns node_modules/.bin/sls. don't search above git root.
+    set -l start $PWD
+    set -q _flag_cwd && set start $_flag_cwd
+    set -l groot
+    set -q $_ts_project_dir && set groot $$_ts_project_dir
+    set -l pkg_dir
+    set -l d $start
+    while test -n "$d"
+        test -f "$d"/package.json && grep -qE '"serverless"[[:space:]]*:' "$d"/package.json
+        and set pkg_dir $d && break
+        test "$d" = "$groot" && break
+        set -l parent (path dirname $d)
+        test "$parent" = "$d" && break
+        set d $parent
+    end
+    set -l dirs $pkg_dir
+    test -n "$dirs" || set dirs $start
+    set -l sls
+    for dir in $dirs
+        if test -x "$dir"/node_modules/.bin/sls
+            set sls "$dir"/node_modules/.bin/sls
+            break
+        end
+    end
     set -l cmd
     if set -q _flag_with_env
         set -a cmd (_ts_env --mode=env)
     end
+    if test -z "$sls"
+        # not found anywhere: install into the git project root (fallback to cwd)
+        set -l target $dirs[-1]
+        _ts_log sls command not found. Installing...
+        set -l install_cmd (_ts_pm_install "$target" --prefix=$target)
+        $install_cmd
+        set sls "$target"/node_modules/.bin/sls
+    end
     set -a cmd $sls $argv
     _ts_log execute command: (green (string join ' ' -- $cmd))
-    if not test -x $sls
-        _ts_log sls command not found. Installing...
-        set -l install_cmd (_ts_pm_install "$$_ts_project_dir" --prefix=$$_ts_project_dir)
-        $install_cmd
-    end
     set -l env
     if set -q _flag_cwd
         set -a env -C "$_flag_cwd"
