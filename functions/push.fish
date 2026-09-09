@@ -453,7 +453,10 @@ function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoe
         end
     end >$tmp
 
-    command $editor $tmp
+    # stdout is captured by the caller's command substitution: send the editor's
+    # screen output to stderr (the terminal) so it renders and nothing leaks into
+    # the target list.
+    command $editor $tmp >&2
     or begin
         rm -f $tmp
         _ts_log editor exited non-zero, aborting

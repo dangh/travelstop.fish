@@ -18,9 +18,9 @@ cp -R $here/fixtures/project/. $TS_ROOT
 mkdir -p $TS_ROOT/empty
 
 source $repo/functions/push.fish
-# conf.d lines 73-138 hold the real listing helpers; the file's `exit` (line 221)
-# forbids sourcing it whole, so source just that slice.
-source (sed -n '73,138p' $repo/conf.d/travelstop.fish | psub)
+# conf.d holds the real listing helpers (_ts_service_name .. _ts_functions); the
+# file's top-level `exit` forbids sourcing it whole, so source just that slice.
+source (awk '/^function _ts_service_name /{p=1} p{print} /^function _ts_functions /{f=1} f&&/^end$/{exit}' $repo/conf.d/travelstop.fish | psub)
 
 # --- stub only external side-effects -------------------------------------
 function _ts_log; echo $argv; end
@@ -121,6 +121,18 @@ cd $TS_ROOT
 echo -n >$TS_SLS_LOG
 push -i -a hotels >/dev/null 2>&1
 @test "-i keeps only the editor-selected target" (count (cat $TS_SLS_LOG)) -eq 1
+
+# regression: the editor runs inside a command substitution, so anything it
+# writes to stdout used to be parsed as extra (empty) targets. fake editor
+# writes a junk line to stdout and keeps only the last target line.
+echo '#!/usr/bin/env fish
+set -l f $argv[1]
+echo leaked-editor-output
+set -l kept (string match -r \'^\d+\' < $f)[-1]
+printf \'%s\n\' $kept > $f' >$TS_FAKE_EDITOR
+echo -n >$TS_SLS_LOG
+push -i -a hotels >/dev/null 2>&1
+@test "-i editor stdout does not leak into targets" (count (cat $TS_SLS_LOG)) -eq 1
 
 # fake editor that deletes everything -> no deploy
 echo '#!/usr/bin/env fish
