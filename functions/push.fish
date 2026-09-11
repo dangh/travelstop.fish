@@ -71,10 +71,10 @@ function push -d 'deploy CF stack/lambda function'
     _ts_ensure_session $aws_profile; or return 1
 
     # rename modules before deploy, restore on exit (normal or signal)
-    rename_modules on
+    _ts_push_rename_modules on
     function _ts_push_restore_modules -s SIGINT -s SIGTERM -s SIGHUP
         functions -e _ts_push_restore_modules
-        rename_modules off
+        _ts_push_rename_modules off
     end
 
     if set -q _flag_continue
@@ -154,7 +154,7 @@ function push -d 'deploy CF stack/lambda function'
         echo $target | read -l -d : state target_type yml __
         set -a ymls $yml
     end
-    rename_modules on -s$ymls
+    _ts_push_rename_modules on -s$ymls
 
     set -l success_count 0
     set -l failure_count 0
@@ -364,6 +364,13 @@ function push -d 'deploy CF stack/lambda function'
 
     # restore module names (signal-handler path triggers the same body)
     _ts_push_restore_modules
+end
+
+function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modules disables it"
+    # opt out of the branch-suffix renaming (e.g. deploying a shared branch that
+    # must keep the plain module names)
+    contains -- "$ts_push_rename_modules" 0 false no off && return 0
+    rename_modules $argv
 end
 
 function _ts_push_save_state -d "persist resolved targets (with per-target status) for -C"

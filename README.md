@@ -103,6 +103,7 @@ List of supported variables:
 | ---                         | ---               | ---                                                                                 |
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
+| `ts_push_rename_modules`    | true              | Rename modules (branch suffix) during `push`. Set `0`/`false`/`no`/`off` to disable  |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |

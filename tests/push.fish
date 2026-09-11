@@ -27,7 +27,8 @@ function _ts_log; echo $argv; end
 for c in magenta yellow blue green red dim ansi-escape
     function $c; echo $argv; end
 end
-function rename_modules; end
+set -g TS_RENAME_LOG (mktemp)
+function rename_modules; echo "$argv" >>$TS_RENAME_LOG; end
 function _ts_ensure_session; end
 set -g TS_NOTIFY_LOG (mktemp)
 function _ts_notify; echo "$argv" >>$TS_NOTIFY_LOG; end
@@ -202,7 +203,21 @@ push -C </dev/null >/dev/null 2>&1
 set -l out2 (push -C </dev/null 2>&1)
 @test "continue with no saved state says so" (string match -q '*nothing to continue*' -- "$out2"; echo $status) -eq 0
 
+# ===== $ts_push_rename_modules gates the module renaming =====
+cd $TS_ROOT
+echo -n >$TS_RENAME_LOG
+push hotels </dev/null >/dev/null 2>&1
+@test "renaming runs by default" (count (cat $TS_RENAME_LOG)) -gt 0
+
+set -g ts_push_rename_modules false
+echo -n >$TS_RENAME_LOG
+echo -n >$TS_SLS_LOG
+push hotels </dev/null >/dev/null 2>&1
+@test "ts_push_rename_modules=false skips renaming" (count (cat $TS_RENAME_LOG)) -eq 0
+@test "ts_push_rename_modules=false still deploys" (count (cat $TS_SLS_LOG)) -eq 1
+set -e ts_push_rename_modules
+
 # --- teardown ------------------------------------------------------------
 cd $repo
 rm -rf $TS_ROOT
-rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_NOTIFY_LOG
+rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_NOTIFY_LOG $TS_RENAME_LOG
