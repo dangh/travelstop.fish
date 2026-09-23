@@ -123,7 +123,7 @@ function format_inline_json(s, base_indent, key, value, indent_level, quote, ope
     while (match(s, /[[{}\],]/)) {
         m = substr(s, RSTART, RLENGTH)
         n = substr(s, RSTART+RLENGTH, 1)
-        if (m n ~ /{}|\[]/) {
+        if (m n ~ /\{\}|\[\]/) {
             open_bracket = m
             close_bracket = n
             printf "%s", substr(s, 1, RSTART-1) format("json_bracket", open_bracket close_bracket)
