@@ -159,6 +159,26 @@ alias s  'assume STAGE'
 # `a [profile]` assumes profile (default: current) with `-s cloudwatch`
 ```
 
+These set `AWS_PROFILE` in the **current** shell; granted's credential_process
+caches the temp creds to `~/.aws/credentials` on disk.
+
+#### Isolated env-only subshell (`prod`, `assume-shell`)
+
+For an isolated session whose role creds live in the shell **environment only** —
+never written to `~/.aws/credentials`, so apps outside the subshell can't use the
+role:
+
+```sh
+prod                 # open a subshell with PROD assumed (env-only creds)
+assume-shell STAGE   # same, for any profile
+```
+
+Both run `assume PROFILE -x --exec -- $SHELL`: the role's temporary credentials
+are injected as env vars into a subshell. Every tool run inside inherits them;
+nothing is written to disk. Exit the subshell to drop the creds. The travelstop
+commands detect env-key mode and stop passing `--aws-profile` so `serverless`
+and `aws` authenticate from the env creds instead of the on-disk profile.
+
 AWS-touching commands (`push`, `push_changes`, `invoke`, `logs`, `pack`, `sls`,
 `download_ddb_table`, `download_ses_suppression`, `prune_layer_versions`,
 `prune_functions_versions`) run a session pre-flight (`_ts_ensure_session`)

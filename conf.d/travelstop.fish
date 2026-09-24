@@ -257,6 +257,28 @@ function _ts_sls
             break
         end
     end
+    # env-key mode (granted `assume -x --exec`): the role's temp creds live in the
+    # shell env, not a profile. Strip `--aws-profile` so serverless authenticates
+    # from those env creds instead of a named profile — a named profile would read
+    # and refresh ~/.aws/credentials on disk, and serverless prefers AWS_PROFILE
+    # over env keys (serverless#9821). AWS_PROFILE is also hidden from the child
+    # (see the `-u AWS_PROFILE` on the env call below) for the same reason.
+    if set -q AWS_ACCESS_KEY_ID
+        set -l filtered
+        set -l skip 0
+        for a in $argv
+            test $skip -eq 1; and set skip 0; and continue
+            switch $a
+                case --aws-profile
+                    set skip 1
+                case '--aws-profile=*'
+                    # drop the inline form too
+                case '*'
+                    set -a filtered $a
+            end
+        end
+        set argv $filtered
+    end
     set -l cmd
     if set -q _flag_with_env
         set -a cmd (_ts_env --mode=env)
@@ -272,6 +294,9 @@ function _ts_sls
     set -a cmd $sls $argv
     _ts_log execute command: (green (string join ' ' -- $cmd))
     set -l env
+    # env-key mode: hide AWS_PROFILE from the child so serverless can't fall back
+    # to the named profile (and its on-disk credential_process). See the strip above.
+    set -q AWS_ACCESS_KEY_ID; and set -a env -u AWS_PROFILE
     if set -q _flag_workdir
         set -a env -C "$_flag_workdir"
     end
@@ -331,6 +356,15 @@ abbr -a logs_minutes -r '^l\d+$' -f logs_minutes
 
 function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re-auth and continue if expired'
     type -q aws; or return 0 # no aws CLI -> nothing to gate
+    # env-key mode (granted `assume -x --exec` subshell): creds are in the shell
+    # env, not a profile. Verify with those env creds (no --profile); we can't
+    # self-heal here (no profile to re-assume), so on expiry tell the user to exit
+    # the subshell and re-assume to mint fresh creds.
+    if set -q AWS_ACCESS_KEY_ID
+        aws sts get-caller-identity >/dev/null 2>&1; and return 0
+        _ts_log (red "AWS env session expired — exit this shell and re-assume to refresh")
+        return 1
+    end
     set -l profile $argv[1]
     test -n "$profile"; or set profile $AWS_PROFILE
     if test -z "$profile"
@@ -368,6 +402,8 @@ function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re
 end
 
 if type -q assume
+    # classic in-shell assume: sets AWS_PROFILE in the current shell; granted's
+    # credential_process caches the temp creds to ~/.aws/credentials on disk.
     alias d='assume DEV'
     alias di='assume DEV-IN'
     alias t='assume TEST'
@@ -378,6 +414,28 @@ if type -q assume
         set args $argv[2..-1]
         test -n "$args" || set args -s cloudwatch
         assume $profile $args
+    end
+
+    # isolated subshell: `-x` puts the role's temp creds in the shell ENV only —
+    # never written to ~/.aws/credentials — scoped to this subshell. Every tool
+    # run inside inherits them; apps outside the subshell can't use the role.
+    # Exit the subshell to drop the creds. The travelstop commands detect env-key
+    # mode and stop passing --aws-profile so serverless/aws auth from the env.
+    function assume-shell -a profile -d 'open an isolated subshell with a role assumed via env-only creds'
+        test -n "$profile"; or begin
+            _ts_log profile required
+            return 1
+        end
+        # `-x` exports the role's temp creds into the subshell env. Pin AWS_PROFILE
+        # via fish's `-C` (runs after config, before the interactive prompt) so the
+        # travelstop commands still derive the right stage/service name — and the
+        # PROD-confirm guard still fires — even if granted omits AWS_PROFILE in
+        # export mode. env-key mode leaves this profile untouched (retain_aws_vars
+        # is guarded off), so it stays consistent with the assumed creds.
+        assume $profile -x --exec -- $SHELL -C "set -gx AWS_PROFILE $profile"
+    end
+    function prod -d 'open an isolated PROD subshell (env-only creds, nothing written to disk)'
+        assume-shell PROD $argv
     end
 end
 
@@ -393,6 +451,10 @@ function retain_aws_vars
     # persist the current profile/region on every prompt: globally (fallback) and
     # per-project so each git project/worktree remembers its own last profile.
     function _ts_store_aws_vars -e fish_prompt -e fish_cancel
+        # env-key subshell (granted `assume -x`): the profile is ephemeral and its
+        # creds live only in this shell's env. Don't persist it as a project/global
+        # default, and don't let a later restore desync AWS_PROFILE from the creds.
+        set -q AWS_ACCESS_KEY_ID; and return
         set -U LAST_AWS_PROFILE $AWS_PROFILE
         set -U LAST_AWS_REGION $AWS_REGION
         set -l key (_ts_aws_project_key)
@@ -404,6 +466,8 @@ function retain_aws_vars
     # on entering a directory, restore that project's last-used profile/region.
     # returns non-zero when there is nothing project-specific to restore.
     function _ts_restore_aws_vars -v PWD
+        # env-key subshell: keep the assumed profile granted set; never override it.
+        set -q AWS_ACCESS_KEY_ID; and return
         set -l key (_ts_aws_project_key)
         or return
         set -l pv {$key}_profile
@@ -413,8 +477,11 @@ function retain_aws_vars
         set -gx AWS_REGION $$rv
     end
 
-    # seed the shell: prefer this project's saved profile, else the global last-used
-    if not _ts_restore_aws_vars
+    # seed the shell: prefer this project's saved profile, else the global last-used.
+    # env-key subshell: leave AWS_PROFILE/creds exactly as granted `assume -x` set them.
+    if set -q AWS_ACCESS_KEY_ID
+        # nothing to seed — the subshell already carries its assumed identity
+    else if not _ts_restore_aws_vars
         set -gx AWS_PROFILE $LAST_AWS_PROFILE
         set -gx AWS_REGION $LAST_AWS_REGION
     end

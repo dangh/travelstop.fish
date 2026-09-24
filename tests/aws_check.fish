@@ -95,3 +95,26 @@ printf 'y' | _ts_ensure_session STAGE
 @test "retry after re-auth returns 0" $status -eq 0
 @test "retry re-authenticated the profile via assume" (string match -q '*STAGE*' -- (cat $ASSUME_LOG); echo $status) -eq 0
 @test "retry re-checked the session (2 sts calls)" (count (cat $AWS_LOG)) -eq 2
+
+# ===== env-key mode (granted `assume -x`): verify with env creds, no --profile =====
+function aws; echo "$argv" >>$AWS_LOG; return $AWS_RC; end
+set -gx AWS_ACCESS_KEY_ID AKIAENVKEY
+set -gx AWS_PROFILE STAGE
+
+set AWS_RC 0
+echo -n >$TS_LOG; echo -n >$AWS_LOG
+_ts_ensure_session STAGE </dev/null
+@test "env-key valid session returns 0" $status -eq 0
+@test "env-key valid session calls sts" (string match -q '*sts get-caller-identity*' -- (cat $AWS_LOG); echo $status) -eq 0
+@test "env-key valid session passes no --profile" (string match -q '*--profile*' -- (cat $AWS_LOG); echo $status) -eq 1
+
+# expired env creds: can't self-heal in a subshell -> return 1 with guidance
+set AWS_RC 1
+echo -n >$TS_LOG; echo -n >$AWS_LOG; echo -n >$ASSUME_LOG
+_ts_ensure_session STAGE </dev/null
+@test "env-key expired returns 1" $status -eq 1
+@test "env-key expired logs the exit-and-re-assume guidance" (string match -q '*exit this shell and re-assume*' -- (cat $TS_LOG); echo $status) -eq 0
+@test "env-key expired does not re-auth via assume" (test -s $ASSUME_LOG; echo $status) -eq 1
+
+set -e AWS_ACCESS_KEY_ID
+set -e AWS_PROFILE
