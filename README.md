@@ -91,11 +91,12 @@ nearest enclosing service (and then deploys that service plus its subservices).
 
 `push` deploys independent targets at the same time, 4 at once by default
 (`-j/--jobs N`). Targets are grouped into dependency tiers that run one after
-the other: modules (layers) → `*-resources` stacks → other services, a parent
-stack before its subservices → `*monitoring*` stacks → functions (functions of
-one service stay sequential, they share its `.serverless/` dir). `-j 1` gives
-the old strictly sequential run in list order (this also honors the order you
-set in the `-i` editor):
+the other: modules (layers) → `*-resources` stacks → `*authorizer*` stacks →
+other services, a parent stack before its subservices → `*monitoring*` stacks →
+functions (functions of one service stay sequential, they share its
+`.serverless/` dir). `-j 1` gives the old strictly sequential run in list order
+(`push -a` lists authorizers before other services too; this also honors the
+order you set in the `-i` editor):
 
 ```sh
 push -j 1 -a hotels        # one at a time

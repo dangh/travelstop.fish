@@ -138,6 +138,15 @@ echo -n >$TS_SLS_LOG
 push -a group </dev/null >/dev/null 2>&1
 @test "-a <parent dir> deploys the services it holds" (count (cat $TS_SLS_LOG)) -eq 2
 @test "-a <parent dir> does not climb to the project root" (string match -q '*/group/*' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 0
+
+# ===== authorizers deploy before other services =====
+# dir name sorts last on purpose: the service name (*authorizer*) decides
+mkdir -p $TS_ROOT/group/z-authorizers
+printf "service: group-authorizers\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/group/z-authorizers/serverless.yml
+echo -n >$TS_SLS_LOG
+push -j 1 -a group </dev/null >/dev/null 2>&1
+@test "-a lists authorizers before other services" (string match -q '*/group/z-authorizers *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 0
+rm -rf $TS_ROOT/group/z-authorizers
 echo -n >$TS_SLS_LOG
 cd $TS_ROOT/group
 push -a </dev/null >/dev/null 2>&1
@@ -319,6 +328,14 @@ echo -n >$TS_ORDER_LOG
 push modules/auth hotels </dev/null >/dev/null 2>&1
 @test "module finishes before the service starts" (ts_order) = start,end,start,end
 @test "module goes first" (string match -q '*/modules/auth *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
+
+mkdir -p $TS_ROOT/group/z-authorizers
+printf "service: group-authorizers\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/group/z-authorizers/serverless.yml
+echo -n >$TS_ORDER_LOG
+push group/one group/z-authorizers </dev/null >/dev/null 2>&1
+@test "authorizers finish before other services start" (ts_order) = start,end,start,end
+@test "authorizers go first" (string match -q '*/group/z-authorizers *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
+rm -rf $TS_ROOT/group/z-authorizers
 
 # ===== per-target logs under $XDG_RUNTIME_DIR/ts_push/latest =====
 push hotels flights </dev/null >/dev/null 2>&1

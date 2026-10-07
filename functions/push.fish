@@ -446,7 +446,8 @@ function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts
 end
 
 function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
-    # order that matters: modules (layers) -> *-resources stacks -> other
+    # order that matters: modules (layers) -> *-resources stacks ->
+    # *authorizer* stacks (other services attach their authorizers) -> other
     # services, shallower dirs first (a parent stack before its subservices) ->
     # *monitoring* stacks -> functions. functions of one service share its
     # .serverless/ dir, so the n-th function of a service waits for the (n-1)-th.
@@ -471,6 +472,8 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
                 case '*'
                     if string match -q -- '*-resources' $service_name
                         set key 0001
+                    else if string match -q -- '*authorizer*' $service_name
+                        set key 0002
                     else if string match -q -- '*monitoring*' $service_name
                         set key 5000
                     else
