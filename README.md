@@ -72,12 +72,106 @@ set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
 
+### Deploying a whole tree
+
+`push -a/--all` expands each target (the current directory when you pass none)
+to every service below it, so it works from a plain parent directory that holds
+services but is not a service itself:
+
+```sh
+cd services/booking   # no serverless.yml here, only in its subdirectories
+push -a               # deploys every service under services/booking
+push -a hotels ops    # same, for two given directories/stacks
+```
+
+Only when the directory holds no service at all does `push -a` walk up to the
+nearest enclosing service (and then deploys that service plus its subservices).
+
+### Parallel deploys
+
+`push` deploys independent targets at the same time, 4 at once by default
+(`-j/--jobs N`). Targets are grouped into dependency tiers that run one after
+the other: modules (layers) → `*-resources` stacks → `*authorizer*` stacks →
+other services, a parent stack before its subservices → `*monitoring*` stacks →
+functions (functions of one service stay sequential, they share its
+`.serverless/` dir). `-j 1` gives the old strictly sequential run in list order
+(`push -a` lists authorizers before other services too; this also honors the
+order you set in the `-i` editor):
+
+```sh
+push -j 1 -a hotels        # one at a time
+set -U ts_default_argv_push -j 8
+```
+
+Each target's output goes to its own log file under
+`$XDG_RUNTIME_DIR/ts_push/<run>/` (`/tmp/ts_push/` when the runtime dir is not
+set); `ts_push/latest` points at the current run. A single-target tier still
+prints live to the terminal. When a target in a parallel tier fails, `push`
+shows the tail of its log and asks `[r]etry / [s]kip / [a]bort` once the tier
+is done; retried targets run as the next tier.
+
+Parallel targets run in child `fish` processes that load your normal config, so
+`ts_npm_install_options`, `ts_env` and friends must be universal variables or
+defined in `config.fish`/`conf.d` to reach them.
+
 ### To push notification after deploy with [Pushover](https://pushover.net)
 
 ```
 set -U PUSHOVER_APP_TOKEN <app_token>
 set -U PUSHOVER_USER_KEY <user_key>
 ```
+
+### Reading logs
+
+`logs` automatically selects its backend based on the current directory:
+- If `./serverless.yml` exists, it calls `logs_sls` (the original Serverless implementation).
+- Otherwise, it calls `logs_awscli` (AWS CLI v2, `aws logs tail`).
+
+Call `logs_sls` or `logs_awscli` directly to choose a backend explicitly.
+Arguments are forwarded unchanged; both use `ts_default_argv_logs` and retain
+`-s` / `--stage` overrides. Only the current directory is checked, not ancestors.
+
+For the AWS CLI backend, install and configure
+[AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html)
+with CloudWatch Logs read permissions.
+
+From a service directory:
+
+```fish
+logs myFunction                         # last 2 minutes
+logs myFunction --tail --startTime 30m  # follow new events
+logs myFunction -s prod --filter ERROR
+logs --log-group /aws/lambda/custom-name --tail
+```
+
+With `logs_awscli`, short function names resolve to `/aws/lambda/<service>-<stage>-<function>`
+from the current directory, with no Serverless files or helpers required.
+The directory named `services` is the boundary, wherever it appears below the
+Git root. Only path components after `services` are joined with hyphens; parent components are
+singularized (`ies` → `y`, trailing `s` removed except `ss`), while the final
+component is unchanged. This is a simple naming convention, not a general
+English inflector.
+
+For example, from `<git-root>/services/users/groups`, `logs create` with stage
+`dev` reads `/aws/lambda/user-groups-dev-create`. From
+`<git-root>/backend/services/users`, it reads `/aws/lambda/users-dev-create`.
+
+Stage defaults to the lowercased part of the selected AWS profile after `@`;
+`--stage` overrides it. Profile and region default to `AWS_PROFILE` and
+`AWS_REGION`, with `--aws-profile` and `--region` overrides.
+Use `--log-group` for custom names or outside a service directory/Git repository.
+
+`--startTime` accepts AWS CLI relative times (`5m`, `1h`) or ISO 8601 timestamps;
+compact UTC timestamps from `l0` and `invoke` are converted automatically.
+`ts_env`, `ts_default_argv_logs`, `parse_logs`, and log styling remain supported.
+In `logs_awscli`, `ts_env` applies to the session check, AWS CLI, optional
+`parse_logs`, and AWK formatter. A `ts_env` function takes precedence over the
+variable; these environment overrides stay local to the command.
+AWS output uses `--format short --color off`; its timestamp prefix is stripped
+before parsing and styling, leaving the original log messages.
+In `logs_awscli`, `--interval` is unsupported (AWS CLI manages polling). Legacy `--app`,
+`--org`, and `--config` are accepted for compatibility with `invoke` but have no effect.
+Deployment and invocation still use Serverless.
 
 ### Logs formatting
 

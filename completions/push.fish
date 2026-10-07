@@ -4,7 +4,7 @@ complete -c push -a "(_ts_uniq_completions (_ts_functions))" -d function
 complete -c push -a "(_ts_uniq_completions (_ts_substacks))" -d service
 
 # boolean flags
-complete -c push -s a -l all -d 'current service + subservices (or given targets + children)'
+complete -c push -s a -l all -d 'every service in the current/given dir (or the enclosing service + subservices)'
 complete -c push -s i -l interactive -d 'edit resolved targets in $EDITOR before deploy'
 complete -c push -s C -l continue -d 'resume an interrupted/failed run'
 complete -c push -s R -l regex -d 'treat targets as regex patterns'
@@ -24,6 +24,7 @@ complete -c push -x -l app -d 'serverless app'
 complete -c push -x -l org -d 'serverless org'
 complete -c push -r -s c -l config -d 'serverless config file'
 complete -c push -r -s p -l package -d 'pre-packaged artifact dir'
+complete -c push -x -s j -l jobs -a '1 2 4 8' -d 'parallel deploys per tier (1 = sequential)'
 
 # enforce no-files when all completions are selected
 complete -f -c push
