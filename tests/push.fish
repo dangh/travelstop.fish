@@ -315,6 +315,14 @@ echo -n >$TS_ORDER_LOG
 push hotels flights </dev/null >/dev/null 2>&1
 @test "independent services deploy concurrently" (ts_order) = start,start,end,end
 
+# progress is redrawn as each target finishes, not only once the tier is done:
+# some redraw shows one target done while the other still runs
+set -gx TS_PROGRESS_LOG (mktemp)
+function _ts_progress; string match -r '^[a-z]+' -- $argv | sort | string join , >>$TS_PROGRESS_LOG; end
+push hotels flights </dev/null >/dev/null 2>&1
+@test "progress redraws when a parallel target finishes" (string match -q running,success -- (cat $TS_PROGRESS_LOG); echo $status) -eq 0
+function _ts_progress; end
+
 echo -n >$TS_ORDER_LOG
 push -j 1 hotels flights </dev/null >/dev/null 2>&1
 @test "-j 1 deploys sequentially" (ts_order) = start,end,start,end

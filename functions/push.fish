@@ -207,7 +207,9 @@ function push -d 'deploy CF stack/lambda function'
         set -l tier_logs
         set -l tier_names
         set -l pids
-        for i in $tier
+        set -l pid_ks # position in $tier of each pid
+        for k in (seq (count $tier))
+            set -l i $tier[$k]
             echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
             set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
             set -l working_dir (dirname $serverless_yml)
@@ -252,14 +254,7 @@ function push -d 'deploy CF stack/lambda function'
 
             # wait for a free slot (at most -j deploys at once) before this
             # target is announced as deploying
-            while test (count $pids) -ge $jobs
-                wait -n $pids
-                set -l alive
-                for p in $pids
-                    command kill -0 $p 2>/dev/null && set -a alive $p
-                end
-                set pids $alive
-            end
+            _ts_push_wait_slots $jobs
             set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
 
             test "$target_type" = function \
@@ -273,6 +268,7 @@ function push -d 'deploy CF stack/lambda function'
             if test (count $tier) -eq 1
                 _ts_push_deploy "$target_type" "$service_name" "$working_dir" $deploy_cmd 2>&1 | tee $log
                 echo $pipestatus[1] >$log.exit
+                _ts_push_done $k
             else
                 # fish cannot background a function, so the child is a fresh
                 # fish: it gets _ts_push_deploy from here and the rest (_ts_sls,
@@ -281,33 +277,22 @@ function push -d 'deploy CF stack/lambda function'
                     -c '_ts_push_deploy $argv; echo $status >'(string escape -- $log.exit) \
                     -- "$target_type" "$service_name" "$working_dir" $deploy_cmd >$log 2>&1 &
                 set -a pids $last_pid
+                set -a pid_ks $k
                 set -ga _ts_push_pids $last_pid
             end
         end
-        test -n "$pids" && wait $pids
+        _ts_push_wait_slots 1
         set -g _ts_push_pids
 
-        # collect: mark each target, then prompt for every failure in the tier
+        # every target is marked done by now: prompt for each failure
         set -l retry
         for k in (seq (count $tier))
             set -l i $tier[$k]
             set -l log $tier_logs[$k]
             set -l fullname $tier_names[$k]
-            echo $targets[$i] | read -l -d : state __
+            string match -q 'success:*' -- $targets[$i] && continue
             set -l deploy_status (cat $log.exit 2>/dev/null)
             test -n "$deploy_status" || set deploy_status 1
-
-            if test $deploy_status -eq 0
-                set success_count (math $success_count + 1)
-                set targets[$i] "success:$__"
-                _ts_push_save_state $targets
-                printf '\e]9;4;1;%d\a' (_ts_push_percent $targets)
-                continue
-            end
-
-            set targets[$i] "failure:$__"
-            _ts_push_save_state $targets
-            printf '\e]9;4;2;%d\a' (_ts_push_percent $targets)
 
             # Ctrl-C during deploy: fish keeps running the script after the
             # signal kills sls (exit status 128+signum). Treat that as an
@@ -319,9 +304,8 @@ function push -d 'deploy CF stack/lambda function'
                 break
             end
 
-            # failure: show progress (and the log tail a background job hid),
-            # then prompt. default is abort.
-            _ts_progress $targets
+            # failure: show the log tail a background job hid, then prompt.
+            # default is abort.
             test (count $tier) -gt 1 && tail -n 20 $log
             # notify (native + pushover) that a deploy failed and needs input
             _ts_notify -t "push failed: $fullname" \
@@ -406,6 +390,40 @@ function push -d 'deploy CF stack/lambda function'
 
     # restore module names (signal-handler path triggers the same body)
     _ts_push_restore_modules
+end
+
+function _ts_push_wait_slots -S -d "wait until fewer than \$argv[1] deploys run, marking each finished one done (runs in push's scope)"
+    while test (count $pids) -ge $argv[1]
+        wait -n $pids
+        set -l alive_pids
+        set -l alive_ks
+        for _n in (seq (count $pids))
+            if command kill -0 $pids[$_n] 2>/dev/null
+                set -a alive_pids $pids[$_n]
+                set -a alive_ks $pid_ks[$_n]
+            else
+                _ts_push_done $pid_ks[$_n]
+            end
+        end
+        set pids $alive_pids
+        set pid_ks $alive_ks
+    end
+end
+
+function _ts_push_done -S -d "mark the \$argv[1]-th target of the tier success/failure from its exit file and redraw the progress (runs in push's scope)"
+    set -l _i $tier[$argv[1]]
+    set -l _status (cat $tier_logs[$argv[1]].exit 2>/dev/null)
+    echo $targets[$_i] | read -l -d : _state _rest
+    if test "$_status" = 0
+        set success_count (math $success_count + 1)
+        set targets[$_i] "success:$_rest"
+        printf '\e]9;4;1;%d\a' (_ts_push_percent $targets)
+    else
+        set targets[$_i] "failure:$_rest"
+        printf '\e]9;4;2;%d\a' (_ts_push_percent $targets)
+    end
+    _ts_push_save_state $targets
+    _ts_progress $targets
 end
 
 function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modules disables it"
