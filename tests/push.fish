@@ -16,6 +16,12 @@ set -l repo (path dirname $here)
 set -g TS_ROOT (mktemp -d)
 cp -R $here/fixtures/project/. $TS_ROOT
 mkdir -p $TS_ROOT/empty
+# parallel tiers spawn child `fish -c` processes: keep their config and the
+# per-run log dir inside the temp tree so the real ~/.config and runtime dir
+# are never touched (and the children see only the stubs below).
+set -gx XDG_RUNTIME_DIR $TS_ROOT/run
+set -gx XDG_CONFIG_HOME $TS_ROOT/cfg
+mkdir -p $XDG_RUNTIME_DIR $XDG_CONFIG_HOME/fish/conf.d
 
 source $repo/functions/push.fish
 # conf.d holds the real listing helpers (_ts_service_name .. _ts_functions); the
@@ -27,35 +33,56 @@ function _ts_log; echo $argv; end
 for c in magenta yellow blue green red dim ansi-escape
     function $c; echo $argv; end
 end
-set -g TS_RENAME_LOG (mktemp)
+set -gx TS_RENAME_LOG (mktemp)
 function rename_modules; echo "$argv" >>$TS_RENAME_LOG; end
 function _ts_ensure_session; end
-set -g TS_NOTIFY_LOG (mktemp)
+function _ts_pm_install; echo true; end
+set -gx TS_NOTIFY_LOG (mktemp)
 function _ts_notify; echo "$argv" >>$TS_NOTIFY_LOG; end
 function _ts_progress; end
-set -g TS_SLS_LOG (mktemp)
-# fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry succeeds.
+set -gx TS_SLS_LOG (mktemp)
+# fail one deploy when TS_FAIL_FLAG is non-empty, then clear it so a retry
+# succeeds. Content `fail` fails whatever comes first; any other content is a
+# glob matched against the sls argv so one specific target of a parallel tier
+# fails (a race-free way to pick the victim).
 # TS_INT_FLAG simulates Ctrl-C: sls exits with a signal status (130 = SIGINT),
 # which fish reports after it resumes the script post-signal.
-set -g TS_FAIL_FLAG (mktemp)
-set -g TS_INT_FLAG (mktemp)
+# TS_SLS_SLEEP (seconds) + TS_ORDER_LOG record `start`/`end` markers around a
+# fake deploy so tests can tell overlapping (parallel) from sequential runs.
+set -gx TS_FAIL_FLAG (mktemp)
+set -gx TS_INT_FLAG (mktemp)
+set -gx TS_ORDER_LOG (mktemp)
 function _ts_sls
     echo "$argv" >>$TS_SLS_LOG
+    echo "sls $argv"
     if test -s $TS_INT_FLAG
         echo -n >$TS_INT_FLAG
         return 130
     end
     if test -s $TS_FAIL_FLAG
-        echo -n >$TS_FAIL_FLAG
-        return 1
+        set -l want (cat $TS_FAIL_FLAG)
+        if test "$want" = fail || string match -q -- "$want" "$argv"
+            echo -n >$TS_FAIL_FLAG
+            return 1
+        end
+    end
+    if test -n "$TS_SLS_SLEEP"
+        echo "start $argv" >>$TS_ORDER_LOG
+        sleep $TS_SLS_SLEEP
+        echo "end $argv" >>$TS_ORDER_LOG
     end
     return 0
 end
+# children (parallel tiers) autoload nothing from the real config: hand them
+# the same stubs through the temp conf.d
+functions _ts_log magenta yellow blue green red dim ansi-escape \
+    rename_modules _ts_ensure_session _ts_pm_install _ts_notify _ts_progress _ts_sls \
+    >$XDG_CONFIG_HOME/fish/conf.d/ts_stubs.fish
 
 set -gx AWS_PROFILE acme@dev
 set -gx AWS_REGION us-east-1
-set -g _ts_project_dir TS_PD
-set -g TS_PD $TS_ROOT
+set -gx _ts_project_dir TS_PD
+set -gx TS_PD $TS_ROOT
 set -gx PATH $TS_ROOT/bin $PATH
 cd $TS_ROOT
 
@@ -90,6 +117,45 @@ push -a hotels >/dev/null 2>&1
 @test "monitoring deploys last" (string match -q '*/hotels/monitoring *' -- (cat $TS_SLS_LOG)[-1]; echo $status) -eq 0
 @test "monitoring is not first" (string match -q '*/hotels/monitoring *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 1
 rm -rf $TS_ROOT/hotels/monitoring
+
+# ===== -a from a dir that is not a service itself =====
+# a plain parent dir holding services must expand to them, instead of climbing
+# to the nearest enclosing service (here: the project root).
+mkdir -p $TS_ROOT/group/one $TS_ROOT/group/two
+printf "service: group-one\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/group/one/serverless.yml
+printf "service: group-two\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/group/two/serverless.yml
+echo -n >$TS_SLS_LOG
+push -a group </dev/null >/dev/null 2>&1
+@test "-a <parent dir> deploys the services it holds" (count (cat $TS_SLS_LOG)) -eq 2
+@test "-a <parent dir> does not climb to the project root" (string match -q '*/group/*' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 0
+echo -n >$TS_SLS_LOG
+cd $TS_ROOT/group
+push -a </dev/null >/dev/null 2>&1
+@test "-a from inside a non-service dir deploys the services below it" (count (cat $TS_SLS_LOG)) -eq 2
+cd $TS_ROOT
+rm -rf $TS_ROOT/group
+
+# a dir with no service at or below it still walks up to the enclosing service
+echo -n >$TS_SLS_LOG
+mkdir -p $TS_ROOT/hotels/src/lib
+cd $TS_ROOT/hotels/src/lib
+push -a </dev/null >/dev/null 2>&1
+@test "-a from a plain subdir walks up to the enclosing service" (count (cat $TS_SLS_LOG)) -eq 2
+cd $TS_ROOT
+rm -rf $TS_ROOT/hotels/src
+
+# ===== regression: taskbar progress percent must stay an integer =====
+# previously: `math "$i * 100 / count"` returned a float, and `printf '%d'` then
+# failed per target with "value not completely converted". Only shows up when
+# the target count does not divide 100 (3 stacks -> 33.333333), which is why the
+# 2-stack cases above never caught it.
+mkdir -p $TS_ROOT/hotels/mon2
+printf "service: hotels-mon2\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/hotels/mon2/serverless.yml
+echo -n >$TS_SLS_LOG
+set -l out (push -a hotels </dev/null 2>&1)
+@test "3 stacks deploy" (count (cat $TS_SLS_LOG)) -eq 3
+@test "progress percent does not break printf" (string match -q '*not completely converted*' -- "$out"; echo $status) -eq 1
+rm -rf $TS_ROOT/hotels/mon2
 
 # ===== regression: unresolvable target must not crash =====
 # previously: empty _ts_resolve_config output left target_type as 0 elements ->
@@ -217,7 +283,49 @@ push hotels </dev/null >/dev/null 2>&1
 @test "ts_push_rename_modules=false still deploys" (count (cat $TS_SLS_LOG)) -eq 1
 set -e ts_push_rename_modules
 
+# ===== parallel tiers =====
+# each fake deploy sleeps 1s and logs start/end: two independent services must
+# overlap (start,start,end,end); dependent ones must serialize (start,end,...).
+function ts_order -d "sequence of start/end markers from the last run"
+    string match -r '^\S+' -- (cat $TS_ORDER_LOG) | string join ,
+end
+cd $TS_ROOT
+set -gx TS_SLS_SLEEP 1
+
+echo -n >$TS_ORDER_LOG
+push hotels flights </dev/null >/dev/null 2>&1
+@test "independent services deploy concurrently" (ts_order) = start,start,end,end
+
+echo -n >$TS_ORDER_LOG
+push -j 1 hotels flights </dev/null >/dev/null 2>&1
+@test "-j 1 deploys sequentially" (ts_order) = start,end,start,end
+
+echo -n >$TS_ORDER_LOG
+push -a hotels </dev/null >/dev/null 2>&1
+@test "parent stack finishes before its subservice starts" (ts_order) = start,end,start,end
+@test "parent stack goes first" (string match -q '*/hotels *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
+
+echo -n >$TS_ORDER_LOG
+push modules/auth hotels </dev/null >/dev/null 2>&1
+@test "module finishes before the service starts" (ts_order) = start,end,start,end
+@test "module goes first" (string match -q '*/modules/auth *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
+
+# ===== per-target logs under $XDG_RUNTIME_DIR/ts_push/latest =====
+push hotels flights </dev/null >/dev/null 2>&1
+set -l logs $XDG_RUNTIME_DIR/ts_push/latest/*.log
+@test "one log file per target" (count $logs) -eq 2
+@test "log file holds the deploy output" (string match -q '*sls*deploy*' -- (cat $logs[1]); echo $status) -eq 0
+
+# ===== failure inside a parallel tier: retry re-runs only that target =====
+echo -n >$TS_SLS_LOG
+echo '*/flights *' >$TS_FAIL_FLAG
+printf 'r\n' | push hotels flights >/dev/null 2>&1
+@test "retry after a parallel failure makes 3 sls calls" (count (cat $TS_SLS_LOG)) -eq 3
+@test "the retried call is the failed target" (string match -q '*/flights *' -- (cat $TS_SLS_LOG)[-1]; echo $status) -eq 0
+echo -n >$TS_FAIL_FLAG
+set -e TS_SLS_SLEEP
+
 # --- teardown ------------------------------------------------------------
 cd $repo
 rm -rf $TS_ROOT
-rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_NOTIFY_LOG $TS_RENAME_LOG
+rm -f $TS_SLS_LOG $TS_FAKE_EDITOR $TS_FAIL_FLAG $TS_INT_FLAG $TS_NOTIFY_LOG $TS_RENAME_LOG $TS_ORDER_LOG
