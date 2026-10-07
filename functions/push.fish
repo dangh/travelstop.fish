@@ -446,7 +446,8 @@ function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts
 end
 
 function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
-    # order that matters: modules (layers) -> *-resources stacks -> other
+    # order that matters: modules (layers) -> *-resources stacks ->
+    # *authorizer* stacks (other services attach their authorizers) -> other
     # services, shallower dirs first (a parent stack before its subservices) ->
     # *monitoring* stacks -> functions. functions of one service share its
     # .serverless/ dir, so the n-th function of a service waits for the (n-1)-th.
@@ -471,6 +472,8 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
                 case '*'
                     if string match -q -- '*-resources' $service_name
                         set key 0001
+                    else if string match -q -- '*authorizer*' $service_name
+                        set key 0002
                     else if string match -q -- '*monitoring*' $service_name
                         set key 5000
                     else
@@ -547,6 +550,7 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
         return 1
     end
     set -l resource_dirs
+    set -l authorizer_dirs
     set -l main_dir
     set -l subservice_dirs
     set -l monitoring_dirs
@@ -558,6 +562,8 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
             set -l service_name (_ts_service_name "$dir/serverless.yml")
             if string match -q '*-resources' -- $service_name
                 set -a resource_dirs $dir
+            else if string match -q '*authorizer*' -- $service_name
+                set -a authorizer_dirs $dir
             else if string match -q '*monitoring*' -- $service_name
                 set -a monitoring_dirs $dir
             else
@@ -566,8 +572,9 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
         end
     end
 
-    # monitoring stacks deploy last (they observe the rest)
-    set -l ordered_targets $resource_dirs
+    # authorizers deploy before the services that use them, monitoring stacks
+    # deploy last (they observe the rest)
+    set -l ordered_targets $resource_dirs $authorizer_dirs
     test -n "$main_dir" && set -a ordered_targets $main_dir
     set -a ordered_targets $subservice_dirs $monitoring_dirs
 
