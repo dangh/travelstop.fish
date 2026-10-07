@@ -338,6 +338,13 @@ push -a hotels </dev/null >/dev/null 2>&1
 @test "parent stack finishes before its subservice starts" (ts_order) = start,end,start,end
 @test "parent stack goes first" (string match -q '*/hotels *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
 
+mkdir -p $TS_ROOT/admin/services/users
+printf "service: admin-users\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/admin/services/users/serverless.yml
+echo -n >$TS_ORDER_LOG
+push hotels admin/services/users </dev/null >/dev/null 2>&1
+@test "a deeper unrelated service does not wait" (ts_order) = start,start,end,end
+rm -rf $TS_ROOT/admin
+
 echo -n >$TS_ORDER_LOG
 push modules/auth hotels </dev/null >/dev/null 2>&1
 @test "module finishes before the service starts" (ts_order) = start,end,start,end

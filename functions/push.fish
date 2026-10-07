@@ -455,14 +455,22 @@ end
 function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
     # order that matters: modules (layers) -> *-resources stacks ->
     # *authorizer* stacks (other services attach their authorizers) -> other
-    # services, shallower dirs first (a parent stack before its subservices) ->
-    # *monitoring* stacks -> functions. functions of one service share its
-    # .serverless/ dir, so the n-th function of a service waits for the (n-1)-th.
-    # -j 1 puts every target in its own tier, in list order. already-succeeded
-    # targets (a -C resume) are left out.
+    # services, a parent stack before its subservices (by how many of the
+    # pushed stacks sit above it, not by path depth, so admin/services/x does
+    # not wait for an unrelated services/y) -> *monitoring* stacks ->
+    # functions. functions of one service share its .serverless/ dir, so the
+    # n-th function of a service waits for the (n-1)-th. -j 1 puts every
+    # target in its own tier, in list order. already-succeeded targets (a -C
+    # resume) are left out.
     set -l targets $argv[2..]
     set -l entries # "<sort key> <index>"
     set -l seen_ymls
+    set -l stack_dirs # dirs of the stacks still to deploy, to find parents
+    for t in $targets
+        echo $t | read -l -d : state target_type serverless_yml __
+        test "$state" != success -a "$target_type" = service
+        and set -a stack_dirs (path dirname -- $serverless_yml)
+    end
     for i in (seq (count $targets))
         echo $targets[$i] | read -l -d : state target_type serverless_yml service_name __
         test "$state" = success && continue
@@ -484,7 +492,12 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
                     else if string match -q -- '*monitoring*' $service_name
                         set key 5000
                     else
-                        set key 1(printf '%03d' (count (string split / -- $serverless_yml)))
+                        set -l dir (path dirname -- $serverless_yml)
+                        set -l parents 0
+                        for d in $stack_dirs
+                            string match -q -- "$d/*" $dir && set parents (math $parents + 1)
+                        end
+                        set key 1(printf '%03d' $parents)
                     end
             end
         end
