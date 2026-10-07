@@ -91,6 +91,16 @@ push -a hotels >/dev/null 2>&1
 @test "monitoring is not first" (string match -q '*/hotels/monitoring *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 1
 rm -rf $TS_ROOT/hotels/monitoring
 
+# ===== authorizers deploy before other services =====
+# dir name sorts last on purpose: the service name (*authorizer*) decides
+mkdir -p $TS_ROOT/hotels/z-authorizers
+printf "service: hotels-authorizers\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/hotels/z-authorizers/serverless.yml
+echo -n >$TS_SLS_LOG
+push -a hotels >/dev/null 2>&1
+@test "authorizers deploy first" (string match -q '*/hotels/z-authorizers *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 0
+@test "authorizers deploy once" (count (string match '*/hotels/z-authorizers *' -- (cat $TS_SLS_LOG))) -eq 1
+rm -rf $TS_ROOT/hotels/z-authorizers
+
 # ===== regression: unresolvable target must not crash =====
 # previously: empty _ts_resolve_config output left target_type as 0 elements ->
 # `set -a {$target_type}s ...` failed with "invalid variable name".

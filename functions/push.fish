@@ -409,6 +409,7 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
 
     set -l stack_dirs (find "$current_dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace -r '/serverless.yml$' '' | path sort)
     set -l resource_dirs
+    set -l authorizer_dirs
     set -l main_dir
     set -l subservice_dirs
     set -l monitoring_dirs
@@ -420,6 +421,8 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
             set -l service_name (_ts_service_name "$dir/serverless.yml")
             if string match -q '*-resources' -- $service_name
                 set -a resource_dirs $dir
+            else if string match -q '*authorizer*' -- $service_name
+                set -a authorizer_dirs $dir
             else if string match -q '*monitoring*' -- $service_name
                 set -a monitoring_dirs $dir
             else
@@ -428,8 +431,9 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
         end
     end
 
-    # monitoring stacks deploy last (they observe the rest)
-    set -l ordered_targets $resource_dirs
+    # authorizers deploy before the services that use them, monitoring stacks
+    # deploy last (they observe the rest)
+    set -l ordered_targets $resource_dirs $authorizer_dirs
     test -n "$main_dir" && set -a ordered_targets $main_dir
     set -a ordered_targets $subservice_dirs $monitoring_dirs
 
