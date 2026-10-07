@@ -279,7 +279,7 @@ BEGIN {
 }
 {
     is_cloudwatch_log = 0
-    if ($0 ~ /^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(ERROR|WARN|INFO|DEBUG)\t/) {
+    if ($0 ~ /^([0-9:. ()+-]{32}|[0-9TZ:.-]{24})\t([[:alnum:]-]{36}|undefined)\t(ERROR|WARN|INFO|DEBUG)\t/) {
         is_cloudwatch_log = 1
     }
 
@@ -326,7 +326,7 @@ BEGIN {
             $0 = s0 s
 
             # remove aws timestamp, log id, log level
-            gsub(/^[0-9:. ()+-]{32}\t([[:alnum:]-]{36}|undefined)\t(ERROR|WARN|INFO|DEBUG)\t/, "")
+            gsub(/^([0-9:. ()+-]{32}|[0-9TZ:.-]{24})\t([[:alnum:]-]{36}|undefined)\t(ERROR|WARN|INFO|DEBUG)\t/, "")
 
             # highlight metadata
             if (match($0, /^\[[[:upper:]-]+\]\[[[:digit:]TZ:.-]{24}\]\[[[:lower:].-]+:[[:digit:]]+\](\[[[:alpha:]. ]+\])?\[[[:upper:]]+\]: /)) {
