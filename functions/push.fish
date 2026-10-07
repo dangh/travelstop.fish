@@ -194,7 +194,9 @@ function push -d 'deploy CF stack/lambda function'
         set -l tier (string split ' ' -- $tiers[1])
         set -e tiers[1]
 
-        for i in $tier
+        # only the first -j targets start right away; the rest of the tier is
+        # marked running when its slot frees up
+        for i in $tier[1..$jobs]
             echo $targets[$i] | read -l -d : state __
             set targets[$i] "running:$__"
         end
@@ -247,6 +249,19 @@ function push -d 'deploy CF stack/lambda function'
                     test -n "$_flag_org" && set -a deploy_cmd --org $_flag_org
                     test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
             end
+
+            # wait for a free slot (at most -j deploys at once) before this
+            # target is announced as deploying
+            while test (count $pids) -ge $jobs
+                wait -n $pids
+                set -l alive
+                for p in $pids
+                    command kill -0 $p 2>/dev/null && set -a alive $p
+                end
+                set pids $alive
+            end
+            set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
+
             test "$target_type" = function \
                 && _ts_log deploying function: (magenta $fullname) \
                 || _ts_log deploying stack: (magenta $fullname)
@@ -262,14 +277,6 @@ function push -d 'deploy CF stack/lambda function'
                 # fish cannot background a function, so the child is a fresh
                 # fish: it gets _ts_push_deploy from here and the rest (_ts_sls,
                 # _ts_pm_install, build_libs, ...) from its own config
-                while test (count $pids) -ge $jobs
-                    wait -n $pids
-                    set -l alive
-                    for p in $pids
-                        command kill -0 $p 2>/dev/null && set -a alive $p
-                    end
-                    set pids $alive
-                end
                 fish --init-command (functions _ts_push_deploy | string collect) \
                     -c '_ts_push_deploy $argv; echo $status >'(string escape -- $log.exit) \
                     -- "$target_type" "$service_name" "$working_dir" $deploy_cmd >$log 2>&1 &

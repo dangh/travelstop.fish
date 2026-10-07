@@ -319,6 +319,20 @@ echo -n >$TS_ORDER_LOG
 push -j 1 hotels flights </dev/null >/dev/null 2>&1
 @test "-j 1 deploys sequentially" (ts_order) = start,end,start,end
 
+mkdir -p $TS_ROOT/cars
+printf "service: cars\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/cars/serverless.yml
+echo -n >$TS_ORDER_LOG
+push -j 2 hotels flights cars </dev/null >/dev/null 2>&1
+set -l running 0
+set -l peak 0
+for m in (string split , -- (ts_order))
+    test $m = start && set running (math $running + 1) || set running (math $running - 1)
+    test $running -gt $peak && set peak $running
+end
+@test "-j caps the deploys running at once" $peak -eq 2
+@test "-j still deploys every target" (count (cat $TS_ORDER_LOG)) -eq 6
+rm -rf $TS_ROOT/cars
+
 echo -n >$TS_ORDER_LOG
 push -a hotels </dev/null >/dev/null 2>&1
 @test "parent stack finishes before its subservice starts" (ts_order) = start,end,start,end
