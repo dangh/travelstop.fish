@@ -72,6 +72,48 @@ set -U ts_default_argv_logs --tail --startTime=2m
 set -U ts_default_argv_invoke --type=Event
 ```
 
+### Deploying a whole tree
+
+`push -a/--all` expands each target (the current directory when you pass none)
+to every service below it, so it works from a plain parent directory that holds
+services but is not a service itself:
+
+```sh
+cd services/booking   # no serverless.yml here, only in its subdirectories
+push -a               # deploys every service under services/booking
+push -a hotels ops    # same, for two given directories/stacks
+```
+
+Only when the directory holds no service at all does `push -a` walk up to the
+nearest enclosing service (and then deploys that service plus its subservices).
+
+### Parallel deploys
+
+`push` deploys independent targets at the same time, 4 at once by default
+(`-j/--jobs N`). Targets are grouped into dependency tiers that run one after
+the other: modules (layers) → `*-resources` stacks → `*authorizer*` stacks →
+other services, a parent stack before its subservices → `*monitoring*` stacks →
+functions (functions of one service stay sequential, they share its
+`.serverless/` dir). `-j 1` gives the old strictly sequential run in list order
+(`push -a` lists authorizers before other services too; this also honors the
+order you set in the `-i` editor):
+
+```sh
+push -j 1 -a hotels        # one at a time
+set -U ts_default_argv_push -j 8
+```
+
+Each target's output goes to its own log file under
+`$XDG_RUNTIME_DIR/ts_push/<run>/` (`/tmp/ts_push/` when the runtime dir is not
+set); `ts_push/latest` points at the current run. A single-target tier still
+prints live to the terminal. When a target in a parallel tier fails, `push`
+shows the tail of its log and asks `[r]etry / [s]kip / [a]bort` once the tier
+is done; retried targets run as the next tier.
+
+Parallel targets run in child `fish` processes that load your normal config, so
+`ts_npm_install_options`, `ts_env` and friends must be universal variables or
+defined in `config.fish`/`conf.d` to reach them.
+
 ### To push notification after deploy with [Pushover](https://pushover.net)
 
 ```

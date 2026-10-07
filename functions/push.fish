@@ -27,8 +27,14 @@ function push -d 'deploy CF stack/lambda function'
         'c/config=' \
         'e/exclude=+' \
         R/regex \
+        'j/jobs=!_validate_int --min 1' \
         -- $ts_default_argv_push $argv
     or return 1
+
+    # -j/--jobs: how many independent targets deploy at once (1 = strictly
+    # sequential in list order, the pre-tier behavior)
+    set -l jobs 4
+    set -q _flag_jobs && set jobs $_flag_jobs
 
     set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
@@ -74,6 +80,12 @@ function push -d 'deploy CF stack/lambda function'
     _ts_push_rename_modules on
     function _ts_push_restore_modules -s SIGINT -s SIGTERM -s SIGHUP
         functions -e _ts_push_restore_modules
+        # parallel deploy children live in their own process group under job
+        # control, so a terminal Ctrl-C never reaches them: stop them here
+        for p in $_ts_push_pids
+            command kill -- -$p 2>/dev/null || command kill $p 2>/dev/null
+        end
+        set -e _ts_push_pids
         _ts_push_rename_modules off
     end
 
@@ -171,122 +183,130 @@ function push -d 'deploy CF stack/lambda function'
         printf '\e]9;4;3;0\a'
     end
 
-    # deploy
-    for i in (seq (count $targets))
-        echo $targets[$i] | read -l -d : state __
-        # skip targets already deployed in a prior run (still shown in progress)
-        test "$state" = success && continue
-        echo $__ | read -l -d : target_type serverless_yml service_name function_name package_version region stage
-        set -l fullname
-        switch "$target_type"
-            case function
-                set fullname $service_name-(string upper $stage)-$function_name
-            case service
-                if test -n "$package_version"
-                    set fullname $service_name-(string upper $stage)-$package_version
-                else
-                    set fullname $service_name-(string upper $stage)
-                end
-        end
+    # deploy tier by tier: targets inside a tier are independent and run
+    # concurrently (up to -j jobs); tiers run in dependency order. targets the
+    # user asks to retry form the next tier. see _ts_push_tiers for the order.
+    set -l run_dir (_ts_push_run_dir)
+    set -l tiers (_ts_push_tiers $jobs $targets)
+    set -l aborted
+    set -g _ts_push_pids
+    while test (count $tiers) -gt 0
+        set -l tier (string split ' ' -- $tiers[1])
+        set -e tiers[1]
 
-        # update progress
-        set targets[$i] "running:$__"
+        # only the first -j targets start right away; the rest of the tier is
+        # marked running when its slot frees up
+        for i in $tier[1..$jobs]
+            echo $targets[$i] | read -l -d : state __
+            set targets[$i] "running:$__"
+        end
         _ts_progress $targets
 
-        set -l working_dir (dirname $serverless_yml)
-        set -l deploy_cmd deploy
-        switch $target_type
-            case function
-                set -a deploy_cmd function -f $function_name
-                test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
-                test -n "$stage" && set -a deploy_cmd -s $stage
-                if test -n "$region"
-                    set -a deploy_cmd -r $region
-                else if test -n "$default_region"
-                    set -a deploy_cmd -r $default_region
-                end
-                set -q _flag_force && set -a deploy_cmd --force
-                set -q _flag_update_config && set -a deploy_cmd -u
-            case \*
-                # serverless-web service (has serverless.yml, no
-                # serverless-resources.yml, uses the serverless-web plugin):
-                # deploy the web app instead of the CF stack.
-                if test -e "$working_dir"/serverless.yml \
-                    && not test -e "$working_dir"/serverless-resources.yml \
-                    && grep -q -- serverless-web "$working_dir"/serverless.yml
-                    set deploy_cmd deploy web
-                end
-                set -q _flag_conceal && set -a deploy_cmd --conceal
-                test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
-                test -n "$stage" && set -a deploy_cmd -s $stage
-                if test -n "$region"
-                    set -a deploy_cmd -r $region
-                else if test -n "$default_region"
-                    set -a deploy_cmd -r $default_region
-                end
-                test -n "$_flag_package" && set -a deploy_cmd -p $_flag_package
-                set -q _flag_verbose && set -a deploy_cmd -v
-                set -q _flag_force && set -a deploy_cmd --force
-                set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
-                test -n "$_flag_app" && set -a deploy_cmd --app $_flag_app
-                test -n "$_flag_org" && set -a deploy_cmd --org $_flag_org
-                test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
-        end
-        test "$target_type" = function \
-            && _ts_log deploying function: (magenta $fullname) \
-            || _ts_log deploying stack: (magenta $fullname)
-        _ts_log working directory: (blue $working_dir)
-
-        # deploy with retry: on failure, prompt to retry (redeploy this target)
-        # or abort (stop the run). default is abort, matching the old behavior.
-        set -l aborted
-        while true
-            if test "$target_type" = module && string match -q -r module-libs $service_name
-                build_libs --force
-            else
-                for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
-                    if test -e "$d"/package.json
-                        # web app: install all deps; lambda code: target linux/x64/glibc
-                        set -l pm_flags --no-proxy
-                        string match -q -r '\bweb\b' -- "$d"
-                        or set -a pm_flags --os=linux --cpu=x64 --libc=glibc
-                        set -l install_cmd (_ts_pm_install "$d" $pm_flags $ts_npm_install_options)
-                        command env -C "$d" fish -P -c "
-                            type -q nvm && nvm use > /dev/null
-                            command $install_cmd
-                        "
+        # launch: single job runs here (live output, tee'd to its log); a
+        # multi-job tier runs each target in a child fish, output to its log
+        set -l tier_logs
+        set -l tier_names
+        set -l pids
+        set -l pid_ks # position in $tier of each pid
+        for k in (seq (count $tier))
+            set -l i $tier[$k]
+            echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
+            set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
+            set -l working_dir (dirname $serverless_yml)
+            set -l deploy_cmd deploy
+            switch $target_type
+                case function
+                    set -a deploy_cmd function -f $function_name
+                    test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
+                    test -n "$stage" && set -a deploy_cmd -s $stage
+                    if test -n "$region"
+                        set -a deploy_cmd -r $region
+                    else if test -n "$default_region"
+                        set -a deploy_cmd -r $default_region
                     end
-                end
+                    set -q _flag_force && set -a deploy_cmd --force
+                    set -q _flag_update_config && set -a deploy_cmd -u
+                case \*
+                    # serverless-web service (has serverless.yml, no
+                    # serverless-resources.yml, uses the serverless-web plugin):
+                    # deploy the web app instead of the CF stack.
+                    if test -e "$working_dir"/serverless.yml \
+                            && not test -e "$working_dir"/serverless-resources.yml \
+                            && grep -q -- serverless-web "$working_dir"/serverless.yml
+                        set deploy_cmd deploy web
+                    end
+                    set -q _flag_conceal && set -a deploy_cmd --conceal
+                    test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
+                    test -n "$stage" && set -a deploy_cmd -s $stage
+                    if test -n "$region"
+                        set -a deploy_cmd -r $region
+                    else if test -n "$default_region"
+                        set -a deploy_cmd -r $default_region
+                    end
+                    test -n "$_flag_package" && set -a deploy_cmd -p $_flag_package
+                    set -q _flag_verbose && set -a deploy_cmd -v
+                    set -q _flag_force && set -a deploy_cmd --force
+                    set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
+                    test -n "$_flag_app" && set -a deploy_cmd --app $_flag_app
+                    test -n "$_flag_org" && set -a deploy_cmd --org $_flag_org
+                    test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
             end
-            _ts_sls --workdir "$working_dir" --with-env $deploy_cmd
-            set -l deploy_status $status
 
-            if test $deploy_status -eq 0
-                set success_count (math $success_count + 1)
-                set targets[$i] "success:$__"
-                _ts_push_save_state $targets
-                printf '\e]9;4;1;%d\a' (math "$i * 100 / "(count $targets))
-                break
+            # wait for a free slot (at most -j deploys at once) before this
+            # target is announced as deploying
+            _ts_push_wait_slots $jobs
+            set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
+
+            test "$target_type" = function \
+                && _ts_log deploying function: (magenta $fullname) \
+                || _ts_log deploying stack: (magenta $fullname)
+            _ts_log working directory: (blue $working_dir)
+
+            set -l log $run_dir/(printf '%02d-%s.log' $i $fullname)
+            set -a tier_logs $log
+            set -a tier_names $fullname
+            if test (count $tier) -eq 1
+                _ts_push_deploy "$target_type" "$service_name" "$working_dir" $deploy_cmd 2>&1 | tee $log
+                echo $pipestatus[1] >$log.exit
+                _ts_push_done $k
+            else
+                # fish cannot background a function, so the child is a fresh
+                # fish: it gets _ts_push_deploy from here and the rest (_ts_sls,
+                # _ts_pm_install, build_libs, ...) from its own config
+                fish --init-command (functions _ts_push_deploy | string collect) \
+                    -c '_ts_push_deploy $argv; echo $status >'(string escape -- $log.exit) \
+                    -- "$target_type" "$service_name" "$working_dir" $deploy_cmd >$log 2>&1 &
+                set -a pids $last_pid
+                set -a pid_ks $k
+                set -ga _ts_push_pids $last_pid
             end
+        end
+        _ts_push_wait_slots 1
+        set -g _ts_push_pids
+
+        # every target is marked done by now: prompt for each failure
+        set -l retry
+        for k in (seq (count $tier))
+            set -l i $tier[$k]
+            set -l log $tier_logs[$k]
+            set -l fullname $tier_names[$k]
+            string match -q 'success:*' -- $targets[$i] && continue
+            set -l deploy_status (cat $log.exit 2>/dev/null)
+            test -n "$deploy_status" || set deploy_status 1
 
             # Ctrl-C during deploy: fish keeps running the script after the
             # signal kills sls (exit status 128+signum). Treat that as an
             # interrupt and stop the whole run instead of prompting retry/abort.
             if test $deploy_status -ge 128
-                set targets[$i] "failure:$__"
                 set failure_count (math $failure_count + 1)
                 set aborted 1
-                _ts_push_save_state $targets
-                printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
                 _ts_log (red interrupted)
                 break
             end
 
-            # failure: mark, show progress, then prompt
-            set targets[$i] "failure:$__"
-            _ts_push_save_state $targets
-            printf '\e]9;4;2;%d\a' (math "$i * 100 / "(count $targets))
-            _ts_progress $targets
+            # failure: show the log tail a background job hid, then prompt.
+            # default is abort.
+            test (count $tier) -gt 1 && tail -n 20 $log
             # notify (native + pushover) that a deploy failed and needs input
             _ts_notify -t "push failed: $fullname" \
                 -m 'deploy failed — waiting for [r]etry / [s]kip / [a]bort'
@@ -294,12 +314,10 @@ function push -d 'deploy CF stack/lambda function'
             switch $answer
                 case R r retry
                     _ts_log retrying: (magenta $fullname)
-                    set targets[$i] "running:$__"
-                    continue
+                    set -a retry $i
                 case S s skip
                     _ts_log skipping: (magenta $fullname)
                     set failure_count (math $failure_count + 1)
-                    break
                 case '*'
                     set failure_count (math $failure_count + 1)
                     set aborted 1
@@ -308,6 +326,14 @@ function push -d 'deploy CF stack/lambda function'
         end
 
         test -n "$aborted" && break
+        test -n "$retry" && set -p tiers (string join ' ' -- $retry)
+    end
+    set -e _ts_push_pids
+
+    # an abort mid-tier leaves the rest of that tier marked running: they did
+    # finish (we waited), but were never judged, so -C must redo them
+    for i in (seq (count $targets))
+        set targets[$i] (string replace -r '^running:' 'pending:' -- $targets[$i])
     end
 
     # resume state: clear it when everything is done, otherwise keep it and tell
@@ -366,6 +392,40 @@ function push -d 'deploy CF stack/lambda function'
     _ts_push_restore_modules
 end
 
+function _ts_push_wait_slots -S -d "wait until fewer than \$argv[1] deploys run, marking each finished one done (runs in push's scope)"
+    while test (count $pids) -ge $argv[1]
+        wait -n $pids
+        set -l alive_pids
+        set -l alive_ks
+        for _n in (seq (count $pids))
+            if command kill -0 $pids[$_n] 2>/dev/null
+                set -a alive_pids $pids[$_n]
+                set -a alive_ks $pid_ks[$_n]
+            else
+                _ts_push_done $pid_ks[$_n]
+            end
+        end
+        set pids $alive_pids
+        set pid_ks $alive_ks
+    end
+end
+
+function _ts_push_done -S -d "mark the \$argv[1]-th target of the tier success/failure from its exit file and redraw the progress (runs in push's scope)"
+    set -l _i $tier[$argv[1]]
+    set -l _status (cat $tier_logs[$argv[1]].exit 2>/dev/null)
+    echo $targets[$_i] | read -l -d : _state _rest
+    if test "$_status" = 0
+        set success_count (math $success_count + 1)
+        set targets[$_i] "success:$_rest"
+        printf '\e]9;4;1;%d\a' (_ts_push_percent $targets)
+    else
+        set targets[$_i] "failure:$_rest"
+        printf '\e]9;4;2;%d\a' (_ts_push_percent $targets)
+    end
+    _ts_push_save_state $targets
+    _ts_progress $targets
+end
+
 function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modules disables it"
     # opt out of the branch-suffix renaming (e.g. deploying a shared branch that
     # must keep the plain module names)
@@ -381,16 +441,135 @@ function _ts_push_clear_state -d "drop the saved resume state"
     set -e _ts_push_state
 end
 
-function _ts_push_all_targets -a base -d "expand a service dir to itself and its subservices"
+function _ts_push_fullname -a target_type service_name function_name package_version stage -d "<service>-<STAGE>[-<function>|-<version>]"
+    switch "$target_type"
+        case function
+            echo $service_name-(string upper $stage)-$function_name
+        case service
+            if test -n "$package_version"
+                echo $service_name-(string upper $stage)-$package_version
+            else
+                echo $service_name-(string upper $stage)
+            end
+        case '*'
+            echo $service_name-(string upper $stage)
+    end
+end
+
+function _ts_push_percent -d "percent of targets in a final state (for OSC 9;4)"
+    set -l done (string match -r '^(success|failure):' -- $argv | count)
+    math -s0 "$done * 100 / "(count $argv)
+end
+
+function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts_push and point 'latest' at it"
+    set -l root $XDG_RUNTIME_DIR
+    test -n "$root" -a -d "$root" || set root /tmp
+    mkdir -p $root/ts_push
+    set -l dir (mktemp -d $root/ts_push/(date +%Y%m%d-%H%M%S)-XXXX)
+    ln -sfn $dir $root/ts_push/latest
+    echo $dir
+end
+
+function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
+    # order that matters: modules (layers) -> *-resources stacks ->
+    # *authorizer* stacks (other services attach their authorizers) -> other
+    # services, a parent stack before its subservices (by how many of the
+    # pushed stacks sit above it, not by path depth, so admin/services/x does
+    # not wait for an unrelated services/y) -> *monitoring* stacks ->
+    # functions. functions of one service share its .serverless/ dir, so the
+    # n-th function of a service waits for the (n-1)-th. -j 1 puts every
+    # target in its own tier, in list order. already-succeeded targets (a -C
+    # resume) are left out.
+    set -l targets $argv[2..]
+    set -l entries # "<sort key> <index>"
+    set -l seen_ymls
+    set -l stack_dirs # dirs of the stacks still to deploy, to find parents
+    for t in $targets
+        echo $t | read -l -d : state target_type serverless_yml __
+        test "$state" != success -a "$target_type" = service
+        and set -a stack_dirs (path dirname -- $serverless_yml)
+    end
+    for i in (seq (count $targets))
+        echo $targets[$i] | read -l -d : state target_type serverless_yml service_name __
+        test "$state" = success && continue
+        set -l key
+        if test "$jobs" -le 1
+            set key (printf '%04d' $i)
+        else
+            switch $target_type
+                case module
+                    set key 0000
+                case function
+                    set -a seen_ymls $serverless_yml
+                    set key 8(printf '%03d' (count (string match -- $serverless_yml $seen_ymls)))
+                case '*'
+                    if string match -q -- '*-resources' $service_name
+                        set key 0001
+                    else if string match -q -- '*authorizer*' $service_name
+                        set key 0002
+                    else if string match -q -- '*monitoring*' $service_name
+                        set key 5000
+                    else
+                        set -l dir (path dirname -- $serverless_yml)
+                        set -l parents 0
+                        for d in $stack_dirs
+                            string match -q -- "$d/*" $dir && set parents (math $parents + 1)
+                        end
+                        set key 1(printf '%03d' $parents)
+                    end
+            end
+        end
+        set -a entries "$key $i"
+    end
+
+    set -l last
+    set -l tier
+    for entry in (printf '%s\n' $entries | sort -s -k1,1)
+        echo $entry | read -l key i
+        if test "$key" != "$last"
+            test -n "$tier" && echo $tier
+            set tier $i
+            set last $key
+        else
+            set tier "$tier $i"
+        end
+    end
+    test -n "$tier" && echo $tier
+end
+
+function _ts_push_deploy -a target_type service_name working_dir -d "install deps, then run one sls deploy (also runs inside a child fish)"
+    set -l deploy_cmd $argv[4..]
+    if test "$target_type" = module && string match -q -r module-libs -- $service_name
+        build_libs --force
+    else
+        for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
+            if test -e "$d"/package.json
+                # web app: install all deps; lambda code: target linux/x64/glibc
+                set -l pm_flags --no-proxy
+                string match -q -r '\bweb\b' -- "$d"
+                or set -a pm_flags --os=linux --cpu=x64 --libc=glibc
+                set -l install_cmd (_ts_pm_install "$d" $pm_flags $ts_npm_install_options)
+                command env -C "$d" fish -P -c "
+                    type -q nvm && nvm use > /dev/null
+                    command $install_cmd
+                "
+            end
+        end
+    end
+    _ts_sls --workdir "$working_dir" --with-env $deploy_cmd
+end
+
+function _ts_push_all_targets -a base -d "expand a dir to every service in it (or to the nearest enclosing service)"
     set -l project_dir
     set -q $_ts_project_dir && set project_dir $$_ts_project_dir
 
     test -n "$base" || set base $PWD
     set -l current_dir (path resolve -- $base)
-    while true
-        if test -f "$current_dir/serverless.yml"
-            break
-        end
+    # a dir holding services (itself or below) is the root of the expansion, so
+    # -a works from a plain parent dir too. only when it holds none do we walk
+    # up to the nearest enclosing service dir.
+    set -l stack_dirs (_ts_push_stack_dirs "$current_dir")
+    while test -z "$stack_dirs"
         if test "$current_dir" = /
             set current_dir
             break
@@ -400,14 +579,14 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
             break
         end
         set current_dir (path dirname -- $current_dir)
+        test -f "$current_dir/serverless.yml"
+        and set stack_dirs (_ts_push_stack_dirs "$current_dir")
     end
 
     if test -z "$current_dir"
         _ts_log cannot resolve current service. run from a service directory
         return 1
     end
-
-    set -l stack_dirs (find "$current_dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace -r '/serverless.yml$' '' | path sort)
     set -l resource_dirs
     set -l authorizer_dirs
     set -l main_dir
@@ -447,6 +626,11 @@ function _ts_push_all_targets -a base -d "expand a service dir to itself and its
     end
 end
 
+function _ts_push_stack_dirs -a dir -d "dirs of every serverless.yml at or below <dir>, node_modules pruned"
+    find "$dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print \
+        | string replace -r '/serverless.yml$' '' | path sort
+end
+
 function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoes kept targets in new order"
     set -l editor $EDITOR
     test -n "$editor" || set editor $VISUAL
@@ -455,7 +639,7 @@ function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoe
     set -l tmp (mktemp -t ts_push.XXXXXX)
     begin
         echo '# travelstop push — reorder or delete lines, then save and close.'
-        echo '# Targets deploy top to bottom. Delete a line to skip it. Keep the leading number.'
+        echo '# Targets deploy in dependency tiers (top to bottom only with -j 1). Delete a line to skip it. Keep the leading number.'
         for i in (seq (count $argv))
             echo $argv[$i] | read -l -d : state target_type serverless_yml service_name function_name __
             set -l label $service_name
