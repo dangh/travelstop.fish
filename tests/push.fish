@@ -179,7 +179,7 @@ push -a group </dev/null >/dev/null 2>&1
 mkdir -p $TS_ROOT/group/z-authorizers
 printf "service: group-authorizers\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/group/z-authorizers/serverless.yml
 echo -n >$TS_SLS_LOG
-push -j 1 -a group </dev/null >/dev/null 2>&1
+push -a group </dev/null >/dev/null 2>&1
 @test "-a lists authorizers before other services" (string match -q '*/group/z-authorizers *' -- (cat $TS_SLS_LOG)[1]; echo $status) -eq 0
 rm -rf $TS_ROOT/group/z-authorizers
 echo -n >$TS_SLS_LOG
@@ -337,6 +337,25 @@ push hotels </dev/null >/dev/null 2>&1
 @test "ts_push_rename_modules=false still deploys" (count (cat $TS_SLS_LOG)) -eq 1
 set -e ts_push_rename_modules
 
+# ===== concurrent pushes of one project: the last one out restores =====
+# another live push registered for this project (a background sleep's pid)
+set -l pushes $XDG_RUNTIME_DIR/ts_push/pushes/(string escape --style=var -- (path resolve -- $TS_ROOT))
+mkdir -p $pushes
+sleep 30 &
+set -l other $last_pid
+touch $pushes/$other
+echo -n >$TS_RENAME_LOG
+push hotels </dev/null >/dev/null 2>&1
+@test "another push of the project running: renames" (string match -q 'on*' -- (cat $TS_RENAME_LOG); echo $status) -eq 0
+@test "another push of the project running: no restore" (contains off (cat $TS_RENAME_LOG); echo $status) -eq 1
+@test "its own registration is gone" (test -e $pushes/$fish_pid; echo $status) -eq 1
+command kill $other
+wait $other 2>/dev/null
+echo -n >$TS_RENAME_LOG
+push hotels </dev/null >/dev/null 2>&1
+@test "a dead push does not block the restore" (contains off (cat $TS_RENAME_LOG); echo $status) -eq 0
+@test "the dead registration is cleaned up" (test -e $pushes/$other; echo $status) -eq 1
+
 # ===== parallel tiers =====
 # each fake deploy sleeps 1s and logs start/end: two independent services must
 # overlap (start,start,end,end); dependent ones must serialize (start,end,...).
@@ -358,23 +377,21 @@ push hotels flights </dev/null >/dev/null 2>&1
 @test "progress redraws when a parallel target finishes" (string match -q running,success -- (cat $TS_PROGRESS_LOG); echo $status) -eq 0
 function _ts_progress; end
 
+for s in cars trains buses
+    mkdir -p $TS_ROOT/$s
+    printf "service: $s\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/$s/serverless.yml
+end
 echo -n >$TS_ORDER_LOG
-push -j 1 hotels flights </dev/null >/dev/null 2>&1
-@test "-j 1 deploys sequentially" (ts_order) = start,end,start,end
-
-mkdir -p $TS_ROOT/cars
-printf "service: cars\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/cars/serverless.yml
-echo -n >$TS_ORDER_LOG
-push -j 2 hotels flights cars </dev/null >/dev/null 2>&1
+push hotels flights cars trains buses </dev/null >/dev/null 2>&1
 set -l running 0
 set -l peak 0
 for m in (string split , -- (ts_order))
     test $m = start && set running (math $running + 1) || set running (math $running - 1)
     test $running -gt $peak && set peak $running
 end
-@test "-j caps the deploys running at once" $peak -eq 2
-@test "-j still deploys every target" (count (cat $TS_ORDER_LOG)) -eq 6
-rm -rf $TS_ROOT/cars
+@test "at most 4 deploys run at once" $peak -eq 4
+@test "a 5th target still deploys" (count (cat $TS_ORDER_LOG)) -eq 10
+rm -rf $TS_ROOT/cars $TS_ROOT/trains $TS_ROOT/buses
 
 echo -n >$TS_ORDER_LOG
 push -a hotels </dev/null >/dev/null 2>&1

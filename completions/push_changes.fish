@@ -9,7 +9,6 @@ complete -c push_changes -x -s s -l stage -a 'dev dev-in test stage prod' -d sta
 complete -c push_changes -x -s r -l region -d 'aws region'
 complete -c push_changes -s v -l verbose -d 'verbose output'
 complete -c push_changes -l force -d 'force deploy'
-complete -c push_changes -x -s j -l jobs -a '1 2 4 8' -d 'parallel deploys per tier (1 = sequential)'
 complete -c push_changes -l no-tmux -d 'no tmux view: parallel deploys log to files'
 
 complete -f -c push_changes

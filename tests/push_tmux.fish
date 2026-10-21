@@ -163,12 +163,26 @@ ts_until 50 'test (count (string match -- "*/serverless.yml" (ts_titles))) -eq 4
 # numbered row by row: [1] [2] on top, [3] [4] below
 @test "pane headers carry their number" (ts_tmux list-panes -t push -F '#{@ts_slot}' | sort | string join ,) = ,1,2,3,4
 @test "pane numbers run row by row" (ts_tmux list-panes -t push -F '#{pane_top} #{pane_left} #{@ts_slot}' | sort -n -k1,1 -k2,2 | string replace -r '.* ' '' | string join ,) = ,1,2,3,4
+@test "mouse support is on by default" (ts_tmux show -gv mouse) = on
 @test "the user's default tmux server is never started" (test -e $TMUX_TMPDIR/tmux-(id -u)/default; echo $status) -eq 1
 ts_finish
 @test "every stack deployed" (count (cat $TS_SLS_LOG)) -eq 4
 @test "summary notification counts the successes" (string match -q '*success: 4, failure: 0*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 0
 @test "the session is gone once push returns" (ts_session_up; echo $status) -ne 0
 @test "its socket file is removed too" (test -e $TMUX_TMPDIR/tmux-(id -u)/$ts_sock; echo $status) -eq 1
+
+# ===== your config: overrides the defaults, not what the view needs =====
+set -gx ts_push_tmux_conf (mktemp)
+printf '%s\n' "set -g status-left ' MINE '" 'set -g mouse off' 'set -g remain-on-exit off' >$ts_push_tmux_conf
+ts_push_bg hotels flights
+ts_until 100 ts_session_up
+@test "ts_push_tmux_conf is applied" (ts_tmux show -gv status-left) = ' MINE '
+@test "it can turn a default off" (ts_tmux show -gv mouse) = off
+@test "what the view needs wins" (ts_tmux show -gv remain-on-exit) = on
+ts_finish
+@test "the run still works" (string match -q '*success: 2, failure: 0*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 0
+rm -f $ts_push_tmux_conf
+set -e ts_push_tmux_conf
 
 # ===== 2 stacks: stack list + 2 side-by-side columns =====
 ts_push_bg hotels flights
@@ -184,7 +198,7 @@ echo $geo[3] | read -l l2 t2 w2 h2
 @test "2 stacks get separate columns" $l1 -ne $l2
 ts_finish
 
-# ===== 3 stacks with -j 4: 3 deploy panes =====
+# ===== 3 stacks: 3 deploy panes =====
 ts_push_bg hotels flights cars
 ts_until 100 ts_session_up
 ts_until 50 'test (count (ts_panes)) -eq 4'
@@ -198,7 +212,7 @@ ts_until 50 'contains chat/resources (ts_titles)'
 @test "cdk header is the app directory" (contains chat/resources (ts_titles); echo $status) -eq 0
 ts_finish
 
-# ===== no tmux: 1 stack, -j 1, --no-tmux, ts_push_tmux off =====
+# ===== no tmux: 1 stack, --no-tmux, ts_push_tmux off =====
 set -e TS_SLS_SLEEP
 function ts_no_server; not count $TMUX_TMPDIR/tmux-*/* >/dev/null; end
 command rm -rf $TMUX_TMPDIR/tmux-*
@@ -206,10 +220,6 @@ echo -n >$TS_SLS_LOG
 push hotels </dev/null >/dev/null 2>&1
 @test "1 stack deploys without tmux" (ts_no_server; echo $status) -eq 0
 @test "1 stack still deploys" (count (cat $TS_SLS_LOG)) -eq 1
-echo -n >$TS_SLS_LOG
-push -j 1 hotels flights cars </dev/null >/dev/null 2>&1
-@test "-j 1 deploys without tmux" (ts_no_server; echo $status) -eq 0
-@test "-j 1 still deploys" (count (cat $TS_SLS_LOG)) -eq 3
 push --no-tmux hotels flights </dev/null >/dev/null 2>&1
 @test "--no-tmux deploys without tmux" (ts_no_server; echo $status) -eq 0
 set -g ts_push_tmux off

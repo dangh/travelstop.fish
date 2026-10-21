@@ -89,22 +89,16 @@ nearest enclosing service (and then deploys that service plus its subservices).
 
 ### Parallel deploys
 
-`push` deploys independent targets at the same time, 4 at once by default
-(`-j/--jobs N`). Targets are grouped into dependency tiers that run one after
+`push` deploys independent targets at the same time, up to 4 at once. Targets
+are grouped into dependency tiers that run one after
 the other: modules (layers) → `*-resources` stacks → `*authorizer*` stacks →
 other services → `admin-*` services → `*web` apps (the same group order as
 `changes`) → `*www` edge stacks, in each group a parent stack before its
 subservices →
 `*monitoring*` stacks →
 functions (functions of one service stay sequential, they share its
-`.serverless/` dir). `-j 1` gives the old strictly sequential run in list order
-(`push -a` lists authorizers before other services too; this also honors the
-order you set in the `-i` editor):
-
-```sh
-push -j 1 -a hotels        # one at a time
-set -U ts_default_argv_push -j 8
-```
+`.serverless/` dir). Inside a tier, targets start in list order (the order
+you set in the `-i` editor).
 
 Each target's output goes to its own log file under
 `$XDG_RUNTIME_DIR/ts_push/<run>/` (`/tmp/ts_push/` when the runtime dir is not
@@ -119,8 +113,8 @@ defined in `config.fish`/`conf.d` to reach them.
 
 #### tmux view
 
-With `tmux` installed, a terminal, `-j` ≥ 2 and at least 2 targets that can
-deploy at the same time, `push` shows the deploys live in a tmux session:
+With `tmux` installed, a terminal and at least 2 targets that can deploy at the
+same time, `push` shows the deploys live in a tmux session:
 
 ```
 ┃ stacks                ┃ [1] ▶ hotels/serverless.yml ┃ [2] ▶ web/serverless.yml  ┃
@@ -132,9 +126,9 @@ deploy at the same time, `push` shows the deploys live in a tmux session:
 - The left column lists the stacks; a running one shows its pane `[n]`
   (`[n] retry?` while it waits for an answer). A long list keeps the running and
   failed stacks in view and counts the rest.
-- The other columns hold the deploy panes, numbered `[n]` in their headers: as
-  many as can deploy at once, up to `-j` (2 rows of equal columns, each at
-  least 40 wide; 2 targets get 2 full-height columns). Each header shows the
+- The other 2 columns hold the deploy panes, numbered `[n]` in their headers:
+  one per target that can deploy at once, up to 4 (2 rows; 2 targets get 2
+  full-height columns). Each header shows the
   `serverless*.yml` (a CDK app: its dir) relative to the project root, with
   ▶ running, ✓ done, ✗ failed, ? waiting or ■ stopped. A freed pane takes the
   next target.
@@ -154,6 +148,21 @@ opens nested (its prefix is then `C-b C-b`); notifications reach the terminal
 when your tmux has `allow-passthrough on`. Per-target logs are written as
 usual. Opt out with `--no-tmux` or `set -U ts_push_tmux off`.
 
+Its tmux options (mouse on, 50k lines of scrollback, heavy borders, a quiet
+status line, ...) can be changed in `~/.config/travelstop/push.tmux.conf`
+(another path: `set -U ts_push_tmux_conf <file>`), a plain tmux config sourced
+after the defaults:
+
+```tmux
+set -g mouse off
+set -g pane-active-border-style fg=cyan,bold
+set -g status-left ' deploy '
+```
+
+A few settings the view needs are applied after it (finished panes kept,
+header format, no detach). The full config of a run is `tmux.conf` in its log
+dir.
+
 ### CDK apps
 
 A directory with a `cdk.json` is a stack too: `push`, `push -a`, `changes` and
@@ -169,8 +178,8 @@ app runs locally). `-r` sets `AWS_REGION`, `-v` and `--force` pass through, and
 the serverless-only flags are ignored. When `<service>/resources` holds the
 service's CDK app, `push <service>` deploys it and `changes` maps a changed file
 in `<service>/functions` (or anywhere in `<service>`) to it. Each app is one target, so the order between
-two CDK apps (e.g. one that looks up another's functions) is not inferred: use
-`-j 1` with the `-i` editor when it matters.
+two CDK apps (e.g. one that looks up another's functions) is not inferred: push
+them in separate runs when it matters.
 
 ### To push notification after deploy with [Pushover](https://pushover.net)
 
@@ -205,6 +214,7 @@ List of supported variables:
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_push_rename_modules`    | true              | Rename modules (branch suffix) during `push`. Set `0`/`false`/`no`/`off` to disable  |
 | `ts_push_tmux`              | true              | Show parallel `push` deploys in a tmux view. Set `0`/`false`/`no`/`off` to disable  |
+| `ts_push_tmux_conf`         | `~/.config/travelstop/push.tmux.conf` | tmux config for the `push` view, sourced after its defaults               |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |

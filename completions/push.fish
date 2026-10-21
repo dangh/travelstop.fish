@@ -25,7 +25,6 @@ complete -c push -x -l app -d 'serverless app'
 complete -c push -x -l org -d 'serverless org'
 complete -c push -r -s c -l config -d 'serverless config file'
 complete -c push -r -s p -l package -d 'pre-packaged artifact dir'
-complete -c push -x -s j -l jobs -a '1 2 4 8' -d 'parallel deploys per tier (1 = sequential)'
 
 # enforce no-files when all completions are selected
 complete -f -c push

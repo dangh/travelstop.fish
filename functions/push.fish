@@ -28,15 +28,12 @@ function push -d 'deploy CF stack/lambda function'
         'c/config=' \
         'e/exclude=+' \
         R/regex \
-        'j/jobs=!_validate_int --min 1' \
         no-tmux \
         -- $ts_default_argv_push $argv
     or return 1
 
-    # -j/--jobs: how many independent targets deploy at once (1 = strictly
-    # sequential in list order, the pre-tier behavior)
+    # how many independent targets deploy at once
     set -l jobs 4
-    set -q _flag_jobs && set jobs $_flag_jobs
 
     set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
@@ -193,14 +190,14 @@ function push -d 'deploy CF stack/lambda function'
     end
 
     # deploy tier by tier: targets inside a tier are independent and run
-    # concurrently (up to -j jobs); tiers run in dependency order. targets the
+    # concurrently (up to $jobs); tiers run in dependency order. targets the
     # user asks to retry form the next tier. see _ts_push_tiers for the order.
     set -l run_dir (_ts_push_run_dir)
-    set -l tiers (_ts_push_tiers $jobs $targets)
+    set -l tiers (_ts_push_tiers $targets)
     set -l aborted
     # tmux view: the same tiers deploy in a private tmux session instead (see
     # _ts_push_tmux_run), which leaves nothing for the loop below
-    if not set -q _flag_no_tmux; and _ts_push_tmux_wanted $jobs $targets
+    if not set -q _flag_no_tmux; and _ts_push_tmux_wanted $targets
         for i in (seq (count $targets))
             _ts_push_build_cmd $targets[$i] >$run_dir/(printf '%02d' $i).cmd
         end
@@ -218,7 +215,7 @@ function push -d 'deploy CF stack/lambda function'
         set -l tier (string split ' ' -- $tiers[1])
         set -e tiers[1]
 
-        # only the first -j targets start right away; the rest of the tier is
+        # only the first $jobs targets start right away; the rest of the tier is
         # marked running when its slot frees up
         for i in $tier[1..$jobs]
             echo $targets[$i] | read -l -d : state __
@@ -241,7 +238,7 @@ function push -d 'deploy CF stack/lambda function'
             set -l runner $cmd[1]
             set -l deploy_cmd $cmd[2..]
 
-            # wait for a free slot (at most -j deploys at once) before this
+            # wait for a free slot (at most $jobs deploys at once) before this
             # target is announced as deploying
             _ts_push_wait_slots $jobs
             set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
@@ -471,10 +468,34 @@ function _ts_push_done -S -d "mark the \$argv[1]-th target of the tier success/f
     _ts_progress $targets
 end
 
-function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modules disables it"
+function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modules disables it; off only once no other push of this project runs"
     # opt out of the branch-suffix renaming (e.g. deploying a shared branch that
     # must keep the plain module names)
     contains -- "$ts_push_rename_modules" 0 false no off && return 0
+    # `off` strips every suffix: another push of the same checkout still
+    # deploying would read the plain module names. each push registers its pid
+    # per project; the last one out restores (dead pids don't count)
+    set -l root $XDG_RUNTIME_DIR
+    test -n "$root" -a -d "$root" || set root /tmp
+    set -l project
+    set -q $_ts_project_dir && set project $$_ts_project_dir
+    test -n "$project" || set project $PWD
+    set -l pushes $root/ts_push/pushes/(string escape --style=var -- (path resolve -- $project))
+    switch "$argv[1]"
+        case on
+            mkdir -p $pushes
+            touch $pushes/$fish_pid
+        case off
+            command rm -f $pushes/$fish_pid
+            for f in $pushes/*
+                set -l pid (path basename -- $f)
+                if command kill -0 $pid 2>/dev/null
+                    _ts_log another push of this project still runs \(pid $pid\): module names stay renamed
+                    return 0
+                end
+                command rm -f $f
+            end
+    end
     rename_modules $argv
 end
 
@@ -505,22 +526,75 @@ function _ts_push_tmux -d "tmux on push's private server: its own socket, no use
     command tmux -L $_ts_push_tmux_socket -f /dev/null $argv
 end
 
-function _ts_push_widest_tier -a jobs -d "how many of targets \$argv[2..] can deploy at once (the largest tier)"
+function _ts_push_tmux_conf -a nested -d "print the tmux config of push's view: defaults, the user's \$ts_push_tmux_conf, then what the view needs"
+    set -l user_conf $ts_push_tmux_conf
+    if test -z "$user_conf"
+        set -l config_home $XDG_CONFIG_HOME
+        test -n "$config_home" || set config_home ~/.config
+        set user_conf $config_home/travelstop/push.tmux.conf
+    end
+    # nested in the user's tmux, theirs takes the prefix: press it twice
+    set -l prefix '#{prefix}'
+    test -n "$nested" && set prefix '#{prefix} #{prefix}'
+    # pane header: [slot] state icon, then the target's manifest
+    set -l border '#{?pane_active,#[reverse#,bold],#[dim]} '
+    set -a border '#{?@ts_slot,[#{@ts_slot}] ,}'
+    set -a border '#{?#{==:#{@ts_state},running},#[fg=magenta]▶ ,}'
+    set -a border '#{?#{==:#{@ts_state},success},#[fg=green]✓ ,}'
+    set -a border '#{?#{==:#{@ts_state},failure},#[fg=red]✗ ,}'
+    set -a border '#{?#{==:#{@ts_state},prompt},#[fg=red#,bold]? ,}'
+    set -a border '#{?#{==:#{@ts_state},stopped},#[fg=yellow]■ ,}'
+    set -a border '#{@ts_title} #[default]'
+    printf '%s\n' \
+        '# defaults: change any of them in '$user_conf \
+        'set -g default-terminal tmux-256color' \
+        'set -g escape-time 0' \
+        'set -g focus-events on' \
+        'set -g history-limit 50000' \
+        'set -g mouse on' \
+        'set -g set-clipboard on' \
+        'set -g pane-border-lines heavy' \
+        'set -g pane-border-style fg=colour240' \
+        'set -g pane-active-border-style fg=magenta,bold' \
+        'set -g status-style bg=default,fg=colour245' \
+        "set -g status-left ' push '" \
+        "set -g status-right 'click: focus · wheel: scroll · $prefix [: scroll mode '" \
+        'set -g status-right-length 80' \
+        "set -g window-status-format ''" \
+        "set -g window-status-current-format ''" \
+        '' \
+        '# yours' \
+        "source-file -q '$user_conf'" \
+        '' \
+        '# what the view needs: finished panes keep their output and exit status;' \
+        '# no "exited" line under it (it scrolls the first line away), the header' \
+        '# shows the result; no detach or suspend, push wraps up when it closes;' \
+        '# notifications pass through to the terminal' \
+        'set -g remain-on-exit on' \
+        "set -g remain-on-exit-format ''" \
+        'set -g pane-border-status top' \
+        "set -g pane-border-format '"(string join '' -- $border)"'" \
+        'set -g allow-passthrough on' \
+        'unbind d' \
+        'unbind D' \
+        'unbind C-z'
+end
+
+function _ts_push_widest_tier -d "how many of targets \$argv can deploy at once (the largest tier)"
     set -l widest 0
-    for tier in (_ts_push_tiers $jobs $argv[2..])
+    for tier in (_ts_push_tiers $argv)
         set -l n (count (string split ' ' -- $tier))
         test $n -gt $widest && set widest $n
     end
     echo $widest
 end
 
-function _ts_push_tmux_wanted -a jobs -d "whether push shows the deploys of targets \$argv[2..] in a tmux view"
+function _ts_push_tmux_wanted -d "whether push shows the deploys of targets \$argv in a tmux view"
     contains -- "$ts_push_tmux" 0 false no off && return 1
     command -q tmux || return 1
-    test "$jobs" -ge 2 || return 1
     # nothing ever deploys alongside another one (a single target, a module
-    # then its service, functions of one service): deploy right here as -j 1
-    test (_ts_push_widest_tier $jobs $argv[2..]) -ge 2 || return 1
+    # then its service, functions of one service): deploy right here
+    test (_ts_push_widest_tier $argv) -ge 2 || return 1
     set -q TS_PUSH_TMUX_TEST && return 0
     isatty stdin && isatty stdout
 end
@@ -568,39 +642,10 @@ function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private t
     set -l list_width (math "max(30, $name_width + 20)")
     set list_width (math -s0 "min($list_width, $width * 0.4)")
 
-    set -l border '#{?pane_active,#[reverse#,bold],#[dim]} '
-    set -a border '#{?@ts_slot,[#{@ts_slot}] ,}'
-    set -a border '#{?#{==:#{@ts_state},running},#[fg=magenta]▶ ,}'
-    set -a border '#{?#{==:#{@ts_state},success},#[fg=green]✓ ,}'
-    set -a border '#{?#{==:#{@ts_state},failure},#[fg=red]✗ ,}'
-    set -a border '#{?#{==:#{@ts_state},prompt},#[fg=red#,bold]? ,}'
-    set -a border '#{?#{==:#{@ts_state},stopped},#[fg=yellow]■ ,}'
-    set -a border '#{@ts_title} #[default]'
-    set -l prefix C-b
-    test -n "$nested" && set prefix 'C-b C-b'
-    # finished panes keep their output; no "exited" line under it, the header
-    # shows the result (a remain-on-exit message scrolls the first line away).
-    # no detach: push waits for the run to wrap it up
-    _ts_push_tmux start-server \; \
-        set -g default-terminal tmux-256color \; \
-        set -g escape-time 0 \; \
-        set -g history-limit 50000 \; \
-        set -g mouse on \; \
-        set -g allow-passthrough on \; \
-        set -g remain-on-exit on \; \
-        set -g remain-on-exit-format '' \; \
-        set -g pane-border-status top \; \
-        set -g pane-border-lines heavy \; \
-        set -g pane-border-style fg=colour240 \; \
-        set -g pane-active-border-style fg=magenta,bold \; \
-        set -g pane-border-format (string join '' -- $border) \; \
-        set -g status-style bg=default,fg=colour245 \; \
-        set -g status-left ' push ' \; \
-        set -g status-right "click: focus · wheel: scroll · $prefix [: scroll mode " \; \
-        set -g status-right-length 80 \; \
-        set -g window-status-format '' \; \
-        set -g window-status-current-format '' \; \
-        unbind d \; unbind D \; unbind C-z \; \
+    # its own config (never the user's tmux.conf): the defaults, then
+    # $ts_push_tmux_conf, then what the view needs (see _ts_push_tmux_conf)
+    _ts_push_tmux_conf $nested >$run_dir/tmux.conf
+    command tmux -L $_ts_push_tmux_socket -f $run_dir/tmux.conf \
         new-session -d -s push -x $width -y $height tail -f /dev/null
     or begin
         set -e _ts_push_tmux_socket _ts_push_outer_tmux
@@ -608,21 +653,16 @@ function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private t
     end
 
     # the stack list on the left, then deploy panes ("slots") in 2 rows of
-    # equal columns (2 slots: 2 full-height columns), listed row by row. as
-    # many slots as targets can deploy at once, up to -j and to what fits
-    # with columns at least 40 wide
-    set -l n (math "min($jobs, "(_ts_push_widest_tier $jobs $targets)")")
-    set -l cols (math "ceil($n / 2)")
-    test $n -eq 2 && set cols 2
-    # columns 40 wide; when they don't fit, a 30-column list and 30-wide
-    # columns; then fewer columns (fewer deploys at once, the list says so)
+    # 2 columns (2 slots: 2 full-height columns), listed row by row: one per
+    # target that can deploy at once, up to $jobs
+    set -l n (math "min($jobs, "(_ts_push_widest_tier $targets)")")
+    set -l cols 2
+    # a narrow terminal: a 30-column list leaves the deploys more room
     set -l area (math $width - $list_width - 1)
-    if test (math "floor($area / 40)") -lt $cols
+    if test $area -lt 80
         set list_width (math "min($list_width, 30)")
         set area (math $width - $list_width - 1)
-        set cols (math "max(1, min($cols, floor($area / 30)))")
     end
-    set n (math "min($n, $cols * 2)")
     set -l left (_ts_push_tmux display -p -t push '#{pane_id}')
     # tmux leaves its socket file behind: removed once the run is over
     set -l socket_path (_ts_push_tmux display -p '#{socket_path}')
@@ -649,7 +689,7 @@ function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private t
     printf '%s\n' $slots >$run_dir/slots
 
     _ts_push_tmux respawn-pane -k -t $left \
-        fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_main $argv' -- $run_dir $jobs
+        fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_main $argv' -- $run_dir
     _ts_push_tmux select-pane -t $left
 
     # attach in this terminal (nested when already inside tmux); the
@@ -677,7 +717,7 @@ function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private t
     return 0
 end
 
-function _ts_push_tmux_main -a run_dir jobs -d "stack list pane of push's tmux view: deploy the targets tier by tier into the other panes"
+function _ts_push_tmux_main -a run_dir -d "stack list pane of push's tmux view: deploy the targets tier by tier into the other panes"
     set -l self (functions --details _ts_push_tmux_main)
     set -l targets (cat $run_dir/targets)
     set -l slots (cat $run_dir/slots)
@@ -701,10 +741,6 @@ function _ts_push_tmux_main -a run_dir jobs -d "stack list pane of push's tmux v
     set -l ended # prompting panes ended after an abort
     set -l progress_flags # --final for the closing screen
     set -l hint 'Ctrl-C here stops every deploy'
-    # fewer panes than -j (a narrow terminal): say so
-    set -l at_once (math "min($jobs, "(_ts_push_widest_tier $jobs $targets)")")
-    test (count $slots) -lt $at_once \
-        && set -a hint "only "(count $slots)" at a time: widen the terminal for more"
     _ts_push_tmux_draw $hint
     # deploy only once someone watches (push attaches right after this starts)
     if not set -q TS_PUSH_TMUX_TEST
@@ -714,7 +750,7 @@ function _ts_push_tmux_main -a run_dir jobs -d "stack list pane of push's tmux v
     end
     touch $run_dir/started
 
-    set -l tiers (_ts_push_tiers $jobs $targets)
+    set -l tiers (_ts_push_tiers $targets)
     while test (count $tiers) -gt 0
         set -l queue (string split ' ' -- $tiers[1])
         set -e tiers[1]
@@ -974,7 +1010,7 @@ function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts
     echo $dir
 end
 
-function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
+function _ts_push_tiers -d "group target indices into dependency tiers, one line per tier"
     # order that matters: modules (layers) -> *-resources stacks ->
     # *authorizer* stacks (other services attach their authorizers) -> other
     # services -> admin-* services -> *web apps -> *www edge stacks (they read
@@ -983,10 +1019,9 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
     # not by path depth, so services/a/x does not wait for an unrelated
     # services/b) -> *monitoring* stacks ->
     # functions. functions of one service share its .serverless/ dir, so the
-    # n-th function of a service waits for the (n-1)-th. -j 1 puts every
-    # target in its own tier, in list order. already-succeeded targets (a -C
-    # resume) are left out.
-    set -l targets $argv[2..]
+    # n-th function of a service waits for the (n-1)-th. already-succeeded
+    # targets (a -C resume) are left out.
+    set -l targets $argv
     set -l entries # "<sort key> <index>"
     set -l seen_ymls
     set -l stack_dirs # dirs of the stacks still to deploy, to find parents
@@ -1000,43 +1035,39 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
         echo $targets[$i] | read -l -d : state target_type serverless_yml service_name __
         test "$state" = success && continue
         set -l key
-        if test "$jobs" -le 1
-            set key (printf '%04d' $i)
-        else
-            switch $target_type
-                case module
-                    set key 0000
-                case function
-                    set -a seen_ymls $serverless_yml
-                    set key 8(printf '%03d' (count (string match -- $serverless_yml $seen_ymls)))
-                case '*'
-                    if string match -q -- '*-resources' $service_name
-                        set key 0001
-                    else if string match -q -- '*authorizer*' $service_name
-                        set key 0002
-                    else if string match -q -- '*monitoring*' $service_name
-                        set key 5000
-                    else
-                        # same group order as `changes`: services ->
-                        # admin-* (they read services' outputs) -> *web,
-                        # then the *www edge stacks that front them all
-                        set -l group 1
-                        switch $service_name
-                            case '*www'
-                                set group 4
-                            case '*web'
-                                set group 3
-                            case 'admin-*'
-                                set group 2
-                        end
-                        set -l dir (path dirname -- $serverless_yml)
-                        set -l parents 0
-                        for d in $stack_dirs
-                            string match -q -- "$d/*" $dir && set parents (math $parents + 1)
-                        end
-                        set key $group(printf '%03d' $parents)
+        switch $target_type
+            case module
+                set key 0000
+            case function
+                set -a seen_ymls $serverless_yml
+                set key 8(printf '%03d' (count (string match -- $serverless_yml $seen_ymls)))
+            case '*'
+                if string match -q -- '*-resources' $service_name
+                    set key 0001
+                else if string match -q -- '*authorizer*' $service_name
+                    set key 0002
+                else if string match -q -- '*monitoring*' $service_name
+                    set key 5000
+                else
+                    # same group order as `changes`: services ->
+                    # admin-* (they read services' outputs) -> *web,
+                    # then the *www edge stacks that front them all
+                    set -l group 1
+                    switch $service_name
+                        case '*www'
+                            set group 4
+                        case '*web'
+                            set group 3
+                        case 'admin-*'
+                            set group 2
                     end
-            end
+                    set -l dir (path dirname -- $serverless_yml)
+                    set -l parents 0
+                    for d in $stack_dirs
+                        string match -q -- "$d/*" $dir && set parents (math $parents + 1)
+                    end
+                    set key $group(printf '%03d' $parents)
+                end
         end
         set -a entries "$key $i"
     end
@@ -1174,7 +1205,7 @@ function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoe
     set -l tmp (mktemp -t ts_push.XXXXXX)
     begin
         echo '# travelstop push — reorder or delete lines, then save and close.'
-        echo '# Targets deploy in dependency tiers (top to bottom only with -j 1). Delete a line to skip it. Keep the leading number.'
+        echo '# Targets deploy in dependency tiers (top to bottom within a tier). Delete a line to skip it. Keep the leading number.'
         for i in (seq (count $argv))
             echo $argv[$i] | read -l -d : state target_type serverless_yml service_name function_name __
             set -l label $service_name
