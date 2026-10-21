@@ -480,7 +480,9 @@ function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts
     test -n "$root" -a -d "$root" || set root /tmp
     mkdir -p $root/ts_push
     set -l dir (mktemp -d $root/ts_push/(date +%Y%m%d-%H%M%S)-XXXX)
-    ln -sfn $dir $root/ts_push/latest
+    # `command`: a user `ln` wrapper must not rewrite the link (e.g. relative to
+    # the old run dir `latest` still points at, leaving it dangling)
+    command ln -sfn $dir $root/ts_push/latest
     echo $dir
 end
 
