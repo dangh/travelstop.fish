@@ -193,6 +193,11 @@ function push -d 'deploy CF stack/lambda function'
     # concurrently (up to $jobs); tiers run in dependency order. targets the
     # user asks to retry form the next tier. see _ts_push_tiers for the order.
     set -l run_dir (_ts_push_run_dir)
+    or begin
+        printf '\e]9;4;0\a'
+        _ts_push_restore_modules
+        return 1
+    end
     set -l tiers (_ts_push_tiers $targets)
     set -l aborted
     # tmux view: the same tiers deploy in a private tmux session instead (see
@@ -475,26 +480,35 @@ function _ts_push_rename_modules -d "rename_modules unless \$ts_push_rename_modu
     # `off` strips every suffix: another push of the same checkout still
     # deploying would read the plain module names. each push registers its pid
     # per project; the last one out restores (dead pids don't count)
-    set -l root $XDG_RUNTIME_DIR
-    test -n "$root" -a -d "$root" || set root /tmp
     set -l project
     set -q $_ts_project_dir && set project $$_ts_project_dir
     test -n "$project" || set project $PWD
-    set -l pushes $root/ts_push/pushes/(string escape --style=var -- (path resolve -- $project))
-    switch "$argv[1]"
-        case on
-            mkdir -p $pushes
-            touch $pushes/$fish_pid
-        case off
-            command rm -f $pushes/$fish_pid
-            for f in $pushes/*
-                set -l pid (path basename -- $f)
-                if command kill -0 $pid 2>/dev/null
-                    _ts_log another push of this project still runs \(pid $pid\): module names stay renamed
-                    return 0
+    set -l pushes
+    if set -l home (_ts_push_home)
+        set pushes $home/pushes/(string escape --style=var -- (path resolve -- $project))
+        mkdir -p -m 700 $pushes 2>/dev/null
+        test -L $home/pushes -o -L $pushes; or not test -O $pushes
+        and set pushes
+    end
+    # no registry of ours (see _ts_push_home): rename/restore as before
+    if test -n "$pushes"
+        switch "$argv[1]"
+            case on
+                touch $pushes/$fish_pid
+            case off
+                command rm -f -- $pushes/$fish_pid
+                for f in $pushes/*
+                    # only our pid files
+                    set -l pid (path basename -- $f)
+                    string match -qr '^[0-9]+$' -- $pid; and test -f $f; and not test -L $f
+                    or continue
+                    if command kill -0 $pid 2>/dev/null
+                        _ts_log another push of this project still runs \(pid $pid\): module names stay renamed
+                        return 0
+                    end
+                    command rm -f -- $f
                 end
-                command rm -f $f
-            end
+        end
     end
     rename_modules $argv
 end
@@ -999,14 +1013,27 @@ function _ts_push_percent -d "percent of targets in a final state (for OSC 9;4)"
     math -s0 "$done * 100 / "(count $argv)
 end
 
-function _ts_push_run_dir -d "make this run's log dir under \$XDG_RUNTIME_DIR/ts_push and point 'latest' at it"
+function _ts_push_home -d "push's private dir (ts_push under \$XDG_RUNTIME_DIR, else \$TMPDIR, else /tmp); fails unless it is ours"
     set -l root $XDG_RUNTIME_DIR
+    test -n "$root" -a -d "$root" || set root $TMPDIR
     test -n "$root" -a -d "$root" || set root /tmp
-    mkdir -p $root/ts_push
-    set -l dir (mktemp -d $root/ts_push/(date +%Y%m%d-%H%M%S)-XXXX)
+    set -l home (string trim -r -c / -- $root)/ts_push
+    mkdir -p -m 700 $home 2>/dev/null
+    # in a shared /tmp another user could have planted it (or a symlink)
+    if test -L $home; or not test -O $home
+        _ts_log refusing (red $home): not a directory of ours >&2
+        return 1
+    end
+    echo $home
+end
+
+function _ts_push_run_dir -d "make this run's log dir under _ts_push_home and point 'latest' at it"
+    set -l home (_ts_push_home)
+    or return 1
+    set -l dir (mktemp -d $home/(date +%Y%m%d-%H%M%S)-XXXX)
     # `command`: a user `ln` wrapper must not rewrite the link (e.g. relative to
     # the old run dir `latest` still points at, leaving it dangling)
-    command ln -sfn $dir $root/ts_push/latest
+    command ln -sfn $dir $home/latest
     echo $dir
 end
 

@@ -101,8 +101,8 @@ functions (functions of one service stay sequential, they share its
 you set in the `-i` editor).
 
 Each target's output goes to its own log file under
-`$XDG_RUNTIME_DIR/ts_push/<run>/` (`/tmp/ts_push/` when the runtime dir is not
-set); `ts_push/latest` points at the current run. A single-target tier still
+`$XDG_RUNTIME_DIR/ts_push/<run>/` (else under `$TMPDIR`, then `/tmp`; `push`
+refuses a `ts_push` dir that is a symlink or not yours); `ts_push/latest` points at the current run. A single-target tier still
 prints live to the terminal. When a target in a parallel tier fails, `push`
 shows the tail of its log and asks `[r]etry / [s]kip / [a]bort` once the tier
 is done; retried targets run as the next tier.

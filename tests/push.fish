@@ -337,6 +337,19 @@ push hotels </dev/null >/dev/null 2>&1
 @test "ts_push_rename_modules=false still deploys" (count (cat $TS_SLS_LOG)) -eq 1
 set -e ts_push_rename_modules
 
+# ===== push's dir must be ours: a planted symlink is refused =====
+set -l real_runtime $XDG_RUNTIME_DIR
+set -gx XDG_RUNTIME_DIR (mktemp -d)
+set -l victim (mktemp -d)
+touch $victim/keep
+ln -s $victim $XDG_RUNTIME_DIR/ts_push
+echo -n >$TS_SLS_LOG
+push hotels </dev/null >/dev/null 2>&1
+@test "a symlinked ts_push dir stops the push" (count (cat $TS_SLS_LOG)) -eq 0
+@test "and nothing in its target is touched" (test -e $victim/keep; echo $status) -eq 0
+rm -rf $XDG_RUNTIME_DIR $victim
+set -gx XDG_RUNTIME_DIR $real_runtime
+
 # ===== concurrent pushes of one project: the last one out restores =====
 # another live push registered for this project (a background sleep's pid)
 set -l pushes $XDG_RUNTIME_DIR/ts_push/pushes/(string escape --style=var -- (path resolve -- $TS_ROOT))
