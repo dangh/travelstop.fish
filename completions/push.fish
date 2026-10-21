@@ -13,6 +13,7 @@ complete -c push -s u -l update-config -d 'update function configuration'
 complete -c push -l force -d 'force deploy'
 complete -c push -l conceal -d 'conceal secrets in output'
 complete -c push -l aws-s3-accelerate -d 'use S3 transfer acceleration'
+complete -c push -l no-tmux -d 'no tmux view: parallel deploys log to files'
 
 # value flags
 complete -c push -x -s f -l function -a "(_ts_functions)" -d 'function to deploy'

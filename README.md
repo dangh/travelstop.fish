@@ -117,6 +117,43 @@ Parallel targets run in child `fish` processes that load your normal config, so
 `ts_npm_install_options`, `ts_env` and friends must be universal variables or
 defined in `config.fish`/`conf.d` to reach them.
 
+#### tmux view
+
+With `tmux` installed, a terminal, `-j` ≥ 2 and at least 2 targets that can
+deploy at the same time, `push` shows the deploys live in a tmux session:
+
+```
+┃ stacks                ┃ [1] ▶ hotels/serverless.yml ┃ [2] ▶ web/serverless.yml  ┃
+┃ ▶︎ 3. [1] hotels-DEV   ┃ …sls output…                ┃ …                         ┃
+┃ ▶︎ 4. [2] web-DEV      ┣━ [3] ✓ chat/resources ━━━━━━╋━ [4] ? flights/serverless.yml
+┃   5. users-DEV        ┃ …                           ┃ [r]etry / [s]kip / [a]bort ┃
+```
+
+- The left column lists the stacks; a running one shows its pane `[n]`
+  (`[n] retry?` while it waits for an answer). A long list keeps the running and
+  failed stacks in view and counts the rest.
+- The other columns hold the deploy panes, numbered `[n]` in their headers: as
+  many as can deploy at once, up to `-j` (2 rows of equal columns, each at
+  least 40 wide; 2 targets get 2 full-height columns). Each header shows the
+  `serverless*.yml` (a CDK app: its dir) relative to the project root, with
+  ▶ running, ✓ done, ✗ failed, ? waiting or ■ stopped. A freed pane takes the
+  next target.
+- A failed deploy asks `[r]etry / [s]kip / [a]bort` in its own pane, which gets
+  the focus (the next waiting one once you answer). Retry reruns it right there;
+  abort starts nothing new.
+- The focused pane has a magenta border and highlighted header. Click a pane to
+  focus it, scroll with the wheel.
+- Ctrl-C in a deploy pane stops that deploy (then asks); Ctrl-C in the stack
+  list stops every deploy, and `push -C` resumes.
+- When the run is over the view shows a summary and the log dir, and stays until
+  you press a key. There is no detach: `push` wraps up when the view closes.
+
+It runs on a private tmux server (`tmux -L ts_push_<pid> -f /dev/null`): your
+`tmux.conf` doesn't apply and your own `tmux ls` never shows it. Inside tmux it
+opens nested (its prefix is then `C-b C-b`); notifications reach the terminal
+when your tmux has `allow-passthrough on`. Per-target logs are written as
+usual. Opt out with `--no-tmux` or `set -U ts_push_tmux off`.
+
 ### CDK apps
 
 A directory with a `cdk.json` is a stack too: `push`, `push -a`, `changes` and
@@ -167,6 +204,7 @@ List of supported variables:
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_push_rename_modules`    | true              | Rename modules (branch suffix) during `push`. Set `0`/`false`/`no`/`off` to disable  |
+| `ts_push_tmux`              | true              | Show parallel `push` deploys in a tmux view. Set `0`/`false`/`no`/`off` to disable  |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |

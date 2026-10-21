@@ -6,8 +6,13 @@ function _ts_notify -d 'send terminal notification (OSC 777) and pushover'
     set -l message (string replace -ra '\\\\n' \n -- $_flag_message)
     set -l details (string replace -ra '\\\\n' \n -- $_flag_details)
 
-    # terminal notification (title + message only)
-    printf '\e]777;notify;%s;%s\a' "$title" "$message"
+    # terminal notification (title + message only); inside tmux wrapped for
+    # passthrough, else tmux drops it: once more in push's tmux view when push
+    # itself runs inside tmux
+    set -l osc (printf '\e]777;notify;%s;%s\a' "$title" "$message")
+    set -q _ts_push_outer_tmux && set osc \ePtmux\;(string replace -a \e \e\e -- $osc)\e\\
+    set -q TMUX && set osc \ePtmux\;(string replace -a \e \e\e -- $osc)\e\\
+    printf '%s' $osc
 
     # pushover: message + details (if provided), only when configured
     if test -n "$PUSHOVER_USER_KEY" -a -n "$PUSHOVER_APP_TOKEN"

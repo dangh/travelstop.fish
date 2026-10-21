@@ -29,6 +29,7 @@ function push -d 'deploy CF stack/lambda function'
         'e/exclude=+' \
         R/regex \
         'j/jobs=!_validate_int --min 1' \
+        no-tmux \
         -- $ts_default_argv_push $argv
     or return 1
 
@@ -89,6 +90,11 @@ function push -d 'deploy CF stack/lambda function'
             command kill -- -$p 2>/dev/null || command kill $p 2>/dev/null
         end
         set -e _ts_push_pids
+        # the tmux view's server (and every deploy in it) goes too
+        if set -q _ts_push_tmux_socket
+            _ts_push_tmux kill-server 2>/dev/null
+            set -e _ts_push_tmux_socket
+        end
         _ts_push_rename_modules off
     end
 
@@ -192,6 +198,21 @@ function push -d 'deploy CF stack/lambda function'
     set -l run_dir (_ts_push_run_dir)
     set -l tiers (_ts_push_tiers $jobs $targets)
     set -l aborted
+    # tmux view: the same tiers deploy in a private tmux session instead (see
+    # _ts_push_tmux_run), which leaves nothing for the loop below
+    if not set -q _flag_no_tmux; and _ts_push_tmux_wanted $jobs $targets
+        for i in (seq (count $targets))
+            _ts_push_build_cmd $targets[$i] >$run_dir/(printf '%02d' $i).cmd
+        end
+        if _ts_push_tmux_run $run_dir $jobs $targets
+            test -s $run_dir/state && set targets (cat $run_dir/state)
+            set success_count (string match -- 'success:*' $targets | count)
+            # failures of this run only (a -C resume carries older ones)
+            touch $run_dir/judged
+            set failure_count (string match -- failure (cat $run_dir/judged) | count)
+            set tiers
+        end
+    end
     set -g _ts_push_pids
     while test (count $tiers) -gt 0
         set -l tier (string split ' ' -- $tiers[1])
@@ -216,55 +237,9 @@ function push -d 'deploy CF stack/lambda function'
             echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
             set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
             set -l working_dir (dirname $serverless_yml)
-            set -l runner _ts_sls
-            set -l deploy_cmd deploy
-            switch $target_type
-                case cdk
-                    # every stack of the app, in its dependency order. no
-                    # approval prompt: a parallel deploy has no terminal, and
-                    # prod was already confirmed up-front
-                    set runner _ts_cdk
-                    set -a deploy_cmd --all --require-approval never
-                    test -n "$stage" && set -a deploy_cmd -c stage=$stage
-                    test -n "$aws_profile" && set -a deploy_cmd --profile $aws_profile
-                    set -q _flag_verbose && set -a deploy_cmd --verbose
-                    set -q _flag_force && set -a deploy_cmd --force
-                case function
-                    set -a deploy_cmd function -f $function_name
-                    test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
-                    test -n "$stage" && set -a deploy_cmd -s $stage
-                    if test -n "$region"
-                        set -a deploy_cmd -r $region
-                    else if test -n "$default_region"
-                        set -a deploy_cmd -r $default_region
-                    end
-                    set -q _flag_force && set -a deploy_cmd --force
-                    set -q _flag_update_config && set -a deploy_cmd -u
-                case \*
-                    # serverless-web service (has serverless.yml, no
-                    # serverless-resources.yml, uses the serverless-web plugin):
-                    # deploy the web app instead of the CF stack.
-                    if test -e "$working_dir"/serverless.yml \
-                            && not test -e "$working_dir"/serverless-resources.yml \
-                            && grep -q -- serverless-web "$working_dir"/serverless.yml
-                        set deploy_cmd deploy web
-                    end
-                    set -q _flag_conceal && set -a deploy_cmd --conceal
-                    test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
-                    test -n "$stage" && set -a deploy_cmd -s $stage
-                    if test -n "$region"
-                        set -a deploy_cmd -r $region
-                    else if test -n "$default_region"
-                        set -a deploy_cmd -r $default_region
-                    end
-                    test -n "$_flag_package" && set -a deploy_cmd -p $_flag_package
-                    set -q _flag_verbose && set -a deploy_cmd -v
-                    set -q _flag_force && set -a deploy_cmd --force
-                    set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
-                    test -n "$_flag_app" && set -a deploy_cmd --app $_flag_app
-                    test -n "$_flag_org" && set -a deploy_cmd --org $_flag_org
-                    test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
-            end
+            set -l cmd (_ts_push_build_cmd $targets[$i])
+            set -l runner $cmd[1]
+            set -l deploy_cmd $cmd[2..]
 
             # wait for a free slot (at most -j deploys at once) before this
             # target is announced as deploying
@@ -365,7 +340,7 @@ function push -d 'deploy CF stack/lambda function'
 
     # summary notification (single per push, only after everything is done)
     if test (count $targets) -ge 1
-        _ts_progress $targets
+        _ts_progress --final $targets
 
         set -l branch (git branch --show-current 2>/dev/null)
         test -n "$branch" || set branch deploy
@@ -402,8 +377,64 @@ function push -d 'deploy CF stack/lambda function'
         printf '\e]9;4;0\a'
     end
 
-    # restore module names (signal-handler path triggers the same body)
-    _ts_push_restore_modules
+    # restore module names (unless a signal already ran the handler, which
+    # erases itself)
+    functions -q _ts_push_restore_modules && _ts_push_restore_modules
+end
+
+function _ts_push_build_cmd -S -d "print the runner and the deploy args of target \$argv[1], one per line (reads push's flags)"
+    echo $argv[1] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
+    set -l working_dir (dirname $serverless_yml)
+    set -l runner _ts_sls
+    set -l deploy_cmd deploy
+    switch $target_type
+        case cdk
+            # every stack of the app, in its dependency order. no approval
+            # prompt: a parallel deploy has no terminal, and prod was already
+            # confirmed up-front
+            set runner _ts_cdk
+            set -a deploy_cmd --all --require-approval never
+            test -n "$stage" && set -a deploy_cmd -c stage=$stage
+            test -n "$aws_profile" && set -a deploy_cmd --profile $aws_profile
+            set -q _flag_verbose && set -a deploy_cmd --verbose
+            set -q _flag_force && set -a deploy_cmd --force
+        case function
+            set -a deploy_cmd function -f $function_name
+            test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
+            test -n "$stage" && set -a deploy_cmd -s $stage
+            if test -n "$region"
+                set -a deploy_cmd -r $region
+            else if test -n "$default_region"
+                set -a deploy_cmd -r $default_region
+            end
+            set -q _flag_force && set -a deploy_cmd --force
+            set -q _flag_update_config && set -a deploy_cmd -u
+        case \*
+            # serverless-web service (has serverless.yml, no
+            # serverless-resources.yml, uses the serverless-web plugin): deploy
+            # the web app instead of the CF stack.
+            if test -e "$working_dir"/serverless.yml \
+                    && not test -e "$working_dir"/serverless-resources.yml \
+                    && grep -q -- serverless-web "$working_dir"/serverless.yml
+                set deploy_cmd deploy web
+            end
+            set -q _flag_conceal && set -a deploy_cmd --conceal
+            test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
+            test -n "$stage" && set -a deploy_cmd -s $stage
+            if test -n "$region"
+                set -a deploy_cmd -r $region
+            else if test -n "$default_region"
+                set -a deploy_cmd -r $default_region
+            end
+            test -n "$_flag_package" && set -a deploy_cmd -p $_flag_package
+            set -q _flag_verbose && set -a deploy_cmd -v
+            set -q _flag_force && set -a deploy_cmd --force
+            set -q _flag_aws_s3_accelerate && set -a deploy_cmd --aws-s3-accelerate
+            test -n "$_flag_app" && set -a deploy_cmd --app $_flag_app
+            test -n "$_flag_org" && set -a deploy_cmd --org $_flag_org
+            test (path basename $serverless_yml) != serverless.yml && set -a deploy_cmd -c (path basename $serverless_yml)
+    end
+    printf '%s\n' $runner $deploy_cmd
 end
 
 function _ts_push_wait_slots -S -d "wait until fewer than \$argv[1] deploys run, marking each finished one done (runs in push's scope)"
@@ -468,6 +499,463 @@ function _ts_push_fullname -a target_type service_name function_name package_ver
         case '*'
             echo $service_name-(string upper $stage)
     end
+end
+
+function _ts_push_tmux -d "tmux on push's private server: its own socket, no user config"
+    command tmux -L $_ts_push_tmux_socket -f /dev/null $argv
+end
+
+function _ts_push_widest_tier -a jobs -d "how many of targets \$argv[2..] can deploy at once (the largest tier)"
+    set -l widest 0
+    for tier in (_ts_push_tiers $jobs $argv[2..])
+        set -l n (count (string split ' ' -- $tier))
+        test $n -gt $widest && set widest $n
+    end
+    echo $widest
+end
+
+function _ts_push_tmux_wanted -a jobs -d "whether push shows the deploys of targets \$argv[2..] in a tmux view"
+    contains -- "$ts_push_tmux" 0 false no off && return 1
+    command -q tmux || return 1
+    test "$jobs" -ge 2 || return 1
+    # nothing ever deploys alongside another one (a single target, a module
+    # then its service, functions of one service): deploy right here as -j 1
+    test (_ts_push_widest_tier $jobs $argv[2..]) -ge 2 || return 1
+    set -q TS_PUSH_TMUX_TEST && return 0
+    isatty stdin && isatty stdout
+end
+
+function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private tmux session and attach to it; leaves their final state in <run_dir>/state"
+    set -l targets $argv[3..]
+    # a server of our own (not the user's default one, so their `tmux ls`
+    # never shows it), started without their tmux.conf. exported: the
+    # coordinator and the panes talk to it too
+    set -gx _ts_push_tmux_socket ts_push_$fish_pid
+    # inside the user's tmux the view is nested: notifications need wrapping
+    # for both servers, and the outer one owns the plain prefix
+    set -l nested
+    set -q TMUX && set nested 1 && set -gx _ts_push_outer_tmux 1
+    set -l self (functions --details _ts_push_tmux_run)
+
+    # files the coordinator and the panes read: the targets, and per target
+    # its deploy command (written by push) and its pane header, the manifest
+    # relative to the project root (a cdk app: its dir)
+    printf '%s\n' $targets >$run_dir/targets
+    set -l root
+    set -q $_ts_project_dir && set root $$_ts_project_dir
+    test -n "$root" || set root (git rev-parse --show-toplevel 2>/dev/null)
+    test -n "$root" && set root (path resolve -- $root)
+    set -l name_width 0
+    for i in (seq (count $targets))
+        echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
+        set -l title (path resolve -- $serverless_yml)
+        test "$target_type" = cdk && set title (path dirname -- $title)
+        test -n "$root" && set title (string replace -- "$root/" '' $title)
+        test -n "$function_name" && set title $title:$function_name
+        echo $title >$run_dir/(printf '%02d' $i).title
+        set -l len (string length -- $service_name-$stage-$function_name-$package_version)
+        test $len -gt $name_width && set name_width $len
+    end
+
+    set -l width 200
+    set -l height 50
+    if isatty stdout
+        test -n "$COLUMNS" && set width $COLUMNS
+        test -n "$LINES" && set height $LINES
+    end
+    # stack list: wide enough for "▶︎ 12. <name> [4] retry?" (longer lines are
+    # cut), 30 columns up to 40% of the width
+    set -l list_width (math "max(30, $name_width + 20)")
+    set list_width (math -s0 "min($list_width, $width * 0.4)")
+
+    set -l border '#{?pane_active,#[reverse#,bold],#[dim]} '
+    set -a border '#{?@ts_slot,[#{@ts_slot}] ,}'
+    set -a border '#{?#{==:#{@ts_state},running},#[fg=magenta]▶ ,}'
+    set -a border '#{?#{==:#{@ts_state},success},#[fg=green]✓ ,}'
+    set -a border '#{?#{==:#{@ts_state},failure},#[fg=red]✗ ,}'
+    set -a border '#{?#{==:#{@ts_state},prompt},#[fg=red#,bold]? ,}'
+    set -a border '#{?#{==:#{@ts_state},stopped},#[fg=yellow]■ ,}'
+    set -a border '#{@ts_title} #[default]'
+    set -l prefix C-b
+    test -n "$nested" && set prefix 'C-b C-b'
+    # finished panes keep their output; no "exited" line under it, the header
+    # shows the result (a remain-on-exit message scrolls the first line away).
+    # no detach: push waits for the run to wrap it up
+    _ts_push_tmux start-server \; \
+        set -g default-terminal tmux-256color \; \
+        set -g escape-time 0 \; \
+        set -g history-limit 50000 \; \
+        set -g mouse on \; \
+        set -g allow-passthrough on \; \
+        set -g remain-on-exit on \; \
+        set -g remain-on-exit-format '' \; \
+        set -g pane-border-status top \; \
+        set -g pane-border-lines heavy \; \
+        set -g pane-border-style fg=colour240 \; \
+        set -g pane-active-border-style fg=magenta,bold \; \
+        set -g pane-border-format (string join '' -- $border) \; \
+        set -g status-style bg=default,fg=colour245 \; \
+        set -g status-left ' push ' \; \
+        set -g status-right "click: focus · wheel: scroll · $prefix [: scroll mode " \; \
+        set -g status-right-length 80 \; \
+        set -g window-status-format '' \; \
+        set -g window-status-current-format '' \; \
+        unbind d \; unbind D \; unbind C-z \; \
+        new-session -d -s push -x $width -y $height tail -f /dev/null
+    or begin
+        set -e _ts_push_tmux_socket _ts_push_outer_tmux
+        return 1
+    end
+
+    # the stack list on the left, then deploy panes ("slots") in 2 rows of
+    # equal columns (2 slots: 2 full-height columns), listed row by row. as
+    # many slots as targets can deploy at once, up to -j and to what fits
+    # with columns at least 40 wide
+    set -l n (math "min($jobs, "(_ts_push_widest_tier $jobs $targets)")")
+    set -l cols (math "ceil($n / 2)")
+    test $n -eq 2 && set cols 2
+    # columns 40 wide; when they don't fit, a 30-column list and 30-wide
+    # columns; then fewer columns (fewer deploys at once, the list says so)
+    set -l area (math $width - $list_width - 1)
+    if test (math "floor($area / 40)") -lt $cols
+        set list_width (math "min($list_width, 30)")
+        set area (math $width - $list_width - 1)
+        set cols (math "max(1, min($cols, floor($area / 30)))")
+    end
+    set n (math "min($n, $cols * 2)")
+    set -l left (_ts_push_tmux display -p -t push '#{pane_id}')
+    # tmux leaves its socket file behind: removed once the run is over
+    set -l socket_path (_ts_push_tmux display -p '#{socket_path}')
+    _ts_push_tmux set -p -t $left @ts_title stacks
+    set -l columns (_ts_push_tmux split-window -h -d -t $left -l $area -P -F '#{pane_id}' tail -f /dev/null)
+    while test (count $columns) -lt $cols
+        # the last column holds k columns' worth of space: give k-1 away
+        set -l k (math $cols - (count $columns) + 1)
+        set -l column (_ts_push_tmux split-window -h -d -t $columns[-1] -l (math -s0 "($k - 1) * 100 / $k")% -P -F '#{pane_id}' tail -f /dev/null)
+        test -n "$column" || break # no room left
+        set -a columns $column
+    end
+    set -l bottoms
+    for c in $columns
+        test (math (count $columns) + (count $bottoms)) -lt $n || break
+        set -l bottom (_ts_push_tmux split-window -v -d -t $c -l 50% -P -F '#{pane_id}' tail -f /dev/null)
+        test -n "$bottom" || break
+        set -a bottoms $bottom
+    end
+    set -l slots $columns $bottoms
+    for k in (seq (count $slots))
+        _ts_push_tmux set -p -t $slots[$k] @ts_title idle \; set -p -t $slots[$k] @ts_slot $k
+    end
+    printf '%s\n' $slots >$run_dir/slots
+
+    _ts_push_tmux respawn-pane -k -t $left \
+        fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_main $argv' -- $run_dir $jobs
+    _ts_push_tmux select-pane -t $left
+
+    # attach in this terminal (nested when already inside tmux); the
+    # coordinator starts deploying once a client is attached. attach again
+    # if the client goes away while the run is on
+    while _ts_push_tmux has-session -t push 2>/dev/null
+        if set -q TS_PUSH_TMUX_TEST
+            sleep 0.2
+            continue
+        end
+        env -u TMUX tmux -L $_ts_push_tmux_socket attach -t push
+        and continue
+        # attach failed (no usable terminal) or the run just ended
+        _ts_push_tmux has-session -t push 2>/dev/null || break
+        _ts_push_tmux kill-server
+        if not test -e $run_dir/started
+            # nothing deployed yet: push deploys without the view
+            test -S "$socket_path" && command rm -f -- $socket_path
+            set -e _ts_push_tmux_socket _ts_push_outer_tmux
+            return 1
+        end
+    end
+    test -S "$socket_path" && command rm -f -- $socket_path
+    set -e _ts_push_tmux_socket _ts_push_outer_tmux
+    return 0
+end
+
+function _ts_push_tmux_main -a run_dir jobs -d "stack list pane of push's tmux view: deploy the targets tier by tier into the other panes"
+    set -l self (functions --details _ts_push_tmux_main)
+    set -l targets (cat $run_dir/targets)
+    set -l slots (cat $run_dir/slots)
+    set -l busy # per slot: index of the target it deploys, 0 when free
+    for s in $slots
+        set -a busy 0
+    end
+    set -l logs
+    for t in $targets
+        echo $t | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
+        set -a logs $run_dir/(printf '%02d-%s.log' (math (count $logs) + 1) (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage"))
+    end
+
+    # Ctrl-C here stops the whole run (a deploy pane's Ctrl-C stops only it)
+    function _ts_push_tmux_on_int --on-signal SIGINT
+        set -g _ts_push_tmux_stop 1
+    end
+
+    set -l aborted
+    set -l prompts
+    set -l ended # prompting panes ended after an abort
+    set -l progress_flags # --final for the closing screen
+    set -l hint 'Ctrl-C here stops every deploy'
+    # fewer panes than -j (a narrow terminal): say so
+    set -l at_once (math "min($jobs, "(_ts_push_widest_tier $jobs $targets)")")
+    test (count $slots) -lt $at_once \
+        && set -a hint "only "(count $slots)" at a time: widen the terminal for more"
+    _ts_push_tmux_draw $hint
+    # deploy only once someone watches (push attaches right after this starts)
+    if not set -q TS_PUSH_TMUX_TEST
+        while test (_ts_push_tmux display -p -t push '#{session_attached}') = 0
+            sleep 0.1
+        end
+    end
+    touch $run_dir/started
+
+    set -l tiers (_ts_push_tiers $jobs $targets)
+    while test (count $tiers) -gt 0
+        set -l queue (string split ' ' -- $tiers[1])
+        set -e tiers[1]
+        while test (count $queue) -gt 0; or string match -qv 0 -- $busy
+            set -l changed
+            # stop: deploys get a Ctrl-C and stay pending for push -C (also
+            # after an abort, which only stops new deploys)
+            if set -q _ts_push_tmux_stop; and test "$aborted" != stopped
+                set aborted stopped
+                touch $run_dir/abort
+                for s in (seq (count $slots))
+                    test $busy[$s] = 0 || _ts_push_tmux send-keys -t $slots[$s] C-c
+                end
+            end
+            test -n "$aborted" && set queue
+
+            # start queued targets in free panes
+            for s in (seq (count $slots))
+                test (count $queue) -gt 0 || break
+                test $busy[$s] = 0 || continue
+                set -l i $queue[1]
+                set -e queue[1]
+                set busy[$s] $i
+                set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
+                _ts_push_tmux set -p -t $slots[$s] @ts_title (cat $run_dir/(printf '%02d' $i).title) \; \
+                    set -p -t $slots[$s] @ts_state running
+                _ts_push_tmux respawn-pane -k -t $slots[$s] \
+                    fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_pane $argv' -- $run_dir $i $logs[$i]
+                set changed 1
+            end
+
+            # finished panes: their exit status is the result
+            for s in (seq (count $slots))
+                set -l i $busy[$s]
+                test $i = 0 && continue
+                _ts_push_tmux display -p -t $slots[$s] '#{pane_dead} #{pane_dead_status}' | read -l dead st
+                test "$dead" = 1 || continue
+                set busy[$s] 0
+                set -l state failure
+                switch "$st"
+                    case 0
+                        set state success
+                    case 2
+                        test -z "$aborted" && set aborted aborted
+                        touch $run_dir/abort
+                    case 130 ''
+                        test "$aborted" = stopped && set state pending
+                end
+                set targets[$i] (string replace -r '^[a-z]+:' "$state:" -- $targets[$i])
+                # what this run did, for push's counts (a -C resume carries
+                # older results in the state)
+                test $state != pending && echo $state >>$run_dir/judged
+                set -l pane_state $state
+                test $state = pending && set pane_state stopped
+                _ts_push_tmux set -p -t $slots[$s] @ts_state $pane_state
+                test $state = success \
+                    && _ts_push_osc "9;4;1;"(_ts_push_percent $targets) \
+                    || _ts_push_osc "9;4;2;"(_ts_push_percent $targets)
+                set changed 1
+            end
+
+            # panes waiting for retry/skip/abort. after an abort they get no
+            # answer: end them (a Ctrl-C), they failed
+            set -l now
+            for s in (seq (count $slots))
+                test $busy[$s] = 0 && continue
+                test -e $logs[$busy[$s]].prompt && set -a now $slots[$s]
+            end
+            if test -n "$aborted"
+                for p in $now
+                    contains -- $p $ended || _ts_push_tmux send-keys -t $p C-c
+                    set -a ended $p
+                end
+            end
+            # focus moves only when a prompt shows up (unless one has it
+            # already) or the one in focus got its answer: the user may click
+            # elsewhere meanwhile
+            set -l active (_ts_push_tmux display -p -t push '#{pane_id}')
+            set -l fresh (for p in $now; contains -- $p $prompts || echo $p; end)
+            if test -n "$fresh"; and not contains -- $active $now
+                _ts_push_tmux select-pane -t $fresh[1]
+            else if contains -- $active $prompts; and not contains -- $active $now
+                test -n "$now" && _ts_push_tmux select-pane -t $now[1] || _ts_push_tmux select-pane -t $TMUX_PANE
+            end
+            test "$now" != "$prompts" && set changed 1
+            set prompts $now
+
+            if test -n "$changed"
+                printf '%s\n' $targets >$run_dir/state
+                _ts_push_tmux_draw $hint
+            end
+            sleep 0.3
+        end
+        test -n "$aborted" && break
+    end
+
+    # whatever never ran stays pending for push -C
+    for i in (seq (count $targets))
+        set targets[$i] (string replace -r '^running:' 'pending:' -- $targets[$i])
+    end
+    printf '%s\n' $targets >$run_dir/state
+    touch $run_dir/judged
+    set -l summary (_ts_log (green (string match -- 'success:*' $targets | count)) deployed, \
+        (red (string match -v -- success (cat $run_dir/judged) | count)) failed, \
+        (yellow (string match -- 'pending:*' $targets | count)) not run)
+    set -l progress_flags --final
+    _ts_push_tmux_draw $summary (dim "logs: $run_dir")
+    # the key goes to the focused pane: make that this one. nobody watching
+    # (the client went away): no key to wait for
+    _ts_push_tmux select-pane -t $TMUX_PANE
+    if set -q TS_PUSH_TMUX_TEST; or test (_ts_push_tmux display -p -t push '#{session_attached}') != 0
+        read -l -n 1 -s -P (dim 'press any key to close') __
+    end
+    _ts_push_tmux kill-server
+end
+
+function _ts_push_tmux_draw -S -d "redraw the stack list, each running target with its pane, then the footer lines \$argv (runs in _ts_push_tmux_main's scope)"
+    set -l footer $argv
+    set -g _ts_progress_slots
+    for t in $targets
+        set -a _ts_progress_slots ''
+    end
+    for s in (seq (count $slots))
+        set -l i $busy[$s]
+        test $i = 0 && continue
+        set -l mark (dim "[$s]")
+        test -e $logs[$i].prompt && set -a mark (red 'retry?')
+        set _ts_progress_slots[$i] "$mark"
+    end
+    set -l lines (_ts_progress $progress_flags $targets)
+    _ts_push_tmux display -p -t $TMUX_PANE '#{pane_width} #{pane_height}' | read -l width height
+
+    # more targets than rows: keep the running and failed ones, then the
+    # first pending and the last done ones, and count the rest
+    # heading, blank line, footer (a long line wraps), and the prompt
+    set -l footer_rows 0
+    for line in $footer
+        set footer_rows (math "$footer_rows + max(1, ceil("(string length --visible -- $line)" / $width))")
+    end
+    set -l rows (math $height - 3 - $footer_rows)
+    set -l shown (seq (count $targets))
+    if test (count $targets) -gt $rows
+        set rows (math "max(1, $rows - 1)")
+        set -l picks
+        for pass in '^(running|failure):' '^pending:' '^success:'
+            set -l matches
+            for i in (seq (count $targets))
+                string match -qr -- $pass $targets[$i] && set -a matches $i
+            end
+            test $pass = '^success:' -a (count $matches) -gt 1 && set matches $matches[-1..1]
+            for i in $matches
+                test (count $picks) -lt $rows || break
+                set -a picks $i
+            end
+        end
+        set shown (printf '%s\n' $picks | sort -n)
+    end
+
+    clear
+    set -l out $lines[1]
+    for i in $shown
+        set -a out $lines[(math $i + 1)]
+    end
+    set -l hidden (math (count $targets) - (count $shown))
+    if test $hidden -gt 0
+        set -l more
+        for state in success pending failure running
+            set -l c 0
+            for i in (seq (count $targets))
+                contains -- $i $shown && continue
+                string match -q -- "$state:*" $targets[$i] && set c (math $c + 1)
+            end
+            test $c -gt 0 && set -a more "$c "(string replace success deployed -- $state)
+        end
+        set -a out (dim "  … $hidden more: "(string join ', ' -- $more))
+    end
+    # one row per list line: a long one is cut, not wrapped
+    for line in $out
+        echo (string shorten -m $width -- $line)(set_color normal)
+    end
+    echo
+    printf '%s\n' $footer
+end
+
+function _ts_push_tmux_pane -a run_dir i log -d "deploy pane of push's tmux view: deploy target \$i, ask retry/skip/abort on failure. exits 0 deployed, 1 failed, 2 abort, 130 stopped"
+    set -l targets (cat $run_dir/targets)
+    echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
+    set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
+    set -l cmd (cat $run_dir/(printf '%02d' $i).cmd)
+    set -l working_dir (path dirname -- $serverless_yml)
+    # Ctrl-C stops the deploy, not this script: it then asks what to do
+    function _ts_push_tmux_pane_on_int --on-signal SIGINT
+        set -g _ts_push_interrupted 1
+    end
+    while true
+        set -e _ts_push_interrupted
+        test "$target_type" = function \
+            && _ts_log deploying function: (magenta $fullname) \
+            || _ts_log deploying stack: (magenta $fullname)
+        _ts_log working directory: (blue $working_dir)
+        _ts_push_deploy "$target_type" "$service_name" "$working_dir" $cmd 2>&1 | tee -a $log
+        set -l deploy_status $pipestatus[1]
+        echo $deploy_status >$log.exit
+        test $deploy_status -eq 0 && return 0
+        # the run is over (abort, or Ctrl-C in the stack list): no prompt
+        if test -e $run_dir/abort
+            test $deploy_status -ge 128 && return 130
+            return 1
+        end
+
+        # the coordinator sees the .prompt file and moves the focus here
+        touch $log.prompt
+        _ts_push_tmux set -p -t $TMUX_PANE @ts_state prompt
+        _ts_notify -t "push failed: $fullname" \
+            -m 'deploy failed — waiting for [r]etry / [s]kip / [a]bort'
+        # choices on their own lines: a narrow pane would cut a long prompt
+        echo (red 'push failed for') $fullname
+        echo '[r]etry / [s]kip / [a]bort'
+        read -l -n 1 -P 'r/s/a? [a] ' answer
+        rm -f $log.prompt
+        # the run was aborted or stopped meanwhile: this one failed
+        test -e $run_dir/abort && return 1
+        switch "$answer"
+            case R r
+                _ts_log retrying: (magenta $fullname)
+                _ts_push_tmux set -p -t $TMUX_PANE @ts_state running
+            case S s
+                _ts_log skipping: (magenta $fullname)
+                return 1
+            case '*'
+                return 2
+        end
+    end
+end
+
+function _ts_push_osc -a seq -d "print OSC <seq>; inside tmux wrapped for passthrough"
+    # once only: an outer tmux forwards OSC 9;4 itself, a second wrap would
+    # need its allow-passthrough
+    set -l osc \e\]$seq\a
+    set -q TMUX && set osc \ePtmux\;(string replace -a \e \e\e -- $osc)\e\\
+    printf '%s' $osc
 end
 
 function _ts_push_percent -d "percent of targets in a final state (for OSC 9;4)"
@@ -572,6 +1060,11 @@ function _ts_push_deploy -a target_type service_name working_dir runner -d "inst
     set -l deploy_cmd $argv[5..]
     if test "$target_type" = module && string match -q -r module-libs -- $service_name
         build_libs --force
+        # interrupted (Ctrl-C): don't deploy half-built libs
+        or begin
+            set -l build_status $status
+            test $build_status -ge 128 && return $build_status
+        end
     else
         for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
             if test -e "$d"/package.json
@@ -586,9 +1079,17 @@ function _ts_push_deploy -a target_type service_name working_dir runner -d "inst
                     type -q nvm && nvm use > /dev/null
                     command $install_cmd
                 "
+                # interrupted (Ctrl-C): don't deploy half-installed deps
+                or begin
+                    set -l install_status $status
+                    test $install_status -ge 128 && return $install_status
+                end
             end
         end
     end
+    # a Ctrl-C during the install/build (the tmux pane's fish survives it):
+    # don't deploy what may be half done
+    set -q _ts_push_interrupted && return 130
     $runner --workdir "$working_dir" --with-env $deploy_cmd
 end
 
@@ -707,7 +1208,9 @@ function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoe
     return 0
 end
 
-function _ts_progress
+function _ts_progress -d "print the targets with their state; --final once the run is over"
+    argparse final -- $argv
+    or return 1
     set -l count (count $argv)
     set -l color_pending ansi-escape
     set -l color_running magenta
@@ -718,11 +1221,13 @@ function _ts_progress
     set -l caret_success ' '
     set -l caret_failure ' '
     set -l indent (test $count -gt 9 && echo 2 || echo 1)
-    echo $argv[-1] | read -l -d : state __
-    if test "$state" = success -o "$state" = failure
-        _ts_log (yellow $count) 'stacks/functions deployed'
-    else
+    if not set -q _flag_final
         _ts_log deploying (yellow $count) stacks/functions
+    else if string match -q -- 'pending:*' $argv
+        # stopped or aborted: the rest never ran
+        _ts_log (yellow $count) stacks/functions, (yellow (string match -- 'pending:*' $argv | count)) not run
+    else
+        _ts_log (yellow $count) 'stacks/functions deployed'
     end
     for i in (seq $count)
         echo $argv[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
@@ -731,10 +1236,14 @@ function _ts_progress
         set -l color color_$state
         set -l fullname $service_name-(string upper $stage)
         test -n "$package_version" && set package_version (dim '-')(yellow $package_version)
+        # the tmux view marks which pane deploys each running target
+        set -l slot
+        set -q _ts_progress_slots[$i] && test -n "$_ts_progress_slots[$i]" && set slot $_ts_progress_slots[$i]
+        # before the name: a long name may be cut
         if test "$target_type" = function
-            echo $$caret (dim $index.) ($$color $fullname-$function_name)
+            echo $$caret (dim $index.) $slot ($$color $fullname-$function_name)
         else
-            echo $$caret (dim $index.) ($$color $fullname)$package_version
+            echo $$caret (dim $index.) $slot ($$color $fullname)$package_version
         end
     end
 end
