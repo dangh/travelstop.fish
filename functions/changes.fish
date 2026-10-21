@@ -106,10 +106,18 @@ function _change_stacks -d "print list of changed services and modules"
         set -l dir $file
         set -l found 0
         while test $found -eq 0 && set dir (string replace -r '/[^/]+$' '' $dir) && not contains $dir $visited_dirs && set -a visited_dirs $dir
-            if file-exists $dir/serverless.yml
+            set -l stack_dir
+            if file-exists $dir/serverless.yml || file-exists $dir/cdk.json
+                set stack_dir $dir
+            else if file-exists $dir/resources/cdk.json
+                # a CDK service keeps its app in resources/ and deploys the
+                # sibling lambda code (e.g. functions/) from there
+                set stack_dir $dir/resources
+            end
+            if test -n "$stack_dir"
                 set found 1
-                if not contains $dir $package_dirs
-                    set -a package_dirs $dir
+                if not contains $stack_dir $package_dirs
+                    set -a package_dirs $stack_dir
                 end
                 break
             end

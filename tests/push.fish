@@ -73,10 +73,15 @@ function _ts_sls
     end
     return 0
 end
+# CDK deploys log to the same file, with the region they would run in
+function _ts_cdk
+    echo "cdk $argv region=$AWS_REGION" >>$TS_SLS_LOG
+    echo "cdk $argv"
+end
 # children (parallel tiers) autoload nothing from the real config: hand them
 # the same stubs through the temp conf.d
 functions _ts_log magenta yellow blue green red dim ansi-escape \
-    rename_modules _ts_ensure_session _ts_pm_install _ts_notify _ts_progress _ts_sls \
+    rename_modules _ts_ensure_session _ts_pm_install _ts_notify _ts_progress _ts_sls _ts_cdk \
     >$XDG_CONFIG_HOME/fish/conf.d/ts_stubs.fish
 
 set -gx AWS_PROFILE acme@dev
@@ -93,6 +98,11 @@ _ts_resolve_config hotels '' | read -l -d : tt yml sn fn ver region
 @test "resolve hotels -> version from package.json" $ver = 1.2.3
 @test "resolve hotels -> region from yml" $region = us-east-1
 
+_ts_resolve_config chat/resources '' | read -l -d : tt yml sn fn ver region
+@test "resolve a cdk.json dir -> cdk type" $tt = cdk
+@test "resolve cdk -> manifest is cdk.json" (path basename $yml) = cdk.json
+@test "resolve cdk -> name from package.json" $sn = chat-resources
+
 # ===== real listing helpers against fixtures =====
 @test "_ts_modules lists the module" (contains modules/auth (_ts_modules); echo $status) -eq 0
 @test "_ts_functions parses functions block" (contains getHotel (_ts_functions $TS_ROOT/hotels/serverless.yml); echo $status) -eq 0
@@ -101,6 +111,31 @@ _ts_resolve_config hotels '' | read -l -d : tt yml sn fn ver region
 echo -n >$TS_SLS_LOG
 push hotels >/dev/null 2>&1
 @test "push hotels deploys in the hotels dir" (string match -q '*/hotels *' -- (cat $TS_SLS_LOG); echo $status) -eq 0
+
+# ===== CDK apps deploy through the CDK CLI =====
+echo -n >$TS_SLS_LOG
+push chat/resources </dev/null >/dev/null 2>&1
+set -l call (cat $TS_SLS_LOG)
+@test "push <cdk app> deploys once" (count $call) -eq 1
+@test "push <cdk app> runs cdk in the app dir" (string match -q 'cdk --workdir */chat/resources --with-env deploy *' -- $call; echo $status) -eq 0
+@test "push <cdk app> deploys every stack" (string match -q '* --all *' -- $call; echo $status) -eq 0
+@test "push <cdk app> never waits for approval" (string match -q '* --require-approval never *' -- $call; echo $status) -eq 0
+@test "push <cdk app> passes the stage as context" (string match -q '* -c stage=dev *' -- $call; echo $status) -eq 0
+@test "push <cdk app> passes the profile" (string match -q '* --profile acme@dev *' -- $call; echo $status) -eq 0
+
+echo -n >$TS_SLS_LOG
+push -r ap-south-1 chat/resources </dev/null >/dev/null 2>&1
+@test "push -r sets the cdk region via AWS_REGION" (string match -q '*region=ap-south-1' -- (cat $TS_SLS_LOG); echo $status) -eq 0
+
+echo -n >$TS_SLS_LOG
+push chat </dev/null >/dev/null 2>&1
+set -l call (cat $TS_SLS_LOG)
+@test "push <service dir> deploys its resources/ cdk app" (string match -q 'cdk --workdir */chat/resources *' -- $call; echo $status) -eq 0
+@test "push <service dir> deploys only that app" (count $call) -eq 1
+
+echo -n >$TS_SLS_LOG
+push -a chat </dev/null >/dev/null 2>&1
+@test "-a finds the cdk app below a service dir" (string match -q 'cdk *' -- (cat $TS_SLS_LOG); echo $status) -eq 0
 
 # ===== push -a recursion (service + subservices) =====
 echo -n >$TS_SLS_LOG
