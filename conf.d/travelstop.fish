@@ -114,9 +114,10 @@ function _ts_modules -d "list all modules"
     path dirname $$_ts_project_dir/modules/*/serverless.yml | string sub -s (math 1+$len)
 end
 
-function _ts_substacks -d "list all sub directories contains serverless.yml"
+function _ts_substacks -d "list all sub directories contains serverless.yml or cdk.json"
     set -q $_ts_project_dir || return
-    find . -type d -name node_modules -prune -o -type f -name serverless.yml -print | string replace /serverless.yml '' | string replace './' '' | path sort
+    find . -type d \( -name node_modules -o -name cdk.out \) -prune -o -type f \( -name serverless.yml -o -name cdk.json \) -print \
+        | string replace -r '/(serverless\.yml|cdk\.json)$' '' | string replace './' '' | path sort -u
 end
 
 function _ts_functions -d "list all lambda functions in serverless.yml"
@@ -275,6 +276,21 @@ function _ts_sls
     if set -q _flag_workdir
         set -a env -C "$_flag_workdir"
     end
+    command env $env fish -P -c "
+        type -q nvm && nvm use > /dev/null
+        $cmd
+    "
+end
+
+function _ts_cdk -d "run the CDK CLI of a CDK app dir (its own aws-cdk, via npx)"
+    # long-only flags: see _ts_sls
+    argparse -i workdir= with-env -- $argv
+    set -l cmd
+    set -q _flag_with_env && set -a cmd (_ts_env --mode=env)
+    set -a cmd npx cdk $argv
+    _ts_log execute command: (green (string join ' ' -- $cmd))
+    set -l env
+    set -q _flag_workdir && set -a env -C "$_flag_workdir"
     command env $env fish -P -c "
         type -q nvm && nvm use > /dev/null
         $cmd

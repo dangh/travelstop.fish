@@ -6,6 +6,7 @@ function push -d 'deploy CF stack/lambda function'
     set -l config # config when pushing functions
     set -l modules
     set -l services
+    set -l cdks
     set -l functions
 
     argparse -n 'sls deploy' \
@@ -39,6 +40,8 @@ function push -d 'deploy CF stack/lambda function'
     set -q _flag_aws_profile && set aws_profile $_flag_aws_profile
     set -q _flag_stage && set stage $_flag_stage
     set -q _flag_region && set default_region $_flag_region
+    # CDK apps take their region from the environment, not a flag
+    set -q _flag_region && set -lx AWS_REGION $_flag_region
     set -q _flag_config && set config $_flag_config
     set -a targets $argv
 
@@ -143,7 +146,7 @@ function push -d 'deploy CF stack/lambda function'
         end
 
         # re-order targets
-        set targets $modules $services $functions
+        set targets $modules $services $cdks $functions
 
         # interactive: let the user delete/re-order resolved targets in $EDITOR
         if set -q _flag_interactive
@@ -213,8 +216,19 @@ function push -d 'deploy CF stack/lambda function'
             echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
             set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
             set -l working_dir (dirname $serverless_yml)
+            set -l runner _ts_sls
             set -l deploy_cmd deploy
             switch $target_type
+                case cdk
+                    # every stack of the app, in its dependency order. no
+                    # approval prompt: a parallel deploy has no terminal, and
+                    # prod was already confirmed up-front
+                    set runner _ts_cdk
+                    set -a deploy_cmd --all --require-approval never
+                    test -n "$stage" && set -a deploy_cmd -c stage=$stage
+                    test -n "$aws_profile" && set -a deploy_cmd --profile $aws_profile
+                    set -q _flag_verbose && set -a deploy_cmd --verbose
+                    set -q _flag_force && set -a deploy_cmd --force
                 case function
                     set -a deploy_cmd function -f $function_name
                     test -n "$aws_profile" && set -a deploy_cmd --aws-profile $aws_profile
@@ -266,7 +280,7 @@ function push -d 'deploy CF stack/lambda function'
             set -a tier_logs $log
             set -a tier_names $fullname
             if test (count $tier) -eq 1
-                _ts_push_deploy "$target_type" "$service_name" "$working_dir" $deploy_cmd 2>&1 | tee $log
+                _ts_push_deploy "$target_type" "$service_name" "$working_dir" $runner $deploy_cmd 2>&1 | tee $log
                 echo $pipestatus[1] >$log.exit
                 _ts_push_done $k
             else
@@ -275,7 +289,7 @@ function push -d 'deploy CF stack/lambda function'
                 # _ts_pm_install, build_libs, ...) from its own config
                 fish --init-command (functions _ts_push_deploy | string collect) \
                     -c '_ts_push_deploy $argv; echo $status >'(string escape -- $log.exit) \
-                    -- "$target_type" "$service_name" "$working_dir" $deploy_cmd >$log 2>&1 &
+                    -- "$target_type" "$service_name" "$working_dir" $runner $deploy_cmd >$log 2>&1 &
                 set -a pids $last_pid
                 set -a pid_ks $k
                 set -ga _ts_push_pids $last_pid
@@ -486,7 +500,8 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
     set -l stack_dirs # dirs of the stacks still to deploy, to find parents
     for t in $targets
         echo $t | read -l -d : state target_type serverless_yml __
-        test "$state" != success -a "$target_type" = service
+        test "$state" != success
+        and contains -- "$target_type" service cdk
         and set -a stack_dirs (path dirname -- $serverless_yml)
     end
     for i in (seq (count $targets))
@@ -537,16 +552,18 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
     test -n "$tier" && echo $tier
 end
 
-function _ts_push_deploy -a target_type service_name working_dir -d "install deps, then run one sls deploy (also runs inside a child fish)"
-    set -l deploy_cmd $argv[4..]
+function _ts_push_deploy -a target_type service_name working_dir runner -d "install deps, then run one deploy with \$runner (_ts_sls/_ts_cdk; also runs inside a child fish)"
+    set -l deploy_cmd $argv[5..]
     if test "$target_type" = module && string match -q -r module-libs -- $service_name
         build_libs --force
     else
         for d in "$working_dir" "$working_dir"/nodejs "$working_dir"/nodejs*/nodejs "$working_dir"/nodejs/node*
             if test -e "$d"/package.json
-                # web app: install all deps; lambda code: target linux/x64/glibc
+                # web app / CDK app (runs here): install all deps; lambda
+                # code: target linux/x64/glibc
                 set -l pm_flags --no-proxy
                 string match -q -r '\bweb\b' -- "$d"
+                or test "$target_type" = cdk
                 or set -a pm_flags --os=linux --cpu=x64 --libc=glibc
                 set -l install_cmd (_ts_pm_install "$d" $pm_flags $ts_npm_install_options)
                 command env -C "$d" fish -P -c "
@@ -556,7 +573,7 @@ function _ts_push_deploy -a target_type service_name working_dir -d "install dep
             end
         end
     end
-    _ts_sls --workdir "$working_dir" --with-env $deploy_cmd
+    $runner --workdir "$working_dir" --with-env $deploy_cmd
 end
 
 function _ts_push_all_targets -a base -d "expand a dir to every service in it (or to the nearest enclosing service)"
@@ -579,7 +596,7 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
             break
         end
         set current_dir (path dirname -- $current_dir)
-        test -f "$current_dir/serverless.yml"
+        test -f "$current_dir/serverless.yml" -o -f "$current_dir/cdk.json"
         and set stack_dirs (_ts_push_stack_dirs "$current_dir")
     end
 
@@ -597,7 +614,7 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
         if test "$dir" = "$current_dir"
             set main_dir $dir
         else
-            set -l service_name (_ts_service_name "$dir/serverless.yml")
+            set -l service_name (_ts_resolve_config "$dir" "" | string split -f3 -- :)
             if string match -q '*-resources' -- $service_name
                 set -a resource_dirs $dir
             else if string match -q '*authorizer*' -- $service_name
@@ -626,9 +643,10 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
     end
 end
 
-function _ts_push_stack_dirs -a dir -d "dirs of every serverless.yml at or below <dir>, node_modules pruned"
-    find "$dir" -type d -name node_modules -prune -o -type f -name serverless.yml -print \
-        | string replace -r '/serverless.yml$' '' | path sort
+function _ts_push_stack_dirs -a dir -d "dirs of every serverless.yml or cdk.json at or below <dir>, node_modules/cdk.out pruned"
+    find "$dir" -type d \( -name node_modules -o -name cdk.out \) -prune \
+        -o -type f \( -name serverless.yml -o -name cdk.json \) -print \
+        | string replace -r '/(serverless\.yml|cdk\.json)$' '' | path sort -u
 end
 
 function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoes kept targets in new order"
@@ -721,8 +739,15 @@ function _ts_resolve_config -a target config_file -d "target_type:serverless_yml
         set serverless_yml (realpath "$target/serverless.yml")
     else if test -f "$target/serverless-waf.yml"
         set serverless_yml (realpath "$target/serverless-waf.yml")
+    else if test -f "$target/cdk.json"
+        set serverless_yml (realpath "$target/cdk.json")
+    else if test -f "$target/resources/cdk.json"
+        # a CDK service keeps its app in resources/ (see _change_stacks)
+        set serverless_yml (realpath "$target/resources/cdk.json")
     else if test -f "$$_ts_project_dir/$target/serverless.yml"
         set serverless_yml (realpath "$$_ts_project_dir/$target/serverless.yml")
+    else if test -f "$$_ts_project_dir/$target/cdk.json"
+        set serverless_yml (realpath "$$_ts_project_dir/$target/cdk.json")
     else if test -f "$PWD/serverless.yml"
         set serverless_yml "$PWD/serverless.yml"
     end
@@ -738,7 +763,12 @@ function _ts_resolve_config -a target config_file -d "target_type:serverless_yml
         set changelog_md (dirname "$serverless_yml")/CHANGELOG.md
     end
 
-    if contains $target (_ts_functions "$serverless_yml")
+    if test (path basename -- $serverless_yml) = cdk.json
+        # a CDK app is named by its package.json (stack names live in its code)
+        set target_type cdk
+        test -n "$package_json"
+        and string match -q -r '^\s*"name":\s*"(?<service_name>[^"]*)"' <$package_json
+    else if contains $target (_ts_functions "$serverless_yml")
         set target_type function
         set function_name $target
     else
@@ -746,7 +776,8 @@ function _ts_resolve_config -a target config_file -d "target_type:serverless_yml
             && set target_type module \
             || set target_type service
     end
-    string match -q -r '^service:\s*(?<service_name>[^\s]*)' <$serverless_yml
+    test -n "$service_name"
+    or string match -q -r '^service:\s*(?<service_name>[^\s]*)' <$serverless_yml
     if test -n "$package_json"
         string match -q -r '^\s*"version":\s*"(?<package_version>[^"]*)"' <$package_json
     else if test -n "$changelog_md"

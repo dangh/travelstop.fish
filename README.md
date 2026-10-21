@@ -5,7 +5,7 @@
 | Command                     | Abbr | Description                                                          |
 | ---                         | ---  | ---                                                                  |
 | `changes`                   | `c`  | Print list of changed stacks/modules in current branch              |
-| `push`                      | `p`  | Deploy a CloudFormation stack / lambda function                     |
+| `push`                      | `p`  | Deploy a CloudFormation stack (serverless or CDK) / lambda function |
 | `push_changes`              | `pc` | Deploy all changed stacks/modules in current branch                 |
 | `logs`                      | `l`  | Watch lambda function logs                                           |
 | `invoke`                    | `i`  | Invoke a lambda function                                            |
@@ -113,6 +113,24 @@ is done; retried targets run as the next tier.
 Parallel targets run in child `fish` processes that load your normal config, so
 `ts_npm_install_options`, `ts_env` and friends must be universal variables or
 defined in `config.fish`/`conf.d` to reach them.
+
+### CDK apps
+
+A directory with a `cdk.json` is a stack too: `push`, `push -a`, `changes` and
+`push_changes` pick it up next to the `serverless.yml` ones. It is named by its
+`package.json` and deployed with the app's own CDK CLI:
+
+```sh
+npx cdk deploy --all --require-approval never -c stage=<stage> --profile <profile>
+```
+
+`push` installs the app's dependencies first (for the host platform, since the
+app runs locally). `-r` sets `AWS_REGION`, `-v` and `--force` pass through, and
+the serverless-only flags are ignored. When `<service>/resources` holds the
+service's CDK app, `push <service>` deploys it and `changes` maps a changed file
+in `<service>/functions` (or anywhere in `<service>`) to it. Each app is one target, so the order between
+two CDK apps (e.g. one that looks up another's functions) is not inferred: use
+`-j 1` with the `-i` editor when it matters.
 
 ### To push notification after deploy with [Pushover](https://pushover.net)
 

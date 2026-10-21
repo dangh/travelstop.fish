@@ -116,6 +116,29 @@ set -l tr (changes translations)
 @test "translations: new web key about"       (string match -q '*`about`*' -- $tr; echo $status) -eq 0
 @test "translations: unchanged keys are not reported" (string match -q '*`hello`*' -- $tr; echo $status) -eq 1
 
+# ===== CDK apps count as stacks =========================================
+# a change in the app maps to its dir; a change in the lambda code of a
+# service whose CDK app lives in <service>/resources maps to that app
+mkdir -p services/chat/resources services/chat/functions services/security
+printf '{"app":"npx tsx bin/chat.ts"}\n' >services/chat/resources/cdk.json
+printf '{\n  "name": "chat-resources",\n  "version": "1.0.0"\n}\n' >services/chat/resources/package.json
+printf 'module.exports.handler = 1;\n' >services/chat/functions/relay.js
+printf '{"app":"npx tsx bin/security.ts"}\n' >services/security/cdk.json
+printf '{\n  "name": "security-resources",\n  "version": "1.0.0"\n}\n' >services/security/package.json
+git add -A
+git commit -qm cdk
+git update-ref refs/remotes/origin/master HEAD~1
+set -l cdk_paths (changes stacks --output=path)
+@test "cdk: the app dir is a stack" (contains services/security $cdk_paths; echo $status) -eq 0
+@test "cdk: <service>/resources app is a stack" (contains services/chat/resources $cdk_paths; echo $status) -eq 0
+@test "cdk: the service dir itself is not a stack" (contains services/chat $cdk_paths; echo $status) -eq 1
+@test "cdk: one entry per app" (count $cdk_paths) -eq 2
+echo -n 'module.exports.handler = 2;' >services/chat/functions/relay.js
+git commit -qam 'chat code only'
+git update-ref refs/remotes/origin/master HEAD~1
+@test "cdk: a lambda code change maps to <service>/resources" "$(changes stacks --output=path)" = services/chat/resources
+@test "cdk: named from package.json" "$(changes stacks)" = "- chat-resources-1.0.0"
+
 # --- teardown ------------------------------------------------------------
 cd $repo
 rm -rf $FIX
