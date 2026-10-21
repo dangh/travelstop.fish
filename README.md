@@ -130,8 +130,9 @@ same time, `push` shows the deploys live in a tmux session:
   one per target that can deploy at once, up to 4 (2 rows; 2 targets get 2
   full-height columns). Each header shows the
   `serverless*.yml` (a CDK app: its dir) relative to the project root, with
-  ▶ running, ✓ done, ✗ failed, ? waiting or ■ stopped. A freed pane takes the
-  next target.
+  ▶ running, ✓ done, ✗ failed, ? waiting or ■ stopped. Each pane is a deploy
+  lane: once its target is done it goes on with the next one, and the earlier
+  output stays above a rule (scroll up to see it).
 - A failed deploy asks `[r]etry / [s]kip / [a]bort` in its own pane, which gets
   the focus (the next waiting one once you answer). Retry reruns it right there;
   abort starts nothing new.
@@ -156,6 +157,7 @@ after the defaults:
 ```tmux
 set -g mouse off
 set -g pane-active-border-style fg=cyan,bold
+set -g @ts_header_running 'bg=blue,fg=white'   # header colors: idle running success failure prompt stopped
 set -g status-left ' deploy '
 ```
 

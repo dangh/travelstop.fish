@@ -160,6 +160,8 @@ ts_until 50 'test (count (string match -- "*/serverless.yml" (ts_titles))) -eq 4
 @test "stack list header" (ts_titles)[1] = stacks
 @test "stack list shows every stack" (ts_left_says hotels-service-DEV; and ts_left_says trains-DEV; echo $status) -eq 0
 @test "running stacks show their pane number" (ts_left_says '[1]'; echo $status) -eq 0
+# redrawn in place: old frames never pile up in its scrollback
+@test "the stack list keeps no scrollback" (ts_tmux display -p -t push:0.0 '#{history_size}') -eq 0
 # numbered row by row: [1] [2] on top, [3] [4] below
 @test "pane headers carry their number" (ts_tmux list-panes -t push -F '#{@ts_slot}' | sort | string join ,) = ,1,2,3,4
 @test "pane numbers run row by row" (ts_tmux list-panes -t push -F '#{pane_top} #{pane_left} #{@ts_slot}' | sort -n -k1,1 -k2,2 | string replace -r '.* ' '' | string join ,) = ,1,2,3,4
@@ -210,6 +212,13 @@ ts_push_bg hotels flights chat/resources
 ts_until 100 ts_session_up
 ts_until 50 'contains chat/resources (ts_titles)'
 @test "cdk header is the app directory" (contains chat/resources (ts_titles); echo $status) -eq 0
+ts_until 300 "ts_left_says 'press any key'"
+# chat/resources deployed alone first, in lane 1; a service followed it there
+set -l lane1 (ts_tmux list-panes -t push -F '#{pane_id} #{@ts_slot}' | string match -r '^(\S+) 1$')[2]
+set -l lane1_text (ts_tmux capture-pane -p -t $lane1 -S - -J)
+@test "a lane keeps the earlier target's output" (string match -q '*deploying stack: chat-resources*' -- $lane1_text; echo $status) -eq 0
+@test "a lane takes the next target in the same pane" (string match -q '*deploying stack: *service*' -- $lane1_text; echo $status) -eq 0
+@test "a lane separates its targets with a rule" (string match -q '*───*' -- $lane1_text; echo $status) -eq 0
 ts_finish
 
 # ===== no tmux: 1 stack, --no-tmux, ts_push_tmux off =====
@@ -244,6 +253,8 @@ ts_until 30 "ts_left_says 'retry?'"
 @test "a failure notifies" (string match -q '*push failed*flights*' -- (cat $TS_NOTIFY_LOG); echo $status) -eq 0
 ts_tmux send-keys -t $failed r
 ts_until 300 "ts_left_says 'press any key'"
+@test "the stack list still has no scrollback at the end" (ts_tmux display -p -t push:0.0 '#{history_size}') -eq 0
+@test "the closing screen shows the summary once" (count (string match '*deployed,*failed,*not run*' -- (ts_left_text))) -eq 1
 @test "the focus is back on the stack list to close the view" (ts_active) = (ts_tmux display -p -t push:0.0 '#{pane_id}')
 ts_finish
 @test "retry reruns only the failed stack" (count (cat $TS_SLS_LOG)) -eq 3

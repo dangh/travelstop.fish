@@ -550,14 +550,19 @@ function _ts_push_tmux_conf -a nested -d "print the tmux config of push's view: 
     # nested in the user's tmux, theirs takes the prefix: press it twice
     set -l prefix '#{prefix}'
     test -n "$nested" && set prefix '#{prefix} #{prefix}'
-    # pane header: [slot] state icon, then the target's manifest
-    set -l border '#{?pane_active,#[reverse#,bold],#[dim]} '
+    # pane header: [slot] state icon and the target's manifest, on the
+    # state's @ts_header_<state> style; bold in the focused pane
+    set -l style '#{@ts_header_idle}'
+    for state in stopped prompt failure success running
+        set style '#{?#{==:#{@ts_state},'$state'},#{@ts_header_'$state'},'$style'}'
+    end
+    set -l border '#['$style']#{?pane_active,#[bold],} '
     set -a border '#{?@ts_slot,[#{@ts_slot}] ,}'
-    set -a border '#{?#{==:#{@ts_state},running},#[fg=magenta]▶ ,}'
-    set -a border '#{?#{==:#{@ts_state},success},#[fg=green]✓ ,}'
-    set -a border '#{?#{==:#{@ts_state},failure},#[fg=red]✗ ,}'
-    set -a border '#{?#{==:#{@ts_state},prompt},#[fg=red#,bold]? ,}'
-    set -a border '#{?#{==:#{@ts_state},stopped},#[fg=yellow]■ ,}'
+    set -a border '#{?#{==:#{@ts_state},running},▶ ,}'
+    set -a border '#{?#{==:#{@ts_state},success},✓ ,}'
+    set -a border '#{?#{==:#{@ts_state},failure},✗ ,}'
+    set -a border '#{?#{==:#{@ts_state},prompt},? ,}'
+    set -a border '#{?#{==:#{@ts_state},stopped},■ ,}'
     set -a border '#{@ts_title} #[default]'
     printf '%s\n' \
         '# defaults: change any of them in '$user_conf \
@@ -570,6 +575,13 @@ function _ts_push_tmux_conf -a nested -d "print the tmux config of push's view: 
         'set -g pane-border-lines heavy' \
         'set -g pane-border-style fg=colour240' \
         'set -g pane-active-border-style fg=magenta,bold' \
+        '# pane header colors by state' \
+        "set -g @ts_header_idle 'bg=colour238,fg=colour250'" \
+        "set -g @ts_header_running 'bg=magenta,fg=black'" \
+        "set -g @ts_header_success 'bg=green,fg=black'" \
+        "set -g @ts_header_failure 'bg=red,fg=white'" \
+        "set -g @ts_header_prompt 'bg=red,fg=white'" \
+        "set -g @ts_header_stopped 'bg=yellow,fg=black'" \
         'set -g status-style bg=default,fg=colour245' \
         "set -g status-left ' push '" \
         "set -g status-right 'click: focus · wheel: scroll · $prefix [: scroll mode '" \
@@ -697,8 +709,12 @@ function _ts_push_tmux_run -a run_dir jobs -d "deploy the targets in a private t
         set -a bottoms $bottom
     end
     set -l slots $columns $bottoms
+    # each slot is a deploy lane for the whole run: it deploys one target
+    # after another, earlier output stays in its scrollback
     for k in (seq (count $slots))
         _ts_push_tmux set -p -t $slots[$k] @ts_title idle \; set -p -t $slots[$k] @ts_slot $k
+        _ts_push_tmux respawn-pane -k -t $slots[$k] \
+            fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_lane $argv' -- $run_dir $k
     end
     printf '%s\n' $slots >$run_dir/slots
 
@@ -791,17 +807,28 @@ function _ts_push_tmux_main -a run_dir -d "stack list pane of push's tmux view: 
                 set targets[$i] (string replace -r '^[a-z]+:' 'running:' -- $targets[$i])
                 _ts_push_tmux set -p -t $slots[$s] @ts_title (cat $run_dir/(printf '%02d' $i).title) \; \
                     set -p -t $slots[$s] @ts_state running
-                _ts_push_tmux respawn-pane -k -t $slots[$s] \
-                    fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_pane $argv' -- $run_dir $i $logs[$i]
+                # the lane picks it up (written whole, then moved in place)
+                echo $i $logs[$i] >$run_dir/lane-$s.job.tmp
+                mv $run_dir/lane-$s.job.tmp $run_dir/lane-$s.job
                 set changed 1
             end
 
-            # finished panes: their exit status is the result
+            # finished targets: the lane leaves their exit status. a lane that
+            # died (it should not) fails its target and starts over
             for s in (seq (count $slots))
                 set -l i $busy[$s]
                 test $i = 0 && continue
-                _ts_push_tmux display -p -t $slots[$s] '#{pane_dead} #{pane_dead_status}' | read -l dead st
-                test "$dead" = 1 || continue
+                set -l st
+                if test -e $run_dir/lane-$s.result
+                    read st <$run_dir/lane-$s.result
+                    command rm -f $run_dir/lane-$s.result
+                else if test (_ts_push_tmux display -p -t $slots[$s] '#{pane_dead}') = 1
+                    command rm -f $run_dir/lane-$s.job
+                    _ts_push_tmux respawn-pane -k -t $slots[$s] \
+                        fish --init-command "source "(string escape -- $self) -c '_ts_push_tmux_lane $argv' -- $run_dir $s
+                else
+                    continue
+                end
                 set busy[$s] 0
                 set -l state failure
                 switch "$st"
@@ -876,6 +903,7 @@ function _ts_push_tmux_main -a run_dir -d "stack list pane of push's tmux view: 
     # (the client went away): no key to wait for
     _ts_push_tmux select-pane -t $TMUX_PANE
     if set -q TS_PUSH_TMUX_TEST; or test (_ts_push_tmux display -p -t push '#{session_attached}') != 0
+        printf '\e[?25h'
         read -l -n 1 -s -P (dim 'press any key to close') __
     end
     _ts_push_tmux kill-server
@@ -923,7 +951,6 @@ function _ts_push_tmux_draw -S -d "redraw the stack list, each running target wi
         set shown (printf '%s\n' $picks | sort -n)
     end
 
-    clear
     set -l out $lines[1]
     for i in $shown
         set -a out $lines[(math $i + 1)]
@@ -941,24 +968,49 @@ function _ts_push_tmux_draw -S -d "redraw the stack list, each running target wi
         end
         set -a out (dim "  … $hidden more: "(string join ', ' -- $more))
     end
-    # one row per list line: a long one is cut, not wrapped
+    # rewrite the screen in place from the top (no `clear`: tmux would keep
+    # every old frame in the scrollback, and it flickers): each line erases
+    # the rest of its row, then everything below goes. one row per list line,
+    # a long one is cut; footer lines wrap. no cursor while it updates
+    printf '\e[?25l\e[H'
     for line in $out
-        echo (string shorten -m $width -- $line)(set_color normal)
+        printf '%s%s\e[K\n' (string shorten -m $width -- $line) (set_color normal)
     end
-    echo
-    printf '%s\n' $footer
+    printf '\e[K\n'
+    for line in $footer
+        printf '%s\e[K\n' $line
+    end
+    printf '\e[J'
 end
 
-function _ts_push_tmux_pane -a run_dir i log -d "deploy pane of push's tmux view: deploy target \$i, ask retry/skip/abort on failure. exits 0 deployed, 1 failed, 2 abort, 130 stopped"
+function _ts_push_tmux_lane -a run_dir lane -d "deploy lane of push's tmux view: deploy each target the coordinator hands over (<run_dir>/lane-<n>.job), leave its exit status in lane-<n>.result"
+    # Ctrl-C stops the deploy, not the lane: the target then asks what to do
+    function _ts_push_tmux_lane_on_int --on-signal SIGINT
+        set -g _ts_push_interrupted 1
+    end
+    set -l job $run_dir/lane-$lane.job
+    set -l first 1
+    while true
+        while not test -e $job
+            sleep 0.2
+        end
+        read -l i log <$job
+        command rm -f $job
+        # earlier targets stay above: a rule between them
+        test -z "$first" && echo && echo (dim (string repeat -n (math "max(10, $COLUMNS)") ─))
+        set first
+        _ts_push_tmux_pane $run_dir $i $log
+        echo $status >$run_dir/lane-$lane.result.tmp
+        mv $run_dir/lane-$lane.result.tmp $run_dir/lane-$lane.result
+    end
+end
+
+function _ts_push_tmux_pane -a run_dir i log -d "one target in a deploy lane: deploy target \$i, ask retry/skip/abort on failure. returns 0 deployed, 1 failed, 2 abort, 130 stopped"
     set -l targets (cat $run_dir/targets)
     echo $targets[$i] | read -l -d : state target_type serverless_yml service_name function_name package_version region stage
     set -l fullname (_ts_push_fullname "$target_type" "$service_name" "$function_name" "$package_version" "$stage")
     set -l cmd (cat $run_dir/(printf '%02d' $i).cmd)
     set -l working_dir (path dirname -- $serverless_yml)
-    # Ctrl-C stops the deploy, not this script: it then asks what to do
-    function _ts_push_tmux_pane_on_int --on-signal SIGINT
-        set -g _ts_push_interrupted 1
-    end
     while true
         set -e _ts_push_interrupted
         test "$target_type" = function \
