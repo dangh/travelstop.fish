@@ -489,9 +489,11 @@ end
 function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, one line per tier"
     # order that matters: modules (layers) -> *-resources stacks ->
     # *authorizer* stacks (other services attach their authorizers) -> other
-    # services, a parent stack before its subservices (by how many of the
-    # pushed stacks sit above it, not by path depth, so admin/services/x does
-    # not wait for an unrelated services/y) -> *monitoring* stacks ->
+    # services -> admin-* services -> *web apps -> *www edge stacks (they read
+    # the APIs' and web apps' outputs), in each group a parent stack
+    # before its subservices (by how many of the pushed stacks sit above it,
+    # not by path depth, so services/a/x does not wait for an unrelated
+    # services/b) -> *monitoring* stacks ->
     # functions. functions of one service share its .serverless/ dir, so the
     # n-th function of a service waits for the (n-1)-th. -j 1 puts every
     # target in its own tier, in list order. already-succeeded targets (a -C
@@ -527,12 +529,24 @@ function _ts_push_tiers -a jobs -d "group target indices into dependency tiers, 
                     else if string match -q -- '*monitoring*' $service_name
                         set key 5000
                     else
+                        # same group order as `changes`: services ->
+                        # admin-* (they read services' outputs) -> *web,
+                        # then the *www edge stacks that front them all
+                        set -l group 1
+                        switch $service_name
+                            case '*www'
+                                set group 4
+                            case '*web'
+                                set group 3
+                            case 'admin-*'
+                                set group 2
+                        end
                         set -l dir (path dirname -- $serverless_yml)
                         set -l parents 0
                         for d in $stack_dirs
                             string match -q -- "$d/*" $dir && set parents (math $parents + 1)
                         end
-                        set key 1(printf '%03d' $parents)
+                        set key $group(printf '%03d' $parents)
                     end
             end
         end

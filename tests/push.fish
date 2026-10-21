@@ -381,12 +381,39 @@ push -a hotels </dev/null >/dev/null 2>&1
 @test "parent stack finishes before its subservice starts" (ts_order) = start,end,start,end
 @test "parent stack goes first" (string match -q '*/hotels *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
 
-mkdir -p $TS_ROOT/admin/services/users
+mkdir -p $TS_ROOT/services/users
+printf "service: users\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/services/users/serverless.yml
+echo -n >$TS_ORDER_LOG
+push hotels services/users </dev/null >/dev/null 2>&1
+@test "a deeper unrelated service does not wait" (ts_order) = start,start,end,end
+rm -rf $TS_ROOT/services
+
+# admin services read other services' outputs (${cf:hotels-..}) and the web
+# apps call every API: same group order as `changes` (services -> admin-* ->
+# *web), even when a subservice pushes the services tier further down
+mkdir -p $TS_ROOT/admin/services/users $TS_ROOT/web
 printf "service: admin-users\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/admin/services/users/serverless.yml
+printf "service: web\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/web/serverless.yml
 echo -n >$TS_ORDER_LOG
 push hotels admin/services/users </dev/null >/dev/null 2>&1
-@test "a deeper unrelated service does not wait" (ts_order) = start,start,end,end
-rm -rf $TS_ROOT/admin
+@test "admin services finish after other services" (ts_order) = start,end,start,end
+@test "admin services go after other services" (string match -q '*/admin/services/users *' -- (cat $TS_ORDER_LOG)[-1]; echo $status) -eq 0
+
+echo -n >$TS_ORDER_LOG
+push web hotels hotels/sub admin/services/users </dev/null >/dev/null 2>&1
+@test "web waits for subservices and admin services" (ts_order) = start,end,start,end,start,end,start,end
+@test "web goes last" (string match -q '*/web *' -- (cat $TS_ORDER_LOG)[-1]; echo $status) -eq 0
+
+# admin-web is a web app, not an admin service; www fronts the web apps
+mkdir -p $TS_ROOT/admin/web $TS_ROOT/www
+printf "service: admin-web\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/admin/web/serverless.yml
+printf "service: www\nprovider:\n  region: 'us-east-1'\n" >$TS_ROOT/www/serverless.yml
+echo -n >$TS_ORDER_LOG
+push www admin/web admin/services/users web </dev/null >/dev/null 2>&1
+@test "admin-web deploys with web, www after them" (ts_order) = start,end,start,start,end,end,start,end
+@test "admin-web goes after admin services" (string match -q '*/admin/services/users *' -- (cat $TS_ORDER_LOG)[1]; echo $status) -eq 0
+@test "www goes last" (string match -q '*/www *' -- (cat $TS_ORDER_LOG)[-1]; echo $status) -eq 0
+rm -rf $TS_ROOT/admin $TS_ROOT/web $TS_ROOT/www
 
 echo -n >$TS_ORDER_LOG
 push modules/auth hotels </dev/null >/dev/null 2>&1
