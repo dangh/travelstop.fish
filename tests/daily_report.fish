@@ -44,7 +44,7 @@ source $repo/functions/daily_report.fish
 @test "daily_report prints error when ts_master_dir missing" (begin; set -lx ts_master_dir /no/such/dir; daily_report a-prod-b 2>&1 >/dev/null; end | string match -q '*does not exist*'; echo $status) -eq 0
 
 set -gx ts_master_dir $DR_MASTER
-set -e AWS_BROWSER
+set -gx AWS_BROWSER ''
 
 set -l url (daily_report hotels-prod-getHotel)
 @test "daily_report container is the upper-cased stage" (string match -q '*name=PROD*' -- $url; echo $status) -eq 0
@@ -84,7 +84,7 @@ function _ts_clipboard_paste; end # empty clipboard
 # ===== daily_report: AWS_BROWSER launch path (stubbed fake browser) =====
 set -gx AWS_BROWSER $DR_ROOT/bin/fakebrowser
 
-set -e AWS_BROWSER_NEW_WINDOW
+set -gx AWS_BROWSER_NEW_WINDOW ''
 set -l b (daily_report hotels-prod-getHotel)
 @test "daily_report invokes AWS_BROWSER instead of printing" (string match -q 'BROWSER_CALLED*' -- $b; echo $status) -eq 0
 @test "daily_report passes the url to the browser" (string match -q '*hotels-prod-getHotel*' -- $b; echo $status) -eq 0
@@ -95,5 +95,5 @@ set -l bw (daily_report hotels-prod-getHotel)
 
 # --- teardown ------------------------------------------------------------
 set -e ts_master_dir
-set -e AWS_BROWSER
-set -e AWS_BROWSER_NEW_WINDOW
+set -eg AWS_BROWSER
+set -eg AWS_BROWSER_NEW_WINDOW
