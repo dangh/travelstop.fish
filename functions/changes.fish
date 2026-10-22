@@ -53,6 +53,9 @@ function _change_stacks -d "print list of changed services and modules"
     test -z "$from" && set from merge-base
     test "$from" = merge-base && set from $_flag_merge_base
     test -z "$to" && set to index
+    # diff from the fork point so commits only on `from' (e.g. release merges) don't count
+    set from (git merge-base $from (string replace -r '^index$' HEAD -- $to))
+    or return
     if test "$to" = index
         set -f range $from
     else
@@ -181,6 +184,9 @@ function _change_mappings -d "print elasticsearch index mapping changes"
     test -z "$from" && set from merge-base
     test "$from" = merge-base && set from $_flag_merge_base
     test -z "$to" && set to index
+    # diff from the fork point so commits only on `from' (e.g. release merges) don't count
+    set from (git merge-base $from (string replace -r '^index$' HEAD -- $to))
+    or return
     if test "$to" = index
         set -f range $from
     else
@@ -274,6 +280,9 @@ function _change_translations -d "print list of new translation keys"
     test -z "$from" && set from origin/master
     test "$from" = merge-base && set from $_flag_merge_base
     test -z "$to" && set to index
+    # diff from the fork point so commits only on `from' (e.g. release merges) don't count
+    set from (git merge-base $from (string replace -r '^index$' HEAD -- $to))
+    or return
     test "$to" = index && set to ''
 
     set -l jq_transform 'paths(scalars) as $path | ( $path | join(".") ) + " = " + getpath($path)'
