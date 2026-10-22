@@ -13,6 +13,7 @@ complete -c push -s u -l update-config -d 'update function configuration'
 complete -c push -l force -d 'force deploy'
 complete -c push -l conceal -d 'conceal secrets in output'
 complete -c push -l aws-s3-accelerate -d 'use S3 transfer acceleration'
+complete -c push -l no-tmux -d 'no tmux view: parallel deploys log to files'
 
 # value flags
 complete -c push -x -s f -l function -a "(_ts_functions)" -d 'function to deploy'
@@ -24,7 +25,6 @@ complete -c push -x -l app -d 'serverless app'
 complete -c push -x -l org -d 'serverless org'
 complete -c push -r -s c -l config -d 'serverless config file'
 complete -c push -r -s p -l package -d 'pre-packaged artifact dir'
-complete -c push -x -s j -l jobs -a '1 2 4 8' -d 'parallel deploys per tier (1 = sequential)'
 
 # enforce no-files when all completions are selected
 complete -f -c push

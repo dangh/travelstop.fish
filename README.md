@@ -89,23 +89,20 @@ nearest enclosing service (and then deploys that service plus its subservices).
 
 ### Parallel deploys
 
-`push` deploys independent targets at the same time, 4 at once by default
-(`-j/--jobs N`). Targets are grouped into dependency tiers that run one after
+`push` deploys independent targets at the same time, up to 4 at once. Targets
+are grouped into dependency tiers that run one after
 the other: modules (layers) → `*-resources` stacks → `*authorizer*` stacks →
-other services, a parent stack before its subservices → `*monitoring*` stacks →
+other services → `admin-*` services → `*web` apps (the same group order as
+`changes`) → `*www` edge stacks, in each group a parent stack before its
+subservices →
+`*monitoring*` stacks →
 functions (functions of one service stay sequential, they share its
-`.serverless/` dir). `-j 1` gives the old strictly sequential run in list order
-(`push -a` lists authorizers before other services too; this also honors the
-order you set in the `-i` editor):
-
-```sh
-push -j 1 -a hotels        # one at a time
-set -U ts_default_argv_push -j 8
-```
+`.serverless/` dir). Inside a tier, targets start in list order (the order
+you set in the `-i` editor).
 
 Each target's output goes to its own log file under
-`$XDG_RUNTIME_DIR/ts_push/<run>/` (`/tmp/ts_push/` when the runtime dir is not
-set); `ts_push/latest` points at the current run. A single-target tier still
+`$XDG_RUNTIME_DIR/ts_push/<run>/` (else under `$TMPDIR`, then `/tmp`; `push`
+refuses a `ts_push` dir that is a symlink or not yours); `ts_push/latest` points at the current run. A single-target tier still
 prints live to the terminal. When a target in a parallel tier fails, `push`
 shows the tail of its log and asks `[r]etry / [s]kip / [a]bort` once the tier
 is done; retried targets run as the next tier.
@@ -113,6 +110,60 @@ is done; retried targets run as the next tier.
 Parallel targets run in child `fish` processes that load your normal config, so
 `ts_npm_install_options`, `ts_env` and friends must be universal variables or
 defined in `config.fish`/`conf.d` to reach them.
+
+#### tmux view
+
+With `tmux` installed, a terminal and at least 2 targets that can deploy at the
+same time, `push` shows the deploys live in a tmux session:
+
+```
+┃ stacks                ┃ [1] ▶ hotels/serverless.yml ┃ [2] ▶ web/serverless.yml  ┃
+┃ ▶︎ 3. [1] hotels-DEV   ┃ …sls output…                ┃ …                         ┃
+┃ ▶︎ 4. [2] web-DEV      ┣━ [3] ✓ chat/resources ━━━━━━╋━ [4] ? flights/serverless.yml
+┃   5. users-DEV        ┃ …                           ┃ [r]etry / [s]kip / [a]bort ┃
+```
+
+- The left column lists the stacks; a running one shows its pane `[n]`
+  (`[n] retry?` while it waits for an answer). A long list keeps the running and
+  failed stacks in view and counts the rest.
+- The other 2 columns hold the deploy panes, numbered `[n]` in their headers:
+  one per target that can deploy at once, up to 4 (2 rows; 2 targets get 2
+  full-height columns). Each header shows the
+  `serverless*.yml` (a CDK app: its dir) relative to the project root, with
+  ▶ running, ✓ done, ✗ failed, ? waiting or ■ stopped. Each pane is a deploy
+  lane: once its target is done it goes on with the next one, and the earlier
+  output stays above a rule (scroll up to see it).
+- A failed deploy asks `[r]etry / [s]kip / [a]bort` in its own pane, which gets
+  the focus (the next waiting one once you answer). Retry reruns it right there;
+  abort starts nothing new.
+- The focused pane has a magenta border and highlighted header. Click a pane to
+  focus it, scroll with the wheel.
+- Ctrl-C in a deploy pane stops that deploy (then asks); Ctrl-C in the stack
+  list stops every deploy, and `push -C` resumes.
+- When the run is over the view shows a summary and the log dir, and stays until
+  you press a key. There is no detach: `push` wraps up when the view closes.
+
+It runs on a private tmux server (`tmux -L ts_push_<pid> -f /dev/null`): your
+`tmux.conf` doesn't apply and your own `tmux ls` never shows it. Inside tmux it
+opens nested (its prefix is then `C-b C-b`); notifications reach the terminal
+when your tmux has `allow-passthrough on`. Per-target logs are written as
+usual. Opt out with `--no-tmux` or `set -U ts_push_tmux off`.
+
+Its tmux options (mouse on, 50k lines of scrollback, heavy borders, a quiet
+status line, ...) can be changed in `~/.config/travelstop/push.tmux.conf`
+(another path: `set -U ts_push_tmux_conf <file>`), a plain tmux config sourced
+after the defaults:
+
+```tmux
+set -g mouse off
+set -g pane-active-border-style fg=cyan,bold
+set -g @ts_header_running 'bg=blue,fg=white'   # header colors: idle running success failure prompt stopped
+set -g status-left ' deploy '
+```
+
+A few settings the view needs are applied after it (finished panes kept,
+header format, no detach). The full config of a run is `tmux.conf` in its log
+dir.
 
 ### CDK apps
 
@@ -129,8 +180,8 @@ app runs locally). `-r` sets `AWS_REGION`, `-v` and `--force` pass through, and
 the serverless-only flags are ignored. When `<service>/resources` holds the
 service's CDK app, `push <service>` deploys it and `changes` maps a changed file
 in `<service>/functions` (or anywhere in `<service>`) to it. Each app is one target, so the order between
-two CDK apps (e.g. one that looks up another's functions) is not inferred: use
-`-j 1` with the `-i` editor when it matters.
+two CDK apps (e.g. one that looks up another's functions) is not inferred: push
+them in separate runs when it matters.
 
 ### To push notification after deploy with [Pushover](https://pushover.net)
 
@@ -164,6 +215,8 @@ List of supported variables:
 | `ts_enable_abbr`            | true              | Enable default abbreviations                                                        |
 | `ts_npm_install_options`    |                   | Additional options for `npm install` command                                        |
 | `ts_push_rename_modules`    | true              | Rename modules (branch suffix) during `push`. Set `0`/`false`/`no`/`off` to disable  |
+| `ts_push_tmux`              | true              | Show parallel `push` deploys in a tmux view. Set `0`/`false`/`no`/`off` to disable  |
+| `ts_push_tmux_conf`         | `~/.config/travelstop/push.tmux.conf` | tmux config for the `push` view, sourced after its defaults               |
 | `ts_meta_stage_style`       | `fg=blue`         |                                                                                     |
 | `ts_meta_timestamp_style`   | `fg=blue`         |                                                                                     |
 | `ts_meta_source_file_style` | `fg=magenta`      |                                                                                     |
