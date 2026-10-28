@@ -119,10 +119,22 @@ function _ts_modules -d "list all modules"
     path dirname $$_ts_project_dir/modules/*/serverless.yml | string sub -s (math 1+$len)
 end
 
+function _ts_stack_files -a dir -d "every serverless.yml or cdk.json at or below <dir> (default .), node_modules/cdk.out skipped"
+    test -n "$dir" || set dir .
+    # inside a git repo, ask git: it skips ignored dirs and nested repos (agent
+    # worktrees under the project), which `find` would walk in full
+    # (`path filter -f` drops tracked files deleted from the working tree)
+    git -C "$dir" ls-files -co --exclude-standard -- ':(glob)**/serverless.yml' ':(glob)**/cdk.json' 2>/dev/null \
+        | string match -rv '(^|/)(node_modules|cdk\.out)/' | string replace -r '^' "$dir/" | path filter -f
+    test $pipestatus[1] -eq 0 && return
+    # not a git repo: walk the tree
+    find "$dir" -type d \( -name node_modules -o -name cdk.out \) -prune \
+        -o -type f \( -name serverless.yml -o -name cdk.json \) -print
+end
+
 function _ts_substacks -d "list all sub directories contains serverless.yml or cdk.json"
     set -q $_ts_project_dir || return
-    find . -type d \( -name node_modules -o -name cdk.out \) -prune -o -type f \( -name serverless.yml -o -name cdk.json \) -print \
-        | string replace -r '/(serverless\.yml|cdk\.json)$' '' | string replace './' '' | path sort -u
+    _ts_stack_files . | string replace -r '/(serverless\.yml|cdk\.json)$' '' | string replace './' '' | path sort -u
 end
 
 function _ts_functions -d "list all lambda functions in serverless.yml"

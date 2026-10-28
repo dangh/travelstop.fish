@@ -1271,9 +1271,7 @@ function _ts_push_all_targets -a base -d "expand a dir to every service in it (o
 end
 
 function _ts_push_stack_dirs -a dir -d "dirs of every serverless.yml or cdk.json at or below <dir>, node_modules/cdk.out pruned"
-    find "$dir" -type d \( -name node_modules -o -name cdk.out \) -prune \
-        -o -type f \( -name serverless.yml -o -name cdk.json \) -print \
-        | string replace -r '/(serverless\.yml|cdk\.json)$' '' | path sort -u
+    _ts_stack_files "$dir" | string replace -r '/(serverless\.yml|cdk\.json)$' '' | path sort -u
 end
 
 function _ts_push_edit_targets -d "edit resolved push targets in \$EDITOR; echoes kept targets in new order"

@@ -14,9 +14,9 @@
 set -l here (path dirname (status filename))
 set -l repo (path dirname $here)
 
-# source only the _ts_sls definition (lines 226-282); the file's guarded `exit`
-# forbids sourcing it whole in a non-interactive shell.
-source (sed -n '226,282p' $repo/conf.d/travelstop.fish | psub)
+# source only the _ts_sls definition; the file's guarded `exit` forbids sourcing
+# it whole in a non-interactive shell.
+source (awk '/^function _ts_sls$/,/^end$/' $repo/conf.d/travelstop.fish | psub)
 
 # --- stub _ts_sls's helpers ----------------------------------------------
 function _ts_log; end

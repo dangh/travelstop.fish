@@ -17,7 +17,7 @@ set -g TS_FIX $here/fixtures/pack
 source $repo/functions/pack.fish
 # _ts_validate_path (used in the invalid-config branch) lives in conf.d; the
 # file's trailing `exit` forbids sourcing it whole, so source just that slice.
-source (sed -n '140,177p' $repo/conf.d/travelstop.fish | psub)
+source (awk '/^function _ts_validate_path /,/^end$/' $repo/conf.d/travelstop.fish | psub)
 
 # --- stub only external side-effects -------------------------------------
 function _ts_ensure_session; end
