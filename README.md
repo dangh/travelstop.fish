@@ -265,10 +265,10 @@ Plus a regex abbreviation: any `l<N>` expands to `logs` over the last `<N>` minu
 ### AWS profile aliases (when [`assume`](https://docs.commonfate.io/granted) is installed):
 
 ```sh
-alias d  'assume DEV'
-alias di 'assume DEV-IN'
-alias t  'assume TEST'
-alias s  'assume STAGE'
+alias d  'assume dev'
+alias di 'assume dev-in'
+alias t  'assume test'
+alias s  'assume stage'
 # `a [profile]` assumes profile (default: current) with `-s cloudwatch`
 ```
 

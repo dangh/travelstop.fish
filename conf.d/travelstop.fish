@@ -94,7 +94,7 @@ function _ts_service_name -d "print service name"
         string match -eq "*.yml" $yml || set yml $yml/serverless.yml
         string match -qr '^service: (?<name>\S+)' <$yml
         if set -q _flag_long
-            echo $name-(string lower $AWS_PROFILE)
+            echo $name-$AWS_PROFILE
         else
             echo $name
         end
@@ -389,10 +389,10 @@ function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re
 end
 
 if type -q assume
-    alias d='assume DEV'
-    alias di='assume DEV-IN'
-    alias t='assume TEST'
-    alias s='assume STAGE'
+    alias d='assume dev'
+    alias di='assume dev-in'
+    alias t='assume test'
+    alias s='assume stage'
 
     function a -a profile
         test -n "$profile" || set profile $AWS_PROFILE
