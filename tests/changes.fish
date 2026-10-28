@@ -49,6 +49,9 @@ printf 'service: flights-service\n' >services/flights/serverless.yml
 printf '{\n  "name": "flights-service",\n  "version": "4.5.6"\n}\n' >services/flights/package.json
 printf 'service: module-auth\n' >modules/auth/serverless.yml
 printf '{\n  "name": "module-auth",\n  "version": "2.0.0"\n}\n' >modules/auth/package.json
+mkdir -p services/cars
+printf 'service: cars-service\n' >services/cars/serverless.yml
+printf '{\n  "name": "cars-service",\n  "version": "0.1.0"\n}\n' >services/cars/package.json
 printf '{"hello":"Hi","bye":"Bye"}\n' >modules/templates/translations/en-GB.json
 printf '{"home":"Home"}\n' >web/locales/en-GB.json
 printf '{"mappings":{"properties":{"id":{"type":"keyword"}}}}\n' >schema/foo-index-mappings.json
@@ -60,6 +63,10 @@ git checkout -qb feature
 printf 'service: hotels-service\nx: 1\n' >services/hotels/serverless.yml
 printf 'service: flights-service\nx: 1\n' >services/flights/serverless.yml
 printf 'service: module-auth\ny: 2\n' >modules/auth/serverless.yml
+# test-only changes: cars has nothing else changed, so it must not be listed
+mkdir -p services/cars/tests services/hotels/__tests__
+printf 'x\n' >services/cars/tests/cars.test.js
+printf 'x\n' >services/hotels/__tests__/hotels.js
 printf '{"hello":"Hi","bye":"Bye","welcome":"Welcome {name}"}\n' >modules/templates/translations/en-GB.json
 printf '{"home":"Home","about":"About"}\n' >web/locales/en-GB.json
 printf '{"mappings":{"properties":{"id":{"type":"keyword"},"name":{"type":"text"}}}}\n' >schema/foo-index-mappings.json
@@ -84,6 +91,7 @@ set -l paths (changes stacks --output=path)
 @test "path: modules/auth dir"   (contains modules/auth $paths; echo $status) -eq 0
 @test "path: services/flights dir" (contains services/flights $paths; echo $status) -eq 0
 @test "path: services/hotels dir"  (contains services/hotels $paths; echo $status) -eq 0
+@test "path: test-only services/cars ignored" (contains services/cars $paths; echo $status) -eq 1
 
 # ===== --exclude drops matching files (anchored regex) ==================
 set -l ex (changes stacks --exclude='services/flights/serverless.yml')
