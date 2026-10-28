@@ -37,9 +37,9 @@ function assume; echo "$argv" >>$ASSUME_LOG; end
 # ===== valid session: aws exits 0 -> helper returns 0 (no prompt) =====
 set AWS_RC 0
 echo -n >$TS_LOG; echo -n >$AWS_LOG
-_ts_ensure_session STAGE </dev/null
+_ts_ensure_session stage </dev/null
 @test "valid session returns 0" $status -eq 0
-@test "valid session calls sts for the given profile" (string match -q '*sts get-caller-identity*--profile STAGE*' -- (cat $AWS_LOG); echo $status) -eq 0
+@test "valid session calls sts for the given profile" (string match -q '*sts get-caller-identity*--profile stage*' -- (cat $AWS_LOG); echo $status) -eq 0
 @test "valid session is silent" (test -s $TS_LOG; echo $status) -eq 1
 @test "valid session checks exactly once" (count (cat $AWS_LOG)) -eq 1
 
@@ -63,24 +63,24 @@ _ts_ensure_session ARGPROF </dev/null
 # ===== aws_check wrapper delegates to the helper =====
 set AWS_RC 0
 echo -n >$AWS_LOG
-aws_check TEST </dev/null
+aws_check test </dev/null
 @test "aws_check returns 0 on a valid session" $status -eq 0
-@test "aws_check checks the passed profile" (string match -q '*--profile TEST*' -- (cat $AWS_LOG); echo $status) -eq 0
+@test "aws_check checks the passed profile" (string match -q '*--profile test*' -- (cat $AWS_LOG); echo $status) -eq 0
 
 # ===== expired + non-interactive (EOF at the prompt) -> abort (1) =====
 # aws always fails; no stdin to answer the retry prompt -> read hits EOF -> abort.
 function aws; echo "$argv" >>$AWS_LOG; return 1; end
 echo -n >$TS_LOG; echo -n >$AWS_LOG
-_ts_ensure_session STAGE </dev/null
+_ts_ensure_session stage </dev/null
 @test "expired + EOF returns 1" $status -eq 1
-@test "expired logs the expired line" (string match -q '*AWS session expired for STAGE*' -- (cat $TS_LOG); echo $status) -eq 0
+@test "expired logs the expired line" (string match -q '*AWS session expired for stage*' -- (cat $TS_LOG); echo $status) -eq 0
 @test "expired + EOF tried exactly once" (count (cat $AWS_LOG)) -eq 1
 
 # ===== expired + user declines ('n') -> abort (1), no re-auth =====
 echo -n >$TS_LOG; echo -n >$AWS_LOG; echo -n >$ASSUME_LOG
-printf 'n' | _ts_ensure_session STAGE
+printf 'n' | _ts_ensure_session stage
 @test "decline returns 1" $status -eq 1
-@test "decline logs the assume guidance" (string match -q '*assume STAGE*' -- (cat $TS_LOG); echo $status) -eq 0
+@test "decline logs the assume guidance" (string match -q '*assume stage*' -- (cat $TS_LOG); echo $status) -eq 0
 @test "decline tried exactly once" (count (cat $AWS_LOG)) -eq 1
 @test "decline does not re-auth" (test -s $ASSUME_LOG; echo $status) -eq 1
 
@@ -91,7 +91,7 @@ set -g RETRY_STATE (mktemp); echo failing >$RETRY_STATE
 function aws; echo "$argv" >>$AWS_LOG; test (cat $RETRY_STATE) = ok; end
 function assume; echo "$argv" >>$ASSUME_LOG; echo ok >$RETRY_STATE; end
 echo -n >$TS_LOG; echo -n >$AWS_LOG; echo -n >$ASSUME_LOG
-printf 'y' | _ts_ensure_session STAGE
+printf 'y' | _ts_ensure_session stage
 @test "retry after re-auth returns 0" $status -eq 0
-@test "retry re-authenticated the profile via assume" (string match -q '*STAGE*' -- (cat $ASSUME_LOG); echo $status) -eq 0
+@test "retry re-authenticated the profile via assume" (string match -q '*stage*' -- (cat $ASSUME_LOG); echo $status) -eq 0
 @test "retry re-checked the session (2 sts calls)" (count (cat $AWS_LOG)) -eq 2

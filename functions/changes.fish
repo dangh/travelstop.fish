@@ -88,7 +88,8 @@ function _change_stacks -d "print list of changed services and modules"
         end
     end
 
-    set -l git_cmd "git diff --name-only --no-renames $range | grep -E '^(admin/)?(modules|services|web)/'"
+    # test-only changes (any path containing `test`) do not need a deploy
+    set -l git_cmd "git diff --name-only --no-renames $range | grep -E '^(admin/)?(modules|services|web)/' | grep -vF test"
     if test -n "$_flag_exclude"
         set git_cmd "$git_cmd | grep -v '\($_flag_exclude\)\$'"
     end

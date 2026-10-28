@@ -368,10 +368,10 @@ function _ts_ensure_session -d 'verify the AWS session up-front; offer inline re
 end
 
 if type -q assume
-    alias d='assume DEV'
-    alias di='assume DEV-IN'
-    alias t='assume TEST'
-    alias s='assume STAGE'
+    alias d='assume dev'
+    alias di='assume dev-in'
+    alias t='assume test'
+    alias s='assume stage'
 
     function a -a profile
         test -n "$profile" || set profile $AWS_PROFILE
@@ -409,7 +409,8 @@ function retain_aws_vars
         set -l pv {$key}_profile
         set -l rv {$key}_region
         set -q $pv || return
-        set -gx AWS_PROFILE $$pv
+        # profiles are lowercase now; lowercase older saved values too
+        set -gx AWS_PROFILE (string lower -- $$pv)
         set -gx AWS_REGION $$rv
     end
 
